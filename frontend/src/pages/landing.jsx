@@ -1,7 +1,9 @@
 // App.jsx
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Landing = () => {
+  const navigate = useNavigate();
   console.log('Landing component rendering...');
   return (
     <div className="bg-surface font-body-md text-on-surface min-h-screen">
@@ -27,12 +29,12 @@ const Landing = () => {
             >
               How it works
             </a>
-            <a
+            <button
+              onClick={() => navigate('/provider')}
               className="text-stone-600 hover:text-emerald-800 font-body-md transition-all"
-              href="#"
             >
               For Providers
-            </a>
+            </button>
             <a
               className="text-stone-600 hover:text-emerald-800 font-body-md transition-all"
               href="#"
@@ -44,7 +46,10 @@ const Landing = () => {
             <button className="hidden lg:block px-4 py-1.5 rounded-full border border-outline font-label-sm text-sm uppercase tracking-widest text-primary">
               EN | Pidgin
             </button>
-            <button className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-body-md font-bold hover:opacity-90 transition-all scale-95 active:scale-90">
+            <button
+              onClick={() => navigate('/register')}
+              className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-body-md font-bold hover:opacity-90 transition-all scale-95 active:scale-90"
+            >
               Get Started
             </button>
           </div>
@@ -68,10 +73,13 @@ const Landing = () => {
               specialists at UBTH.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <button className="bg-primary text-on-primary px-8 py-4 rounded-lg font-body-md font-bold hover:opacity-95 transition-all">
+              <button
+                onClick={() => navigate('/register')}
+                className="bg-primary text-on-primary px-8 py-4 rounded-lg font-body-md font-bold hover:opacity-95 transition-all"
+              >
                 Register with your phone
               </button>
-              <button className="border-2 border-primary text-primary px-8 py-4 rounded-lg font-body-md font-bold hover:bg-primary/5 transition-all">
+              <button onClick={() => navigate('/provider')} className="border-2 border-primary text-primary px-8 py-4 rounded-lg font-body-md font-bold hover:bg-primary/5 transition-all">
                 I'm a healthcare provider
               </button>
             </div>
@@ -127,28 +135,29 @@ const Landing = () => {
       </header>
 
       {/* Stats Bar */}
-      <section className="bg-primary py-16">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center text-on-primary">
-            <div>
+      <section className="bg-primary py-16 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(ellipse_at_top_right,_#aef2c4_0%,_transparent_60%)]" />
+        <div className="max-w-7xl mx-auto px-6 relative">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center text-on-primary divide-x divide-white/10">
+            <div className="space-y-2 px-4">
               <h3 className="font-display-xl text-on-primary-container">200+</h3>
               <p className="font-label-sm uppercase tracking-widest opacity-80">
                 Women in pilot
               </p>
             </div>
-            <div>
+            <div className="space-y-2 px-4">
               <h3 className="font-display-xl text-on-primary-container">9</h3>
               <p className="font-label-sm uppercase tracking-widest opacity-80">
                 Danger triggers
               </p>
             </div>
-            <div>
+            <div className="space-y-2 px-4">
               <h3 className="font-display-xl text-on-primary-container">60s</h3>
               <p className="font-label-sm uppercase tracking-widest opacity-80">
                 Emergency Alert
               </p>
             </div>
-            <div>
+            <div className="space-y-2 px-4">
               <h3 className="font-display-xl text-on-primary-container">3</h3>
               <p className="font-label-sm uppercase tracking-widest opacity-80">
                 Risk Tiers
@@ -423,12 +432,12 @@ const Landing = () => {
             >
               How it works
             </a>
-            <a
+            <button
+              onClick={() => navigate('/provider')}
               className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
-              href="#"
             >
               For Providers
-            </a>
+            </button>
             <a
               className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
               href="#"

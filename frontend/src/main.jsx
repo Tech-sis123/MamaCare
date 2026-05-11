@@ -1,12 +1,12 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import Landing from './pages/landing'
+import App from './App'
 
-console.log('Mama Care AI starting (Direct Render)...');
+console.log('Mama Care AI starting...');
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <Landing />
+    <App />
   </StrictMode>,
 )

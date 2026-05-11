@@ -11,32 +11,32 @@ const Landing = () => {
       <div className="grain-overlay" />
 
       {/* TopAppBar */}
-      <nav className="bg-stone-50/80 backdrop-blur-md border-b border-emerald-900/5 sticky top-0 z-50">
+      <nav className="bg-stone-50/80 backdrop-blur-md border-b border-amber-900/5 sticky top-0 z-50">
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
-          <div className="text-2xl font-serif font-bold text-emerald-900 flex items-center gap-2">
+          <div className="text-2xl font-serif font-bold text-amber-900 flex items-center gap-2">
             <span
               className="material-symbols-outlined text-primary"
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
-              eco
+              pregnant_woman
             </span>
             <span className="font-headline-md">Mama Care AI</span>
           </div>
           <div className="hidden md:flex items-center gap-8">
             <a
-              className="text-emerald-900 border-b-2 border-emerald-800 pb-1 font-body-md"
+              className="text-amber-900 border-b-2 border-amber-800 pb-1 font-body-md"
               href="#"
             >
               How it works
             </a>
             <button
               onClick={() => navigate('/provider')}
-              className="text-stone-600 hover:text-emerald-800 font-body-md transition-all"
+              className="text-stone-600 hover:text-amber-800 font-body-md transition-all"
             >
               For Providers
             </button>
             <a
-              className="text-stone-600 hover:text-emerald-800 font-body-md transition-all"
+              className="text-stone-600 hover:text-amber-800 font-body-md transition-all"
               href="#"
             >
               About
@@ -136,7 +136,7 @@ const Landing = () => {
 
       {/* Stats Bar */}
       <section className="bg-primary py-16 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(ellipse_at_top_right,_#aef2c4_0%,_transparent_60%)]" />
+        <div className="absolute inset-0 opacity-5 bg-[radial-gradient(ellipse_at_top_right,_#FFDEA0_0%,_transparent_60%)]" />
         <div className="max-w-7xl mx-auto px-6 relative">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center text-on-primary divide-x divide-white/10">
             <div className="space-y-2 px-4">
@@ -238,7 +238,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(27,94,59,0.08)] border border-emerald-900/5 hover:-translate-y-2 transition-all duration-300">
+            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(158,110,0,0.08)] border border-amber-900/5 hover:-translate-y-2 transition-all duration-300">
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-8">
                 <span className="material-symbols-outlined text-primary">
                   psychology
@@ -253,7 +253,7 @@ const Landing = () => {
               </p>
             </div>
             {/* Card 2 */}
-            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(27,94,59,0.08)] border border-emerald-900/5 hover:-translate-y-2 transition-all duration-300">
+            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(158,110,0,0.08)] border border-amber-900/5 hover:-translate-y-2 transition-all duration-300">
               <div className="w-12 h-12 bg-error-container rounded-lg flex items-center justify-center mb-8">
                 <span
                   className="material-symbols-outlined text-secondary"
@@ -271,7 +271,7 @@ const Landing = () => {
               </p>
             </div>
             {/* Card 3 */}
-            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(27,94,59,0.08)] border border-emerald-900/5 hover:-translate-y-2 transition-all duration-300">
+            <div className="bg-white p-10 rounded-xl shadow-[0_2px_16px_rgba(158,110,0,0.08)] border border-amber-900/5 hover:-translate-y-2 transition-all duration-300">
               <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-8">
                 <span className="material-symbols-outlined text-primary">
                   play_circle
@@ -414,10 +414,10 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-primary text-on-primary border-t border-emerald-900/10">
+      <footer className="bg-primary text-on-primary border-t border-amber-900/10">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
           <div className="text-center md:text-left">
-            <div className="text-xl font-serif font-bold text-emerald-50 mb-4">
+            <div className="text-xl font-serif font-bold text-amber-50 mb-4">
               Mama Care AI
             </div>
             <p className="font-serif text-sm tracking-wide opacity-80 max-w-sm">
@@ -427,31 +427,31 @@ const Landing = () => {
           </div>
           <div className="flex flex-wrap justify-center gap-8 font-serif text-sm tracking-wide">
             <a
-              className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
+              className="text-stone-400 hover:text-amber-300 underline underline-offset-4"
               href="#"
             >
               How it works
             </a>
             <button
               onClick={() => navigate('/provider')}
-              className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
+              className="text-stone-400 hover:text-amber-300 underline underline-offset-4"
             >
               For Providers
             </button>
             <a
-              className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
+              className="text-stone-400 hover:text-amber-300 underline underline-offset-4"
               href="#"
             >
               About
             </a>
             <a
-              className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
+              className="text-stone-400 hover:text-amber-300 underline underline-offset-4"
               href="#"
             >
               Privacy Policy
             </a>
             <a
-              className="text-stone-400 hover:text-emerald-300 underline underline-offset-4"
+              className="text-stone-400 hover:text-amber-300 underline underline-offset-4"
               href="#"
             >
               Terms

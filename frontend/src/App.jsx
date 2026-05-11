@@ -7,6 +7,7 @@ import RiskAssessmentResult from "./pages/RiskAssessmentResult"
 import BookAppointment from "./pages/BookApointment"
 import EmergencyReporting from "./pages/EmergencyReporting"
 import PregnancyEducation from "./pages/PregnancyEducation"
+import EducationDetail from "./pages/EducationDetail"
 import ProviderDashboard from "./pages/ProviderDashboard"
 import PatientDetailPanel from "./pages/PatientDetails"
 import PatientProfile from "./pages/PatientProfile"
@@ -23,6 +24,7 @@ export default function App() {
         <Route path='/appointments' element={<BookAppointment />} />
         <Route path='/emergency' element={<EmergencyReporting />} />
         <Route path='/education' element={<PregnancyEducation />} />
+        <Route path='/education/:id' element={<EducationDetail />} />
         <Route path='/provider' element={<ProviderDashboard />} />
         <Route path='/provider/patient' element={<PatientDetailPanel />} />
         <Route path='/profile' element={<PatientProfile />} />

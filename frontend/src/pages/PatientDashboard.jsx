@@ -8,7 +8,7 @@ const PatientDashboard = () => {
         <div className="max-w-[640px] mx-auto">
           <nav className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2 text-on-primary font-headline-md text-xl">
-              <span className="material-symbols-outlined text-on-primary">eco</span>
+              <span className="material-symbols-outlined text-on-primary">pregnant_woman</span>
               <span>Mama Care AI</span>
             </div>
             <button className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">

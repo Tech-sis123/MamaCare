@@ -56,26 +56,26 @@ const EmergencyReporting = () => {
       <div className="grain-overlay"></div>
 
       {/* Top Navigation Shell */}
-      <header className="bg-stone-50/80 backdrop-blur-md border-b border-emerald-900/5 sticky top-0 z-50">
+      <header className="bg-stone-50/80 backdrop-blur-md border-b border-amber-900/5 sticky top-0 z-50">
         <nav className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-2xl font-serif font-bold text-emerald-900 hover:opacity-80 transition-opacity">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-2xl font-serif font-bold text-amber-900 hover:opacity-80 transition-opacity">
             <span className="material-symbols-outlined text-base">arrow_back</span>
-            <span className="material-symbols-outlined">eco</span>
+            <span className="material-symbols-outlined">pregnant_woman</span>
             Mama Care AI
           </button>
           <div className="hidden md:flex gap-8 items-center">
-            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-emerald-800 transition-all duration-300">
+            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               How it works
             </a>
-            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-emerald-800 transition-all duration-300">
+            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               For Providers
             </a>
-            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-emerald-800 transition-all duration-300">
+            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               About
             </a>
           </div>
           <div className="flex items-center gap-4">
-            <span className="font-serif text-lg font-medium text-emerald-900">EN | Pidgin</span>
+            <span className="font-serif text-lg font-medium text-amber-900">EN | Pidgin</span>
             <button className="bg-primary text-on-primary px-6 py-2 rounded-lg font-bold hover:opacity-80 active:scale-95 transition-all">
               Get Started
             </button>
@@ -113,7 +113,7 @@ const EmergencyReporting = () => {
                 <button
                   key={symptom.id}
                   onClick={() => toggleSymptom(symptom.id)}
-                  className={`bg-white p-8 rounded-[10px] text-left border-2 transition-all group flex flex-col items-center justify-center text-center gap-4 shadow-[0_2px_16px_rgba(27,94,59,0.08)] min-h-[200px] ${
+                  className={`bg-white p-8 rounded-[10px] text-left border-2 transition-all group flex flex-col items-center justify-center text-center gap-4 shadow-[0_2px_16px_rgba(158,110,0,0.08)] min-h-[200px] ${
                     selectedSymptoms.includes(symptom.id)
                       ? 'border-secondary bg-secondary/5'
                       : 'border-transparent hover:border-primary'
@@ -261,27 +261,27 @@ const EmergencyReporting = () => {
       )}
 
       {/* Footer Shell */}
-      <footer className="bg-stone-50 border-t border-emerald-900/10 w-full mt-24">
+      <footer className="bg-stone-50 border-t border-amber-900/10 w-full mt-24">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
-          <div className="text-xl font-serif font-bold text-emerald-900">Mama Care AI</div>
+          <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
           <div className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               For Providers
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               About
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Privacy Policy
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Terms
             </a>
           </div>
-          <div className="font-serif text-sm tracking-wide text-emerald-900 text-center md:text-right">
+          <div className="font-serif text-sm tracking-wide text-amber-900 text-center md:text-right">
             © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
           </div>
         </div>

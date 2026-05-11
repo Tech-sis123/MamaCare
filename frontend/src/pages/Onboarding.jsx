@@ -365,11 +365,11 @@ const IntakeQuestionnaire = () => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-surface-container-low z-[100] flex flex-col items-center justify-center p-8">
-        <div className="relative mb-8">
-          <div className="w-24 h-24 border-4 border-primary-fixed rounded-full animate-ping opacity-30" />
+        <div className="relative w-24 h-24 mb-8">
+          <div className="absolute inset-0 border-4 border-primary-fixed border-t-primary-container rounded-full animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-5xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              psychology
+            <span className="material-symbols-outlined text-primary-container text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+              pregnant_woman
             </span>
           </div>
         </div>

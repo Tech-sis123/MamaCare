@@ -84,7 +84,7 @@ const BookAppointment = () => {
             <span className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">1</span>
             <h2 className="font-headline-md text-headline-md text-primary">Pick a Date</h2>
           </div>
-          <div className="bg-surface-container-lowest p-6 rounded-xl shadow-[0_2px_16px_rgba(27,94,59,0.08)] border border-outline-variant/30">
+          <div className="bg-surface-container-lowest p-6 rounded-xl shadow-[0_2px_16px_rgba(158,110,0,0.08)] border border-outline-variant/30">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-headline-md text-xl text-tertiary">May 2024</h3>
               <div className="flex gap-2">
@@ -173,7 +173,7 @@ const BookAppointment = () => {
             <span className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">3</span>
             <h2 className="font-headline-md text-headline-md text-primary">Review Details</h2>
           </div>
-          <div className="bg-white p-8 rounded-2xl border border-primary/10 shadow-[0_4px_24px_rgba(27,94,59,0.06)] relative overflow-hidden">
+          <div className="bg-white p-8 rounded-2xl border border-primary/10 shadow-[0_4px_24px_rgba(158,110,0,0.06)] relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <span className="material-symbols-outlined text-6xl">verified_user</span>
             </div>
@@ -286,27 +286,27 @@ const BookAppointment = () => {
       )}
 
       {/* Footer */}
-      <footer className="bg-stone-50 border-t border-emerald-900/10 w-full">
+      <footer className="bg-stone-50 border-t border-amber-900/10 w-full">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
-          <div className="text-xl font-serif font-bold text-emerald-900">Mama Care AI</div>
+          <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
           <div className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               For Providers
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               About
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Privacy Policy
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Terms
             </a>
           </div>
-          <p className="font-serif text-sm tracking-wide text-emerald-900 text-center md:text-right opacity-70">
+          <p className="font-serif text-sm tracking-wide text-amber-900 text-center md:text-right opacity-70">
             © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
           </p>
         </div>

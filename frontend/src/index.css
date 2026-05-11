@@ -10,7 +10,7 @@ html {
 
 body {
   background-color: #F7F3ED;
-  background-image: radial-gradient(#1b5e3b08 1px, transparent 0);
+  background-image: radial-gradient(#9E6E0008 1px, transparent 0);
   background-size: 20px 20px;
   background-attachment: fixed;
   padding-bottom: env(safe-area-inset-bottom);
@@ -27,11 +27,11 @@ body {
 .custom-shadow,
 .soft-shadow,
 .card-shadow {
-  box-shadow: 0 2px 16px rgba(27, 94, 59, 0.08);
+  box-shadow: 0 2px 16px rgba(158, 110, 0, 0.08);
 }
 
 .organic-shadow {
-  box-shadow: 0 2px 20px rgba(27, 94, 59, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 20px rgba(158, 110, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 /* ===== Grain / Paper Overlay ===== */
@@ -59,8 +59,8 @@ body {
 
 /* ===== OTP Inputs ===== */
 .otp-input:focus {
-  border-color: #1b5e3b;
-  box-shadow: 0 0 0 2px rgba(27, 94, 59, 0.12);
+  border-color: #9E6E00;
+  box-shadow: 0 0 0 2px rgba(158, 110, 0, 0.12);
   outline: none;
 }
 

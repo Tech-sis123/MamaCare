@@ -11,6 +11,7 @@ const RISK_CONFIG = {
     iconColor: 'text-primary',
     title: "You're doing well!",
     body: "Your assessment looks healthy. Keep attending your antenatal visits and follow your care plan.",
+    reason: "Your blood pressure, blood levels, and symptoms are all within safe ranges. This means your baby is growing in a healthy environment. Keep eating well, resting, and attending all your checkups.",
     factors: [
       { type: 'ok', icon: 'check_circle', title: 'BP within normal range', desc: 'Your latest reading was 110/70 mmHg — excellent.' },
       { type: 'ok', icon: 'check_circle', title: 'Healthy haemoglobin', desc: 'Hb of 11.5 g/dL — within safe range for pregnancy.' },
@@ -30,6 +31,7 @@ const RISK_CONFIG = {
     iconColor: 'text-amber-700',
     title: "Some monitoring needed.",
     body: "Your results suggest a few areas to watch. Your doctor has been notified and will review your case at your next visit.",
+    reason: "Your blood pressure is a little higher than normal and you reported some swelling. These are not emergencies, but they can become serious if not watched. Your nurse will check on you more closely at your next visit — please do not miss it.",
     factors: [
       { type: 'warn', icon: 'warning',       title: 'Slightly elevated BP',  desc: 'Your reading was 135/85 mmHg — borderline. We are watching this.' },
       { type: 'warn', icon: 'warning',       title: 'Mild swelling reported', desc: 'Oedema can be normal but warrants monitoring.' },
@@ -49,6 +51,7 @@ const RISK_CONFIG = {
     iconColor: 'text-secondary',
     title: "You need to see a doctor today.",
     body: "A doctor has been notified and will contact you. Please go to UBTH today — do not wait.",
+    reason: "Your blood pressure is very high and your headache is a warning sign of a condition called pre-eclampsia. This can be dangerous for you and your baby if not treated quickly. Please go to the hospital now — you do not need to wait for an appointment.",
     factors: [
       { type: 'danger', icon: 'emergency_home',      title: 'BP critically elevated',  desc: 'Your latest reading was 160/110 mmHg — requires immediate attention.' },
       { type: 'danger', icon: 'medical_information', title: 'Severe headache reported', desc: 'Symptoms matching pre-eclampsia warning signs.' },
@@ -95,7 +98,7 @@ const RiskAssessmentResult = () => {
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
           <h1 className="font-headline-md">Your Result</h1>
-          <span className="material-symbols-outlined">eco</span>
+          <span className="material-symbols-outlined">pregnant_woman</span>
         </div>
       </header>
 
@@ -131,6 +134,22 @@ const RiskAssessmentResult = () => {
             {cfg.title}
           </h2>
           <p className="font-body-lg text-on-surface-variant max-w-xl">{cfg.body}</p>
+
+          {/* Plain-language reason */}
+          <div className="mt-6 w-full max-w-xl bg-white/70 border border-outline-variant/30 rounded-xl p-5 flex items-start gap-4 text-left">
+            <span
+              className="material-symbols-outlined text-2xl flex-shrink-0 mt-0.5"
+              style={{ color: cfg.headerBg, fontVariationSettings: "'FILL' 1" }}
+            >
+              pregnant_woman
+            </span>
+            <div>
+              <p className="font-label-sm uppercase tracking-widest text-xs mb-1" style={{ color: cfg.headerBg }}>
+                Why this level?
+              </p>
+              <p className="font-body-md text-on-surface leading-relaxed text-sm">{cfg.reason}</p>
+            </div>
+          </div>
         </section>
 
         {/* Contributing Factors */}

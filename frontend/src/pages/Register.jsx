@@ -83,27 +83,27 @@ const RegistrationFlow = () => {
   return (
     <div className="min-h-screen flex flex-col font-body-md text-on-surface">
       {/* TopAppBar */}
-      <header className="bg-stone-50/80 backdrop-blur-md border-b border-emerald-900/5 sticky top-0 z-50">
+      <header className="bg-stone-50/80 backdrop-blur-md border-b border-amber-900/5 sticky top-0 z-50">
         <div className="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
-          <div className="text-2xl font-serif font-bold text-emerald-900 flex items-center gap-2">
+          <div className="text-2xl font-serif font-bold text-amber-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
-              eco
+              pregnant_woman
             </span>
             <span className="font-headline-md">Mama Care AI</span>
           </div>
           <div className="flex items-center gap-6">
             <div className="hidden md:flex gap-6">
-              <a href="#" className="text-stone-600 hover:text-emerald-800 font-label-sm uppercase">
+              <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
                 How it works
               </a>
-              <a href="#" className="text-stone-600 hover:text-emerald-800 font-label-sm uppercase">
+              <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
                 For Providers
               </a>
-              <a href="#" className="text-stone-600 hover:text-emerald-800 font-label-sm uppercase">
+              <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
                 About
               </a>
             </div>
-            <button className="text-emerald-900 font-label-sm border border-primary/20 px-4 py-2 rounded-lg hover:bg-primary/5 transition-all">
+            <button className="text-amber-900 font-label-sm border border-primary/20 px-4 py-2 rounded-lg hover:bg-primary/5 transition-all">
               EN | Pidgin
             </button>
           </div>
@@ -260,31 +260,31 @@ const RegistrationFlow = () => {
 
           {/* Decorative leaf */}
           <div className="absolute -bottom-12 -right-12 opacity-5 pointer-events-none">
-            <span className="material-symbols-outlined text-[160px] text-primary">eco</span>
+            <span className="material-symbols-outlined text-[160px] text-primary">pregnant_woman</span>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="bg-stone-50 border-t border-emerald-900/10 mt-auto">
+      <footer className="bg-stone-50 border-t border-amber-900/10 mt-auto">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <div className="text-xl font-serif font-bold text-emerald-900">Mama Care AI</div>
+            <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
             <p className="font-serif text-sm tracking-wide text-stone-500 text-center md:text-left max-w-md">
               © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
             </p>
           </div>
           <nav className="flex flex-wrap justify-center gap-6">
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               For Providers
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Privacy Policy
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-emerald-700 underline underline-offset-4">
+            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Terms
             </a>
           </nav>

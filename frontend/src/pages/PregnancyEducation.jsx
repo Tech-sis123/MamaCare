@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const PregnancyEducation = () => {
@@ -17,7 +17,7 @@ const PregnancyEducation = () => {
           </button>
           <h1 className="font-headline-md text-headline-md">Pregnancy Education</h1>
           <div className="ml-auto">
-            <span className="material-symbols-outlined text-on-primary-container">eco</span>
+            <span className="material-symbols-outlined text-on-primary-container">pregnant_woman</span>
           </div>
         </header>
 
@@ -89,7 +89,7 @@ const PregnancyEducation = () => {
           {/* MODULE CARDS */}
           <div className="px-6 space-y-4">
             {/* CARD 1: VIDEO (Recommended) */}
-            <div className="bg-surface-container-lowest rounded-[10px] organic-shadow overflow-hidden flex border-l-4 border-tertiary-fixed relative group cursor-pointer">
+            <div onClick={() => navigate('/education/baby-growth')} className="bg-surface-container-lowest rounded-[10px] organic-shadow overflow-hidden flex border-l-4 border-tertiary-fixed relative group cursor-pointer">
               <div className="p-4 flex gap-4 w-full">
                 <div className="w-16 h-16 bg-primary-fixed-dim rounded-lg flex items-center justify-center text-primary-container shrink-0">
                   <span className="material-symbols-outlined text-3xl">play_circle</span>
@@ -115,7 +115,7 @@ const PregnancyEducation = () => {
             </div>
 
             {/* CARD 2: AUDIO */}
-            <div className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
+            <div onClick={() => navigate('/education/mindful-breathing')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
               <div className="p-4 flex gap-4 w-full">
                 <div className="w-16 h-16 bg-tertiary-fixed rounded-lg flex items-center justify-center text-primary-container shrink-0">
                   <span className="material-symbols-outlined text-3xl">music_note</span>
@@ -144,7 +144,7 @@ const PregnancyEducation = () => {
             </div>
 
             {/* CARD 3: TEXT */}
-            <div className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
+            <div onClick={() => navigate('/education/nutrition-iron-zinc')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
               <div className="p-4 flex gap-4 w-full">
                 <div className="w-16 h-16 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant shrink-0">
                   <span className="material-symbols-outlined text-3xl">description</span>
@@ -168,7 +168,7 @@ const PregnancyEducation = () => {
             </div>
 
             {/* CARD 4: VIDEO */}
-            <div className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
+            <div onClick={() => navigate('/education/first-scan')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
               <div className="p-4 flex gap-4 w-full">
                 <div className="w-16 h-16 bg-primary-fixed-dim rounded-lg flex items-center justify-center text-primary-container shrink-0">
                   <span className="material-symbols-outlined text-3xl">play_circle</span>
@@ -304,7 +304,7 @@ const PregnancyEducation = () => {
         </section>
 
         {/* FOOTER */}
-        <footer className="mt-auto bg-stone-50 border-t border-emerald-900/10 px-8 py-12 flex flex-col items-center gap-6">
+        <footer className="mt-auto bg-stone-50 border-t border-amber-900/10 px-8 py-12 flex flex-col items-center gap-6">
           <p className="font-headline-md text-primary text-xl font-bold">Mama Care AI</p>
           <p className="text-on-tertiary-fixed-variant text-sm text-center max-w-[280px]">
             Safe pregnancies, every time. Partnered with UBTH.

@@ -73,7 +73,7 @@ const QueueView = ({ navigate }) => {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Today',  value: PATIENTS.length, bg: 'bg-white border border-emerald-50',                     fg: 'text-primary' },
+          { label: 'Total Today',  value: PATIENTS.length, bg: 'bg-white border border-amber-50',                     fg: 'text-primary' },
           { label: 'High Risk',    value: highCount,        bg: 'bg-secondary/5 border border-secondary/10',              fg: 'text-secondary' },
           { label: 'Pending',      value: PATIENTS.filter(p => p.status === 'QUEUED').length, bg: 'bg-amber-50 border border-amber-200', fg: 'text-amber-800' },
           { label: 'Seen Today',   value: PATIENTS.filter(p => p.status === 'DONE').length,  bg: 'bg-primary/5 border border-primary/10', fg: 'text-primary' },
@@ -94,7 +94,7 @@ const QueueView = ({ navigate }) => {
             className={`px-5 py-2 rounded-full font-label-sm text-xs whitespace-nowrap transition-all ${
               filter === f
                 ? 'bg-primary text-white'
-                : 'bg-white text-on-surface-variant border border-emerald-100 hover:bg-emerald-50'
+                : 'bg-white text-on-surface-variant border border-amber-100 hover:bg-amber-50'
             }`}
           >
             {f === 'HIGH' ? '🔴 High Risk' : f === 'MEDIUM' ? '🟡 Medium' : f === 'LOW' ? '🟢 Low Risk' : f}
@@ -109,7 +109,7 @@ const QueueView = ({ navigate }) => {
           return (
             <div
               key={p.id}
-              className={`group relative bg-white border border-emerald-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow ${
+              className={`group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow ${
                 p.risk === 'HIGH' ? 'bg-secondary/5 border-secondary/20' : ''
               }`}
             >
@@ -122,7 +122,7 @@ const QueueView = ({ navigate }) => {
                   <p className={`font-label-sm text-xs ${rc.text}`}>{p.time}</p>
                 </div>
                 <div>
-                  <h4 className="font-headline-md text-emerald-900 text-base">{p.name}</h4>
+                  <h4 className="font-headline-md text-amber-900 text-base">{p.name}</h4>
                   <div className="flex gap-2 mt-1.5 flex-wrap">
                     {p.flags.map(f => (
                       <span
@@ -171,7 +171,7 @@ const MetricsView = () => {
   return (
     <div className="space-y-8">
       <div>
-        <h2 className="font-headline-lg text-emerald-900 text-2xl">Health Metrics</h2>
+        <h2 className="font-headline-lg text-amber-900 text-2xl">Health Metrics</h2>
         <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Pilot — Week 12 Summary</p>
       </div>
 
@@ -185,7 +185,7 @@ const MetricsView = () => {
           { label: 'Danger Alerts Sent',   value: '3',   sub: 'this week',       icon: 'warning',       color: 'text-secondary' },
           { label: 'Modules Completed',    value: '112', sub: 'across all patients', icon: 'school',    color: 'text-primary' },
         ].map(k => (
-          <div key={k.label} className="bg-white rounded-xl p-5 custom-shadow border border-emerald-50">
+          <div key={k.label} className="bg-white rounded-xl p-5 custom-shadow border border-amber-50">
             <div className="flex justify-between items-start mb-3">
               <p className="font-label-sm text-on-surface-variant text-xs uppercase">{k.label}</p>
               <span className={`material-symbols-outlined text-lg ${k.color}`}>{k.icon}</span>
@@ -197,8 +197,8 @@ const MetricsView = () => {
       </div>
 
       {/* Risk distribution */}
-      <div className="bg-white rounded-xl p-6 custom-shadow border border-emerald-50">
-        <h3 className="font-headline-md text-emerald-900 mb-6">Risk Distribution — Today's Queue</h3>
+      <div className="bg-white rounded-xl p-6 custom-shadow border border-amber-50">
+        <h3 className="font-headline-md text-amber-900 mb-6">Risk Distribution — Today's Queue</h3>
         <div className="flex h-40 items-end gap-6 mb-4">
           {riskDist.map(r => (
             <div key={r.label} className="flex-1 flex flex-col items-center gap-2">
@@ -221,8 +221,8 @@ const MetricsView = () => {
       </div>
 
       {/* Weekly trend placeholder */}
-      <div className="bg-white rounded-xl p-6 custom-shadow border border-emerald-50">
-        <h3 className="font-headline-md text-emerald-900 mb-2">Registrations — Last 4 Weeks</h3>
+      <div className="bg-white rounded-xl p-6 custom-shadow border border-amber-50">
+        <h3 className="font-headline-md text-amber-900 mb-2">Registrations — Last 4 Weeks</h3>
         <p className="font-body-md text-on-surface-variant text-sm mb-6">New patients registered per week</p>
         <div className="flex items-end gap-4 h-28">
           {[9, 12, 15, 11].map((v, i) => (
@@ -253,7 +253,7 @@ const PatientsView = ({ navigate }) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-headline-lg text-emerald-900 text-2xl">All Patients</h2>
+        <h2 className="font-headline-lg text-amber-900 text-2xl">All Patients</h2>
         <p className="font-body-md text-on-surface-variant/70 mt-1">{PATIENTS.length} registered in pilot</p>
       </div>
 
@@ -295,7 +295,7 @@ const PatientsView = ({ navigate }) => {
             <button
               key={p.id}
               onClick={() => navigate('/provider/patient')}
-              className="w-full text-left group relative bg-white border border-emerald-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20"
+              className="w-full text-left group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20"
             >
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${rc.bar} rounded-l-xl`} />
               <div className="flex items-center gap-4">
@@ -303,7 +303,7 @@ const PatientsView = ({ navigate }) => {
                   {p.initials}
                 </div>
                 <div>
-                  <p className="font-headline-md text-emerald-900">{p.name}</p>
+                  <p className="font-headline-md text-amber-900">{p.name}</p>
                   <p className="font-body-md text-on-surface-variant text-sm">Age {p.age} · Week {p.weeks}</p>
                 </div>
               </div>
@@ -324,7 +324,7 @@ const PatientsView = ({ navigate }) => {
 const ResourcesView = () => (
   <div className="space-y-6">
     <div>
-      <h2 className="font-headline-lg text-emerald-900 text-2xl">Resources</h2>
+      <h2 className="font-headline-lg text-amber-900 text-2xl">Resources</h2>
       <p className="font-body-md text-on-surface-variant/70 mt-1">Clinical guidelines, protocols, and materials</p>
     </div>
 
@@ -336,7 +336,7 @@ const ResourcesView = () => (
           <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs mb-3">{cat}</h3>
           <div className="space-y-3">
             {items.map(r => (
-              <div key={r.title} className="bg-white rounded-xl p-4 custom-shadow border border-emerald-50 flex items-center justify-between group hover:border-primary/20 transition-all">
+              <div key={r.title} className="bg-white rounded-xl p-4 custom-shadow border border-amber-50 flex items-center justify-between group hover:border-primary/20 transition-all">
                 <div className="flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${
                     r.type === 'PDF' ? 'bg-secondary/10 text-secondary' :
@@ -379,13 +379,13 @@ const SettingsView = () => {
   return (
     <div className="space-y-8 max-w-xl">
       <div>
-        <h2 className="font-headline-lg text-emerald-900 text-2xl">Settings</h2>
+        <h2 className="font-headline-lg text-amber-900 text-2xl">Settings</h2>
         <p className="font-body-md text-on-surface-variant/70 mt-1">Account and notification preferences</p>
       </div>
 
       {/* Account */}
-      <div className="bg-white rounded-xl custom-shadow border border-emerald-50 overflow-hidden">
-        <div className="p-4 border-b border-emerald-50">
+      <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
+        <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Account</p>
         </div>
         <div className="flex items-center gap-4 p-6">
@@ -393,7 +393,7 @@ const SettingsView = () => {
             <span className="font-headline-md text-primary text-2xl">DO</span>
           </div>
           <div>
-            <p className="font-headline-md text-emerald-900 text-lg">Dr. Osasumwen Osagie</p>
+            <p className="font-headline-md text-amber-900 text-lg">Dr. Osasumwen Osagie</p>
             <p className="font-body-md text-on-surface-variant text-sm">Obstetrician · UBTH</p>
             <p className="font-label-sm text-outline text-xs mt-1">dr.osagie@ubth.edu.ng</p>
           </div>
@@ -406,11 +406,11 @@ const SettingsView = () => {
       </div>
 
       {/* Notifications */}
-      <div className="bg-white rounded-xl custom-shadow border border-emerald-50 overflow-hidden">
-        <div className="p-4 border-b border-emerald-50">
+      <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
+        <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Alert Notifications</p>
         </div>
-        <div className="divide-y divide-emerald-50">
+        <div className="divide-y divide-amber-50">
           {[
             { label: 'SMS Alerts',      sub: 'High-risk patient notifications', value: notifSMS,      set: setNotifSMS },
             { label: 'WhatsApp Alerts', sub: 'Danger sign reports',             value: notifWhatsApp, set: setNotifWhatsApp },
@@ -428,8 +428,8 @@ const SettingsView = () => {
       </div>
 
       {/* Department */}
-      <div className="bg-white rounded-xl custom-shadow border border-emerald-50 overflow-hidden">
-        <div className="p-4 border-b border-emerald-50">
+      <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
+        <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Department</p>
         </div>
         <div className="p-6 space-y-3">
@@ -478,10 +478,10 @@ const ProviderDashboard = () => {
       <div className="grain-overlay" />
 
       {/* Sidebar — desktop */}
-      <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 bg-[#1A1A18] border-r border-emerald-900/30 shadow-2xl flex-col p-6 z-50">
+      <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 bg-[#1A1A18] border-r border-amber-900/30 shadow-2xl flex-col p-6 z-50">
         <div className="mb-8">
           <h1 className="font-headline-md text-xl font-bold text-white mb-1">UBTH Care</h1>
-          <p className="font-label-sm text-emerald-500/70 text-[10px] uppercase tracking-widest">Maternal Health Portal</p>
+          <p className="font-label-sm text-amber-500/70 text-[10px] uppercase tracking-widest">Maternal Health Portal</p>
         </div>
         <nav className="flex-1 space-y-1">
           {NAV_ITEMS.map(item => (
@@ -490,8 +490,8 @@ const ProviderDashboard = () => {
               onClick={() => setActiveView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-sm transition-all ${
                 activeView === item.id
-                  ? 'bg-emerald-900/50 text-white border-l-4 border-emerald-400'
-                  : 'text-emerald-200/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-amber-900/50 text-white border-l-4 border-amber-400'
+                  : 'text-amber-200/60 hover:text-white hover:bg-white/5'
               }`}
             >
               <span className="material-symbols-outlined text-lg" style={activeView === item.id ? { fontVariationSettings: "'FILL' 1" } : {}}>
@@ -501,14 +501,14 @@ const ProviderDashboard = () => {
             </button>
           ))}
         </nav>
-        <div className="mt-auto pt-6 border-t border-emerald-900/40">
+        <div className="mt-auto pt-6 border-t border-amber-900/40">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-amber-900/50 flex items-center justify-center flex-shrink-0">
               <span className="font-bold text-white text-sm">DO</span>
             </div>
             <div>
               <p className="text-white font-medium text-sm">Dr. Osagie</p>
-              <p className="text-emerald-500/60 text-xs">Obstetrician · UBTH</p>
+              <p className="text-amber-500/60 text-xs">Obstetrician · UBTH</p>
             </div>
           </div>
         </div>
@@ -530,7 +530,7 @@ const ProviderDashboard = () => {
                   key={item.id}
                   onClick={() => { setActiveView(item.id); setSidebarOpen(false); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-body-md text-sm transition-all ${
-                    activeView === item.id ? 'bg-emerald-900/50 text-white border-l-4 border-emerald-400' : 'text-emerald-200/60 hover:text-white'
+                    activeView === item.id ? 'bg-amber-900/50 text-white border-l-4 border-amber-400' : 'text-amber-200/60 hover:text-white'
                   }`}
                 >
                   <span className="material-symbols-outlined text-lg">{item.icon}</span>
@@ -546,19 +546,19 @@ const ProviderDashboard = () => {
       {/* Main content */}
       <main className="lg:ml-64 flex-1 min-h-screen">
         {/* Top header */}
-        <header className="sticky top-0 w-full z-40 bg-[#F7F3ED]/90 backdrop-blur-md border-b border-emerald-100 px-6 lg:px-10 py-4 flex justify-between items-center">
+        <header className="sticky top-0 w-full z-40 bg-[#F7F3ED]/90 backdrop-blur-md border-b border-amber-100 px-6 lg:px-10 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-emerald-50 rounded-full">
-              <span className="material-symbols-outlined text-emerald-900">menu</span>
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-amber-50 rounded-full">
+              <span className="material-symbols-outlined text-amber-900">menu</span>
             </button>
             <div>
-              <h2 className="font-headline-lg text-emerald-900">{TODAY_LABELS[activeView]}</h2>
+              <h2 className="font-headline-lg text-amber-900">{TODAY_LABELS[activeView]}</h2>
               <p className="font-body-md text-on-surface-variant/70 text-sm">Wednesday 14 May 2025</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="relative">
-              <span className="material-symbols-outlined text-emerald-900 cursor-pointer p-2 hover:bg-emerald-50 rounded-full transition-all">notifications</span>
+              <span className="material-symbols-outlined text-amber-900 cursor-pointer p-2 hover:bg-amber-50 rounded-full transition-all">notifications</span>
               <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-[#F7F3ED] animate-pulse-dot" />
             </div>
             <button onClick={() => navigate('/')} className="hidden md:flex items-center gap-2 text-sm font-label-sm text-on-surface-variant hover:text-primary transition-colors">

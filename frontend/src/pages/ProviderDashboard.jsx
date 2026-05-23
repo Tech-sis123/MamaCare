@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // ── Mock data ────────────────────────────────────────────────────
@@ -33,6 +33,40 @@ const RESOURCES = [
   { title: 'Pregnancy Nutrition Chart',    type: 'IMG',  size: '0.8 MB', category: 'Education' },
   { title: 'UBTH Referral Forms',          type: 'DOC',  size: '0.3 MB', category: 'Admin' },
 ];
+
+const PROVIDER_PROFILE = {
+  name: 'Dr. Osasumwen Osagie',
+  initials: 'DO',
+  title: 'Consultant Obstetrician & Gynaecologist',
+  hospital: 'University of Benin Teaching Hospital',
+  department: 'Obstetrics & Gynaecology',
+  license: 'MDCN/OBG/20841',
+  email: 'dr.osagie@ubth.edu.ng',
+  phone: '+234 803 555 0194',
+  location: 'Benin City, Edo State',
+  status: 'Active today',
+  shift: '08:00 - 16:00',
+  languages: ['English', 'Pidgin', 'Edo'],
+  specialties: ['High-risk ANC', 'Pre-eclampsia', 'Antenatal triage', 'Fetal monitoring'],
+  bio:
+    'Focused on high-risk maternal care, safe triage, and practical counseling for pregnant mothers in low-resource settings.',
+  stats: [
+    { label: 'Patients reviewed', value: '47' },
+    { label: 'High-risk escalations', value: '8' },
+    { label: 'Avg response time', value: '38s' },
+    { label: 'Follow-up adherence', value: '81%' },
+  ],
+  credentials: [
+    { label: 'MBBS', value: 'University of Lagos' },
+    { label: 'FWACS', value: 'West African College of Surgeons' },
+    { label: 'Department role', value: 'ANC Lead, UBTH Pilot' },
+  ],
+  availability: [
+    { day: 'Mon - Wed', time: 'Ward round and triage' },
+    { day: 'Thu', time: 'Referral review clinic' },
+    { day: 'Fri', time: 'Remote case follow-up' },
+  ],
+};
 
 // ── Sub-views ────────────────────────────────────────────────────
 
@@ -362,7 +396,136 @@ const ResourcesView = () => (
   </div>
 );
 
-const SettingsView = () => {
+const ProfileView = () => (
+  <div className="space-y-6 animate-fade-in">
+    <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div>
+        <h2 className="font-headline-lg text-amber-900 text-2xl">Provider Profile</h2>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">Mock profile for dashboard preview and internal testing</p>
+      </div>
+      <div className="flex items-center gap-2 text-xs font-label-sm text-primary bg-primary/10 px-3 py-2 rounded-full w-fit">
+        <span className="w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
+        {PROVIDER_PROFILE.status}
+      </div>
+    </div>
+
+    <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-6">
+      <div className="bg-[#1A1A18] text-white rounded-3xl p-6 lg:p-8 shadow-2xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-primary/10 pointer-events-none" />
+        <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+          <div className="w-24 h-24 rounded-3xl bg-amber-900/50 flex items-center justify-center shrink-0 border border-amber-400/20">
+            <span className="font-headline-lg text-3xl text-white">{PROVIDER_PROFILE.initials}</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-amber-300/70 text-xs uppercase tracking-[0.24em] font-label-sm">Clinical profile</p>
+            <h3 className="font-headline-lg text-3xl mt-2">{PROVIDER_PROFILE.name}</h3>
+            <p className="text-amber-100/80 mt-1">{PROVIDER_PROFILE.title}</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{PROVIDER_PROFILE.department}</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{PROVIDER_PROFILE.hospital}</span>
+              <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">{PROVIDER_PROFILE.status}</span>
+            </div>
+          </div>
+          <div className="bg-white/10 rounded-2xl border border-white/10 p-4 min-w-[220px]">
+            <p className="text-xs uppercase tracking-[0.2em] text-amber-300/70 font-label-sm">Current shift</p>
+            <p className="text-xl font-headline-md mt-2">{PROVIDER_PROFILE.shift}</p>
+            <p className="text-sm text-amber-100/70 mt-1">{PROVIDER_PROFILE.location}</p>
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-8 relative">
+          {PROVIDER_PROFILE.stats.map(stat => (
+            <div key={stat.label} className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <p className="text-xs uppercase tracking-widest text-amber-300/60 font-label-sm">{stat.label}</p>
+              <p className="text-2xl font-headline-md mt-2">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Contact</p>
+          <div className="mt-4 space-y-3">
+            {[
+              { icon: 'mail', label: 'Email', value: PROVIDER_PROFILE.email },
+              { icon: 'call', label: 'Phone', value: PROVIDER_PROFILE.phone },
+              { icon: 'location_on', label: 'Location', value: PROVIDER_PROFILE.location },
+              { icon: 'badge', label: 'License', value: PROVIDER_PROFILE.license },
+            ].map(item => (
+              <div key={item.label} className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-lg">{item.icon}</span>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-outline font-label-sm">{item.label}</p>
+                  <p className="text-sm text-on-surface mt-1">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Credentials</p>
+          <div className="mt-4 space-y-3">
+            {PROVIDER_PROFILE.credentials.map(item => (
+              <div key={item.label} className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/20 last:border-0">
+                <span className="text-xs uppercase tracking-wider text-outline font-label-sm">{item.label}</span>
+                <span className="text-sm text-on-surface text-right">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Languages</p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            {PROVIDER_PROFILE.languages.map(lang => (
+              <span key={lang} className="px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-sm text-amber-900">
+                {lang}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="grid lg:grid-cols-[1fr_1fr] gap-6">
+      <div className="bg-white rounded-2xl p-6 custom-shadow border border-amber-50">
+        <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">About</p>
+        <p className="mt-4 text-on-surface leading-7">{PROVIDER_PROFILE.bio}</p>
+        <div className="flex flex-wrap gap-2 mt-5">
+          {PROVIDER_PROFILE.specialties.map(item => (
+            <span key={item} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm border border-primary/10">
+              {item}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl p-6 custom-shadow border border-amber-50">
+        <div className="flex items-center justify-between">
+          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Availability</p>
+          <span className="text-xs text-outline font-label-sm">Mock weekly schedule</span>
+        </div>
+        <div className="mt-4 space-y-3">
+          {PROVIDER_PROFILE.availability.map(slot => (
+            <div key={slot.day} className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl bg-amber-50/70">
+              <div>
+                <p className="text-sm font-medium text-on-surface">{slot.day}</p>
+                <p className="text-xs text-outline mt-1">{slot.time}</p>
+              </div>
+              <span className="material-symbols-outlined text-primary">schedule</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const SettingsView = ({ onEditProfile }) => {
   const [notifSMS, setNotifSMS]         = useState(true);
   const [notifWhatsApp, setNotifWhatsApp] = useState(true);
   const [notifEmail, setNotifEmail]     = useState(false);
@@ -399,7 +562,10 @@ const SettingsView = () => {
           </div>
         </div>
         <div className="px-6 pb-6">
-          <button className="text-primary font-label-sm text-sm underline underline-offset-4">
+          <button
+            onClick={onEditProfile}
+            className="text-primary font-label-sm text-sm underline underline-offset-4"
+          >
             Edit profile
           </button>
         </div>
@@ -460,6 +626,7 @@ const NAV_ITEMS = [
   { id: 'metrics',  icon: 'monitoring', label: 'Health Metrics' },
   { id: 'patients', icon: 'group',      label: 'Patients' },
   { id: 'resources',icon: 'menu_book',  label: 'Resources' },
+  { id: 'profile',  icon: 'badge',      label: 'Profile' },
   { id: 'settings', icon: 'settings',   label: 'Settings' },
 ];
 
@@ -468,10 +635,24 @@ const ProviderDashboard = () => {
   const [activeView, setActiveView] = useState('queue');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const VIEWS = { queue: QueueView, metrics: MetricsView, patients: PatientsView, resources: ResourcesView, settings: SettingsView };
+  const VIEWS = {
+    queue: QueueView,
+    metrics: MetricsView,
+    patients: PatientsView,
+    resources: ResourcesView,
+    profile: ProfileView,
+    settings: SettingsView,
+  };
   const ActiveView = VIEWS[activeView];
 
-  const TODAY_LABELS = { queue: "Today's Queue", metrics: 'Health Metrics', patients: 'All Patients', resources: 'Resources', settings: 'Settings' };
+  const TODAY_LABELS = {
+    queue: "Today's Queue",
+    metrics: 'Health Metrics',
+    patients: 'All Patients',
+    resources: 'Resources',
+    profile: 'Provider Profile',
+    settings: 'Settings',
+  };
 
   return (
     <div className="font-body-md text-on-surface min-h-screen flex">
@@ -569,7 +750,7 @@ const ProviderDashboard = () => {
         </header>
 
         <div className="max-w-[1100px] mx-auto p-6 lg:p-10">
-          <ActiveView navigate={navigate} />
+          <ActiveView navigate={navigate} onEditProfile={() => setActiveView('profile')} />
         </div>
       </main>
 

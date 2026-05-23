@@ -1,282 +1,343 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// ── Mock clerking record for Ngozi Okonkwo ────────────────────────────────────
+const PATIENT = {
+  name: 'Ngozi Okonkwo',
+  age: 29,
+  initials: 'NO',
+  risk: 'HIGH',
+  edd: 'Sep 12, 2025',
+  lmp: 'Dec 05, 2024',
+  ega: '24w 3d',
+  // Biodata
+  occupation: 'Petty Trader',
+  education: 'Secondary',
+  marital: 'Married',
+  state: 'Benin City, Edo',
+  religion: 'Christian',
+  ethnicity: 'Edo',
+  // Index pregnancy
+  desired: 'Yes',
+  conception: 'Natural',
+  ultrasound: 'Yes — 14th Jan 2025',
+  bookingWeight: '71 kg',
+  bookingHeight: '162 cm',
+  // Obstetric history
+  gravida: 2,
+  para: 1,
+  lastBirth: '2021 (C-section, UBTH, male, 3.1 kg, cried immediately)',
+  twins: 'No',
+  miscarriage: 'No',
+  // Booking labs
+  bloodType: 'O+',
+  genotype: 'AA',
+  bookingBP: '160/100 mmHg',
+  urinalysis: 'Protein ++',
+  hiv: 'Non-Reactive',
+  vdrl: 'Non-Reactive',
+  pcv: '29%',
+  hepB: 'Negative',
+  tetanus: 'Up to date',
+  // Gynae history
+  menarche: 14,
+  cycleDays: 28,
+  flowDays: 5,
+  heavyBleeding: 'No',
+  dysmenorrhea: 'No',
+  intermenstrual: 'No',
+  postcoital: 'No',
+  discharge: 'No',
+  contraceptive: 'Pill (stopped 2023)',
+  papSmear: 'Not done',
+  // Symptoms
+  symptoms: ['Severe Headache', 'Blurred Vision', 'Swollen Hands/Face'],
+  // Medical history
+  conditions: ['Hypertension (diagnosed 2022)'],
+  medications: 'Labetalol 200 mg twice daily, Folic acid',
+  bloodTransfusion: 'No',
+  surgeries: 'C-section (2021, UBTH)',
+  drugAllergies: 'Penicillin',
+  foodAllergies: 'None',
+  // Social
+  married: 'Married, Monogamous',
+  patientSmokes: 'No',
+  patientDrinks: 'No',
+  husbandOccupation: 'Mechanic',
+  husbandSmokes: 'Yes',
+  husbandDrinks: 'Yes',
+};
+
+const APPT_HISTORY = [
+  { date: 'TODAY - CURRENT', type: 'Emergency Consult', note: 'Attending: Dr. Emeka A.', active: true },
+  { date: 'FEB 20, 2025', type: 'Routine ANC — 16 wks', note: 'Stable vitals, UBTH Branch', active: false },
+  { date: 'JAN 14, 2025', type: 'Booking Visit', note: 'Ultrasound confirmed, labs done', active: false },
+];
+
+// ── Shared sub-components ─────────────────────────────────────────────────────
+
+const Row = ({ label, value, highlight }) => (
+  <div className="flex items-start justify-between gap-4 py-2 border-b border-outline-variant/15 last:border-0">
+    <span className="font-label-sm text-on-surface-variant text-xs uppercase shrink-0">{label}</span>
+    <span className={`font-body-md text-sm text-right ${highlight ? 'text-secondary font-bold' : 'text-on-surface font-medium'}`}>
+      {value || '—'}
+    </span>
+  </div>
+);
+
+const SectionAccordion = ({ title, defaultOpen = false, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex justify-between items-center p-4 hover:bg-surface-container-low transition-colors"
+      >
+        <span className="font-label-sm text-on-surface uppercase text-xs">{title}</span>
+        <span className={`material-symbols-outlined text-on-surface-variant transition-transform ${open ? 'rotate-180' : ''}`}>
+          expand_more
+        </span>
+      </button>
+      {open && (
+        <div className="p-4 pt-0 border-t border-outline-variant/30">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
   const [clinicalNotes, setClinicalNotes] = useState('');
-  const [openDetails, setOpenDetails] = useState({
-    personal: false,
-    pregnancy: true,
-    vitals: false,
-  });
-
-  const toggleDetails = (key) => {
-    setOpenDetails((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex justify-end overflow-hidden">
-      {/* Grain overlay */}
-      <div className="grain-overlay"></div>
+      <div className="grain-overlay" />
 
-      {/* Background Content Simulation */}
-      <main className="hidden md:flex flex-col flex-1 p-12 opacity-30 grayscale pointer-events-none">
+      {/* Background dashboard ghost */}
+      <main className="hidden md:flex flex-col flex-1 p-12 opacity-20 grayscale pointer-events-none">
         <header className="flex justify-between items-center mb-12">
           <h1 className="font-display-xl text-display-xl">Provider Dashboard</h1>
-          <div className="flex gap-4">
-            <div className="w-12 h-12 rounded-full bg-surface-container"></div>
-            <div className="w-12 h-12 rounded-full bg-surface-container"></div>
-          </div>
         </header>
         <div className="grid grid-cols-3 gap-8">
-          <div className="h-64 rounded-xl bg-surface-container"></div>
-          <div className="h-64 rounded-xl bg-surface-container"></div>
-          <div className="h-64 rounded-xl bg-surface-container"></div>
+          <div className="h-64 rounded-xl bg-surface-container" />
+          <div className="h-64 rounded-xl bg-surface-container" />
+          <div className="h-64 rounded-xl bg-surface-container" />
         </div>
       </main>
 
       {/* Side Detail Panel */}
-      <aside className="w-full md:w-[480px] bg-surface h-screen shadow-2xl flex flex-col relative z-50 border-l border-outline-variant">
-        {/* HEADER */}
+      <aside className="w-full md:w-[500px] bg-surface h-screen shadow-2xl flex flex-col relative z-50 border-l border-outline-variant">
+
+        {/* Header */}
         <header className="bg-[#1A1A18] text-white p-6 shrink-0">
           <div className="flex justify-between items-start mb-4">
             <button onClick={() => navigate('/provider')} className="text-white/60 hover:text-white transition-colors">
               <span className="material-symbols-outlined">close</span>
             </button>
-            <div className="bg-secondary text-white px-3 py-1 rounded-full font-label-sm flex items-center gap-1">
-              <span
-                className="material-symbols-outlined text-[14px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                error
-              </span>
+            <div className="bg-secondary text-white px-3 py-1 rounded-full font-label-sm text-xs flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
               HIGH RISK
             </div>
           </div>
-          <h2 className="font-headline-lg text-headline-lg mb-1">Ngozi Okonkwo</h2>
-          <p className="font-body-md text-white/70">Age 29 • 14 Weeks Pregnant (Trimester 2)</p>
-          <div className="mt-4 flex gap-4 text-white/50 font-label-sm border-t border-white/10 pt-4">
-            <div className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">location_on</span>
-              Benin City, Edo
+
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-amber-900/50 flex items-center justify-center shrink-0 border border-amber-400/20">
+              <span className="font-bold text-xl text-white">{PATIENT.initials}</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-              EDD: May 12, 2025
+            <div>
+              <h2 className="font-headline-lg text-2xl mb-0.5">{PATIENT.name}</h2>
+              <p className="font-body-md text-white/70">
+                Age {PATIENT.age} · G{PATIENT.gravida}P{PATIENT.para} · {PATIENT.ega}
+              </p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-center">
+            {[
+              { label: 'EDD', value: PATIENT.edd },
+              { label: 'LMP', value: PATIENT.lmp },
+              { label: 'Blood Type', value: PATIENT.bloodType },
+            ].map(item => (
+              <div key={item.label} className="bg-white/10 rounded-xl p-2.5">
+                <p className="font-label-sm text-white/50 text-[10px] uppercase">{item.label}</p>
+                <p className="font-body-md text-white text-xs mt-0.5 font-medium">{item.value}</p>
+              </div>
+            ))}
           </div>
         </header>
 
-        {/* SCROLLABLE CONTENT */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
-          {/* PRE-CONSULT SUMMARY */}
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-6">
+
+          {/* AI Pre-Consult Summary */}
           <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              AI Pre-Consult Summary
-            </h3>
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">AI Pre-Consult Summary</h3>
             <div className="bg-surface-container-low border-l-4 border-primary p-4 rounded-r-lg shadow-sm">
-              <p className="font-body-md text-primary-container leading-relaxed">
-                Patient presents with <strong className="text-secondary">active spotting</strong> and a
-                critically high BP of <strong className="text-secondary">160/100 mmHg</strong>.
-                Historical data indicates a previous C-section in 2021. AI risk model suggests
-                immediate pre-eclampsia screening and placental positioning check due to reported
-                abdominal discomfort.
+              <p className="font-body-md text-on-surface leading-relaxed text-sm">
+                {PATIENT.name}, {PATIENT.age}-year-old G{PATIENT.gravida}P{PATIENT.para}, presenting at {PATIENT.ega} gestation.
+                Presenting complaints include:{' '}
+                <strong className="text-secondary">{PATIENT.symptoms.join(', ')}</strong>.
+                Booking BP: <strong className="text-secondary">{PATIENT.bookingBP}</strong>.
+                Notable: known hypertension, anaemia (PCV {PATIENT.pcv}), previous C-section. Urinalysis: {PATIENT.urinalysis}.
               </p>
             </div>
           </section>
 
-          {/* CLINICAL FLAGS GRID */}
+          {/* Clinical Flags */}
           <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              Clinical Flags
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 p-3 bg-secondary-fixed rounded-lg border border-secondary/20">
-                <span
-                  className="material-symbols-outlined text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Flags</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: 'blood_pressure', label: 'Hypertension',       danger: true },
+                { icon: 'vital_signs',    label: 'Active Bleeding',     danger: true },
+                { icon: 'neurology',      label: 'Blurred Vision',      danger: true },
+                { icon: 'vaccines',       label: 'Anaemia (PCV 29%)',   danger: false },
+                { icon: 'monitor_weight', label: 'Normal BMI',          danger: false },
+                { icon: 'medical_services', label: 'Tetanus Up-to-date', danger: false },
+              ].map(f => (
+                <div key={f.label}
+                  className={`flex items-center gap-2 p-3 rounded-lg border ${
+                    f.danger ? 'bg-secondary-fixed border-secondary/20' : 'bg-tertiary-fixed border-tertiary/20'
+                  }`}
                 >
-                  blood_pressure
-                </span>
-                <span className="font-label-sm text-on-secondary-fixed-variant">Hypertension</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-secondary-fixed rounded-lg border border-secondary/20">
-                <span
-                  className="material-symbols-outlined text-secondary"
-                  style={{ fontVariationSettings: "'FILL' 1" }}
-                >
-                  vital_signs
-                </span>
-                <span className="font-label-sm text-on-secondary-fixed-variant">Bleeding</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-tertiary-fixed rounded-lg border border-tertiary/20">
-                <span className="material-symbols-outlined text-primary">monitor_weight</span>
-                <span className="font-label-sm text-on-tertiary-fixed-variant">Normal BMI</span>
-              </div>
-              <div className="flex items-center gap-2 p-3 bg-tertiary-fixed rounded-lg border border-tertiary/20">
-                <span className="material-symbols-outlined text-primary">vaccines</span>
-                <span className="font-label-sm text-on-tertiary-fixed-variant">
-                  Tetanus Up-to-date
-                </span>
-              </div>
+                  <span className={`material-symbols-outlined ${f.danger ? 'text-secondary' : 'text-primary'}`}
+                    style={{ fontVariationSettings: "'FILL' 1" }}>
+                    {f.icon}
+                  </span>
+                  <span className={`font-label-sm text-xs ${f.danger ? 'text-on-secondary-fixed-variant' : 'text-on-tertiary-fixed-variant'}`}>
+                    {f.label}
+                  </span>
+                </div>
+              ))}
             </div>
           </section>
 
-          {/* INTAKE DATA ACCORDION */}
+          {/* Full Clinical Intake — accordion sections */}
           <section className="space-y-2">
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              Clinical Intake Data
-            </h3>
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Full Clerking Record</h3>
 
-            {/* Personal Info */}
-            <details
-              className="group bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden"
-              open={openDetails.personal}
-            >
-              <summary
-                onClick={() => toggleDetails('personal')}
-                className="flex justify-between items-center p-4 cursor-pointer hover:bg-surface-container-low transition-colors"
-              >
-                <span className="font-label-sm">PERSONAL INFORMATION</span>
-                <span
-                  className={`material-symbols-outlined transition-transform ${
-                    openDetails.personal ? 'rotate-180' : ''
-                  }`}
-                >
-                  expand_more
-                </span>
-              </summary>
-              <div className="p-4 pt-0 text-sm grid grid-cols-2 gap-4 border-t border-outline-variant/30">
-                <div>
-                  <p className="text-on-surface-variant font-label-sm">Blood Type</p>
-                  <p className="font-medium">O Positive</p>
-                </div>
-                <div>
-                  <p className="text-on-surface-variant font-label-sm">Genotype</p>
-                  <p className="font-medium">AA</p>
-                </div>
+            <SectionAccordion title="Biodata">
+              <div className="mt-3 space-y-0">
+                <Row label="Name" value={PATIENT.name} />
+                <Row label="Age" value={`${PATIENT.age} years`} />
+                <Row label="Occupation" value={PATIENT.occupation} />
+                <Row label="Education" value={PATIENT.education} />
+                <Row label="Marital Status" value={PATIENT.marital} />
+                <Row label="State / LGA" value={PATIENT.state} />
+                <Row label="Religion" value={PATIENT.religion} />
+                <Row label="Ethnicity" value={PATIENT.ethnicity} />
               </div>
-            </details>
+            </SectionAccordion>
 
-            {/* Pregnancy Details (Expanded) */}
-            <details
-              className="group bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden"
-              open={openDetails.pregnancy}
-            >
-              <summary
-                onClick={() => toggleDetails('pregnancy')}
-                className="flex justify-between items-center p-4 cursor-pointer hover:bg-surface-container-low transition-colors"
-              >
-                <span className="font-label-sm">PREGNANCY DETAILS</span>
-                <span
-                  className={`material-symbols-outlined transition-transform ${
-                    openDetails.pregnancy ? 'rotate-180' : ''
-                  }`}
-                >
-                  expand_more
-                </span>
-              </summary>
-              <div className="p-4 pt-0 space-y-4 border-t border-outline-variant/30 mt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-on-surface-variant font-label-sm">LMP</p>
-                    <p className="font-medium">Aug 05, 2024</p>
-                  </div>
-                  <div>
-                    <p className="text-on-surface-variant font-label-sm">Gestation</p>
-                    <p className="font-medium">14w 2d</p>
-                  </div>
-                  <div className="col-span-2 p-3 bg-error-container rounded-lg border border-error/10">
-                    <p className="text-on-error-container font-label-sm mb-1">
-                      Obstetric History
-                    </p>
-                    <p className="text-on-error-container font-medium">
-                      G2 P1+0, Previous C-Section (2021)
-                    </p>
-                  </div>
-                </div>
+            <SectionAccordion title="Index Pregnancy" defaultOpen>
+              <div className="mt-3 space-y-0">
+                <Row label="LMP" value={PATIENT.lmp} />
+                <Row label="EDD" value={PATIENT.edd} />
+                <Row label="Gestational Age" value={PATIENT.ega} />
+                <Row label="Pregnancy Desired" value={PATIENT.desired} />
+                <Row label="Conception" value={PATIENT.conception} />
+                <Row label="Ultrasound Confirmed" value={PATIENT.ultrasound} />
+                <Row label="Booking Weight" value={PATIENT.bookingWeight} />
+                <Row label="Booking Height" value={PATIENT.bookingHeight} />
               </div>
-            </details>
+            </SectionAccordion>
 
-            {/* Vitals/Labs */}
-            <details
-              className="group bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden"
-              open={openDetails.vitals}
-            >
-              <summary
-                onClick={() => toggleDetails('vitals')}
-                className="flex justify-between items-center p-4 cursor-pointer hover:bg-surface-container-low transition-colors"
-              >
-                <span className="font-label-sm">VITALS &amp; LABORATORIES</span>
-                <span
-                  className={`material-symbols-outlined transition-transform ${
-                    openDetails.vitals ? 'rotate-180' : ''
-                  }`}
-                >
-                  expand_more
-                </span>
-              </summary>
-              <div className="p-4 pt-0 space-y-3 border-t border-outline-variant/30 mt-2">
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/10">
-                  <span className="font-body-md">Blood Pressure</span>
-                  <span className="font-headline-md text-secondary">160/100</span>
-                </div>
-                <div className="flex justify-between items-center py-2 border-b border-outline-variant/10">
-                  <span className="font-body-md">Heart Rate</span>
-                  <span className="font-headline-md text-primary">88 bpm</span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="font-body-md">Urinalysis</span>
-                  <span className="font-label-sm bg-secondary-fixed text-on-secondary-fixed px-2 py-1 rounded">
-                    Protein ++
-                  </span>
-                </div>
+            <SectionAccordion title="Booking Investigations" defaultOpen>
+              <div className="mt-3 space-y-0">
+                <Row label="Blood Group" value={PATIENT.bloodType} />
+                <Row label="Genotype" value={PATIENT.genotype} />
+                <Row label="Blood Pressure" value={PATIENT.bookingBP} highlight />
+                <Row label="Urinalysis" value={PATIENT.urinalysis} highlight />
+                <Row label="HIV (RVD)" value={PATIENT.hiv} />
+                <Row label="VDRL" value={PATIENT.vdrl} />
+                <Row label="PCV" value={PATIENT.pcv} highlight />
+                <Row label="Hepatitis B" value={PATIENT.hepB} />
+                <Row label="Tetanus" value={PATIENT.tetanus} />
               </div>
-            </details>
+            </SectionAccordion>
+
+            <SectionAccordion title="Obstetric History">
+              <div className="mt-3 space-y-0">
+                <Row label="Gravida" value={`G${PATIENT.gravida}`} />
+                <Row label="Para" value={`P${PATIENT.para}`} />
+                <Row label="Last Delivery" value={PATIENT.lastBirth} />
+                <Row label="Twin / Multiple" value={PATIENT.twins} />
+                <Row label="Miscarriage / TOP" value={PATIENT.miscarriage} />
+              </div>
+            </SectionAccordion>
+
+            <SectionAccordion title="Gynaecological History">
+              <div className="mt-3 space-y-0">
+                <Row label="Menarche" value={`Age ${PATIENT.menarche}`} />
+                <Row label="Cycle Length" value={`${PATIENT.cycleDays} days`} />
+                <Row label="Flow Duration" value={`${PATIENT.flowDays} days`} />
+                <Row label="Heavy Bleeding" value={PATIENT.heavyBleeding} />
+                <Row label="Dysmenorrhea" value={PATIENT.dysmenorrhea} />
+                <Row label="Intermenstrual Bleed" value={PATIENT.intermenstrual} />
+                <Row label="Postcoital Bleed" value={PATIENT.postcoital} />
+                <Row label="Abnormal Discharge" value={PATIENT.discharge} />
+                <Row label="Contraceptive Hx" value={PATIENT.contraceptive} />
+                <Row label="Pap Smear" value={PATIENT.papSmear} />
+              </div>
+            </SectionAccordion>
+
+            <SectionAccordion title="Past Medical & Surgical History">
+              <div className="mt-3 space-y-0">
+                <Row label="Conditions" value={PATIENT.conditions.join(', ')} highlight />
+                <Row label="Current Medications" value={PATIENT.medications} />
+                <Row label="Blood Transfusion" value={PATIENT.bloodTransfusion} />
+                <Row label="Surgeries" value={PATIENT.surgeries} />
+                <Row label="Drug Allergies" value={PATIENT.drugAllergies} highlight />
+                <Row label="Food Allergies" value={PATIENT.foodAllergies} />
+              </div>
+            </SectionAccordion>
+
+            <SectionAccordion title="Family & Social History">
+              <div className="mt-3 space-y-0">
+                <Row label="Marital Type" value={PATIENT.married} />
+                <Row label="Patient Smokes" value={PATIENT.patientSmokes} />
+                <Row label="Patient Drinks" value={PATIENT.patientDrinks} />
+                <Row label="Partner Occupation" value={PATIENT.husbandOccupation} />
+                <Row label="Partner Smokes" value={PATIENT.husbandSmokes} />
+                <Row label="Partner Drinks" value={PATIENT.husbandDrinks} />
+              </div>
+            </SectionAccordion>
           </section>
 
-          {/* APPOINTMENT HISTORY */}
+          {/* Appointment History */}
           <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              Appointment History
-            </h3>
-            <div className="relative pl-8 space-y-8 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant">
-              <div className="relative">
-                <div className="absolute -left-8 top-1 w-6 h-6 rounded-full bg-secondary ring-4 ring-white flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-white">
-                    medical_services
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Appointment History</h3>
+            <div className="relative pl-8 space-y-6 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant">
+              {APPT_HISTORY.map(appt => (
+                <div key={appt.date} className={`relative ${!appt.active ? 'opacity-60' : ''}`}>
+                  <div className={`absolute -left-8 top-1 w-6 h-6 rounded-full ring-4 ring-white flex items-center justify-center ${appt.active ? 'bg-secondary' : 'bg-primary'}`}>
+                    <span className="material-symbols-outlined text-[14px] text-white">
+                      {appt.active ? 'medical_services' : 'check'}
+                    </span>
+                  </div>
+                  <span className={`font-label-sm text-xs ${appt.active ? 'text-secondary' : 'text-on-surface-variant'}`}>
+                    {appt.date}
                   </span>
+                  <p className="font-body-md font-medium text-on-surface">{appt.type}</p>
+                  <p className="font-label-sm text-on-surface-variant text-xs mt-0.5">{appt.note}</p>
                 </div>
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-secondary">TODAY - CURRENT</span>
-                  <p className="font-body-md font-medium">Emergency Consult</p>
-                  <p className="text-sm text-on-surface-variant">Attending: Dr. Emeka A.</p>
-                </div>
-              </div>
-              <div className="relative opacity-60">
-                <div className="absolute -left-8 top-1 w-6 h-6 rounded-full bg-primary ring-4 ring-white flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[14px] text-white">check</span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="font-label-sm text-on-surface-variant">NOV 14, 2024</span>
-                  <p className="font-body-md font-medium">Routine Antenatal Care</p>
-                  <p className="text-sm text-on-surface-variant">Stable Vitals, UBTH Branch</p>
-                </div>
-              </div>
+              ))}
             </div>
           </section>
 
-          {/* PROVIDER NOTES */}
+          {/* Clinical Notes */}
           <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              Clinical Consultation Notes
-            </h3>
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Consultation Notes</h3>
             <div className="relative">
               <textarea
                 value={clinicalNotes}
-                onChange={(e) => setClinicalNotes(e.target.value)}
-                className="w-full h-40 bg-surface-container-low border border-outline rounded-lg p-4 font-body-md focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-outline/60"
-                placeholder="Start typing clinical notes... (Auto-saving)"
+                onChange={e => setClinicalNotes(e.target.value)}
+                className="w-full h-36 bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-outline/60 resize-none"
+                placeholder="Start typing clinical notes… (auto-saving)"
               />
               <div className="absolute bottom-3 right-3 flex items-center gap-1 text-[10px] text-primary uppercase font-bold tracking-tighter opacity-50">
                 <span className="material-symbols-outlined text-[12px]">sync</span>
@@ -286,29 +347,20 @@ const PatientDetailPanel = () => {
           </section>
         </div>
 
-        {/* ACTION FOOTER */}
-        <footer className="p-6 bg-surface border-t border-outline-variant grid grid-cols-2 gap-4 shrink-0">
-          <button className="col-span-2 bg-secondary text-white py-4 rounded-lg font-label-sm hover:brightness-95 transition-all flex items-center justify-center gap-2">
+        {/* Action Footer */}
+        <footer className="p-5 bg-surface border-t border-outline-variant grid grid-cols-2 gap-3 shrink-0">
+          <button className="col-span-2 bg-secondary text-white py-4 rounded-lg font-label-sm text-sm hover:brightness-95 transition-all flex items-center justify-center gap-2">
             <span className="material-symbols-outlined">emergency_share</span>
             ESCALATE TO EMERGENCY
           </button>
-          <button className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm hover:bg-surface-container-highest transition-all border border-outline/20">
-            Mark as seen
+          <button className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20">
+            Mark as Seen
           </button>
-          <button className="bg-primary text-white py-3 rounded-lg font-label-sm hover:bg-primary-container transition-all">
-            Refer to specialist
+          <button className="bg-primary text-white py-3 rounded-lg font-label-sm text-sm hover:bg-primary-container transition-all">
+            Refer to Specialist
           </button>
         </footer>
       </aside>
-
-      {/* Visual Polish: Patient Image Floating Circle */}
-      <div className="fixed top-12 right-[460px] w-24 h-24 rounded-full border-4 border-white shadow-xl z-50 overflow-hidden hidden lg:block">
-        <img
-          className="w-full h-full object-cover"
-          alt="Ngozi Okonkwo portrait"
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuCefaQ5WOQpWUFDp0Psq3ErVvhxRPfxrvPvNV3oY0j17_WAUMf1Kg3sJsLKVfMaRRvzQMjt-BMxvDUoWLAP-7elATW_SCvW23xUn1oLG877y5NX6Um0BP_JtzMNWAMyUWxrzWmLjA-7TLfRXwyyBPrCutvtJPaX2ZFu-SKxJ1asrlW4EAlq0dRad0FyTk457lxIwgFiR8RFt7bvD4mIxirO9MgErezmxPG6y0oblXErjDDnIWLSrsjWex7WhqOb2V0-Vi7tIrqMqLo"
-        />
-      </div>
     </div>
   );
 };

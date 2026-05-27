@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id                    String   @id @default(uuid())
+  phone_number          String   @unique
+  name                  String?
+  age                   Int?
+  education_level       String?
+  occupation            String?
+  marital_status        String?
+  address               String?
+  religion              String?
+  ethnicity             String?
+  language_preference   String?  // en/pidgin
+  primary_doctor_id     String?
+  created_at            DateTime @default(now())
+
+  pregnancies           Pregnancy[]
+  intake_responses      IntakeResponse[]
+  risk_assessments      RiskAssessment[]
+  symptoms              Symptom[]
+  danger_alerts         DangerAlert[]
+  appointments          Appointment[]
+  education_progress    EducationProgress[]
+
+  @@map("patients")
+}
+
+model Doctor {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password_hash String
+  role          String   // doctor / department_head
+  created_at    DateTime @default(now())
+
+  danger_alerts DangerAlert[]
+  appointments  Appointment[]
+
+  @@map("doctors")
+}
+
+model Pregnancy {
+  id                   String   @id @default(uuid())
+  patient_id           String
+  lmp_date             DateTime?
+  edd_computed         DateTime?
+  current_ega_weeks    Int?
+  booking_weight       Float?
+  booking_height       Float?
+  booking_bp_systolic  Int?
+  booking_bp_diastolic Int?
+  blood_group          String?
+  genotype             String?
+  rvd_status           String?
+  vdrl                 String?
+  pcv                  Float?
+  hep_b                String?
+  tetanus_history      String?
+  gravidity            Int?
+  parity               Int?
+
+  patient              Patient  @relation(fields: [patient_id], references: [id])
+
+  @@map("pregnancies")
+}
+
+model IntakeResponse {
+  id            String   @id @default(uuid())
+  patient_id    String
+  domain        String   // Enum-like: biodata, obstetric, gynae, medical, surgical, allergies, family_social
+  question_key  String
+  answer        Json
+  updated_at    DateTime @updatedAt
+
+  patient       Patient  @relation(fields: [patient_id], references: [id])
+
+  @@index([patient_id, domain])
+  @@map("intake_responses")
+}
+
+model RiskAssessment {
+  id             String   @id @default(uuid())
+  patient_id     String
+  tier           String   // LOW/MEDIUM/HIGH
+  reasons        Json     // Array of strings
+  engine_version String
+  input_snapshot Json
+  created_at     DateTime @default(now())
+
+  patient        Patient  @relation(fields: [patient_id], references: [id])
+
+  @@map("risk_assessments")
+}
+
+model Symptom {
+  id           String   @id @default(uuid())
+  patient_id   String
+  symptom_key  String
+  severity     String   // mild/moderate/severe
+  notes        String?
+  reported_at  DateTime @default(now())
+
+  patient      Patient  @relation(fields: [patient_id], references: [id])
+
+  @@index([patient_id, reported_at])
+  @@map("symptoms")
+}
+
+model DangerAlert {
+  id               String   @id @default(uuid())
+  patient_id       String
+  doctor_id        String?
+  triggers         Json
+  severity         String
+  status           String   // open/acknowledged/resolved
+  sms_sent_at      DateTime?
+  whatsapp_sent_at DateTime?
+  acknowledged_at  DateTime?
+  created_at       DateTime @default(now())
+
+  patient          Patient  @relation(fields: [patient_id], references: [id])
+  doctor           Doctor?  @relation(fields: [doctor_id], references: [id])
+
+  @@index([doctor_id, status])
+  @@map("danger_alerts")
+}
+
+model Appointment {
+  id              String   @id @default(uuid())
+  patient_id      String
+  doctor_id       String
+  slot_start      DateTime
+  slot_end        DateTime // 30 min later
+  status          String   // booked/completed/cancelled/no_show
+  idempotency_key String   @unique
+  created_at      DateTime @default(now())
+
+  patient         Patient  @relation(fields: [patient_id], references: [id])
+  doctor          Doctor   @relation(fields: [doctor_id], references: [id])
+  visits          Visit[]
+
+  @@index([slot_start])
+  @@index([doctor_id, slot_start])
+  @@map("appointments")
+}
+
+model Visit {
+  id             String   @id @default(uuid())
+  appointment_id String
+  doctor_notes   String?
+  created_at     DateTime @default(now())
+
+  appointment    Appointment @relation(fields: [appointment_id], references: [id])
+
+  @@map("visits")
+}
+
+model EducationModule {
+  id         String   @id @default(uuid())
+  week_number Int      // 6 to 40
+  title      String
+  summary    String?
+  video_url  String?
+  audio_url  String?
+  transcript String?
+  status     String   // draft/reviewed/published
+
+  @@map("education_modules")
+}
+
+model EducationProgress {
+  id           String   @id @default(uuid())
+  patient_id   String
+  module_id    String
+  completed_at DateTime @default(now())
+
+  patient      Patient  @relation(fields: [patient_id], references: [id])
+
+  @@map("education_progress")
+}
+
+model NotificationsLog {
+  id                  String   @id @default(uuid())
+  channel             String   // sms/whatsapp/email
+  recipient           String
+  payload             Json
+  provider_message_id String?
+  status              String
+  error               String?
+  sent_at             DateTime @default(now())
+
+  @@map("notifications_log")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actor_type    String
+  actor_id      String
+  action        String
+  resource_type String
+  resource_id   String
+  before        Json?
+  after         Json?
+  created_at    DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model SystemConfig {
+  id                String   @id @default(uuid())
+  on_call_doctor_id String?
+  updated_at        DateTime @updatedAt
+
+  @@map("system_config")
+}

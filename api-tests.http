@@ -25,8 +25,8 @@ POST {{baseUrl}}/auth/patient/otp/verify
 Content-Type: application/json
 
 {
-  "pin_id": "561a8269-66b5-4bd3-b2eb-97683cfe859d",
-  "code":"105023"
+ "pin_id": "d2c1456b-5fbd-4080-ba48-2819bbfd4906",
+  "code":"798978"
   
 }
 
@@ -50,8 +50,8 @@ Authorization: Bearer {{patient_token}}
 ### 2b. Add Pregnancy Record
 POST {{baseUrl}}/patients/pregnancy
 Content-Type: application/json
-Authorization: Bearer {{patient_token}}
-  
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE4NmMxZGY4LWQ2N2QtNDUxOS05ZTg5LWU1MDU1NWQyMDllNCIsInJvbGUiOiJwYXRpZW50IiwidHlwZSI6InBhdGllbnQiLCJpYXQiOjE3Nzk4ODQwODUsImV4cCI6MTc3OTg4NDk4NX0.JRvqvMI0aak2s-dEliDy9119cdb2KPaLv48UGNw703c
+
 {
   "lmp_date": "2023-10-01T00:00:00Z",
   "blood_group": "O+",
@@ -121,7 +121,7 @@ Authorization: Bearer {{doctor_token}}
 ### =======================================
 
 ### 5a. Book Appointment
-POST {{baseUrl}}/appointments/book
+POST {{baseUrl}}/appointments
 Content-Type: application/json
 Idempotency-Key: unique-random-string-456
 Authorization: Bearer {{patient_token}}

@@ -22,6 +22,7 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   LOG_LEVEL: z.string().default('info'),
   OPENAI_API_KEY: z.string().default(''),
+  CRON_SECRET: z.string().default('my-super-secret-cron-key'),
 });
 
 const parsed = envSchema.safeParse(process.env);

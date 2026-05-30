@@ -8,6 +8,7 @@ import { requestId } from './middleware/requestId';
 import prisma from './config/prisma';
 import { redis } from './config/redis';
 import { initWhatsApp } from './services/whatsapp';
+import { processAppointmentReminders } from './jobs/appointmentReminder';
 
 // ─── Route imports ──────────────────────────────────────────
 import authRoutes from './modules/auth/routes';
@@ -53,6 +54,26 @@ app.get('/health', async (req, res) => {
     timestamp: new Date().toISOString(),
     services: { database: dbStatus, redis: redisStatus },
   });
+});
+
+// ─── Cron Webhooks ──────────────────────────────────────────
+app.get('/cron/reminders', async (req, res, next) => {
+  try {
+    const secret = req.query.secret;
+    if (secret !== env.CRON_SECRET) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    
+    // Run asynchronously so we don't block the response for UptimeRobot
+    processAppointmentReminders().catch((err) => {
+      logger.error({ err }, 'Background reminder execution failed');
+    });
+
+    res.status(200).json({ status: 'ok', message: 'Reminders triggered in the background' });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─── Routes ─────────────────────────────────────────────────

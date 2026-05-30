@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const controller_1 = require("./controller");
+const auth_1 = require("../../middleware/auth");
+const rbac_1 = require("../../middleware/rbac");
+const validate_1 = require("../../middleware/validate");
+const schemas_1 = require("./schemas");
+const router = (0, express_1.Router)();
+router.post('/profile', auth_1.authenticate, (0, rbac_1.rbac)('patient'), (0, validate_1.validate)(schemas_1.createProfileSchema), controller_1.patientsController.upsertProfile);
+router.post('/pregnancy', auth_1.authenticate, (0, rbac_1.rbac)('patient'), (0, validate_1.validate)(schemas_1.createPregnancySchema), controller_1.patientsController.createPregnancy);
+router.get('/me', auth_1.authenticate, (0, rbac_1.rbac)('patient'), controller_1.patientsController.getMe);
+router.get('/me/dashboard', auth_1.authenticate, (0, rbac_1.rbac)('patient'), controller_1.patientsController.getDashboard);
+exports.default = router;

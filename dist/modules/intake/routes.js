@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const controller_1 = require("./controller");
+const auth_1 = require("../../middleware/auth");
+const rbac_1 = require("../../middleware/rbac");
+const validate_1 = require("../../middleware/validate");
+const schemas_1 = require("./schemas");
+const router = (0, express_1.Router)();
+router.patch('/:patientId', auth_1.authenticate, (0, rbac_1.rbac)('patient', 'doctor', 'department_head'), (0, validate_1.validate)(schemas_1.intakeParamsSchema, 'params'), (0, validate_1.validate)(schemas_1.patchIntakeSchema), controller_1.intakeController.patchIntake);
+router.get('/:patientId', auth_1.authenticate, (0, rbac_1.rbac)('patient', 'doctor', 'department_head'), (0, validate_1.validate)(schemas_1.intakeParamsSchema, 'params'), controller_1.intakeController.getIntake);
+router.post('/:patientId/submit', auth_1.authenticate, (0, rbac_1.rbac)('patient', 'doctor', 'department_head'), (0, validate_1.validate)(schemas_1.intakeParamsSchema, 'params'), controller_1.intakeController.submitIntake);
+exports.default = router;

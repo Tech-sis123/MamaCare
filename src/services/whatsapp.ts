@@ -27,7 +27,7 @@ export const initWhatsApp = () => {
 
   client.on('ready', () => {
     isReady = true;
-    logger.info('✅ WhatsApp client is ready!');
+    logger.info(' WhatsApp client is ready!');
   });
 
   client.on('auth_failure', (msg) => {

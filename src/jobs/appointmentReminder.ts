@@ -55,7 +55,7 @@ async function sendReminders(hoursAhead: number, label: string) {
   }
 }
 
-async function run() {
+export async function processAppointmentReminders() {
   logger.info('🔔 Running appointment reminder job...');
 
   await sendReminders(48, '48-hour');
@@ -64,11 +64,14 @@ async function run() {
   logger.info('✅ Reminder job complete');
 }
 
-run()
-  .catch((err) => {
-    logger.error({ err }, 'Reminder job failed');
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+// If run directly from the command line (e.g., npx tsx src/jobs/appointmentReminder.ts)
+if (require.main === module) {
+  processAppointmentReminders()
+    .catch((err) => {
+      logger.error({ err }, 'Reminder job failed');
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

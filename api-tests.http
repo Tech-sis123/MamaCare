@@ -5,7 +5,7 @@
 @baseUrl = http://localhost:3000
 @phone_number = +2348012345678
 @admin_token = your_admin_jwt_here
-@patient_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE4NmMxZGY4LWQ2N2QtNDUxOS05ZTg5LWU1MDU1NWQyMDllNCIsInJvbGUiOiJwYXRpZW50IiwidHlwZSI6InBhdGllbnQiLCJpYXQiOjE3Nzk4ODQwODUsImV4cCI6MTc3OTg4NDk4NX0.JRvqvMI0aak2s-dEliDy9119cdb2KPaLv48UGNw703c
+@patient_token = your_patient_jwt_here
 @doctor_token = your_doctor_jwt_here
 
 ### =======================================
@@ -50,7 +50,7 @@ Authorization: Bearer {{patient_token}}
 ### 2b. Add Pregnancy Record
 POST {{baseUrl}}/patients/pregnancy
 Content-Type: application/json
-Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE4NmMxZGY4LWQ2N2QtNDUxOS05ZTg5LWU1MDU1NWQyMDllNCIsInJvbGUiOiJwYXRpZW50IiwidHlwZSI6InBhdGllbnQiLCJpYXQiOjE3Nzk4ODQwODUsImV4cCI6MTc3OTg4NDk4NX0.JRvqvMI0aak2s-dEliDy9119cdb2KPaLv48UGNw703c
+Authorization: Bearer {{patient_token}}
 
 {
   "lmp_date": "2023-10-01T00:00:00Z",

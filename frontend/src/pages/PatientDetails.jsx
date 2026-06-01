@@ -1,71 +1,17 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { getPatientSymptoms } from '../lib/api';
 
-// ── Mock clerking record for Ngozi Okonkwo ────────────────────────────────────
-const PATIENT = {
-  name: 'Ngozi Okonkwo',
-  age: 29,
-  initials: 'NO',
-  risk: 'HIGH',
-  edd: 'Sep 12, 2025',
-  lmp: 'Dec 05, 2024',
-  ega: '24w 3d',
-  // Biodata
-  occupation: 'Petty Trader',
-  education: 'Secondary',
-  marital: 'Married',
-  state: 'Benin City, Edo',
-  religion: 'Christian',
-  ethnicity: 'Edo',
-  // Index pregnancy
-  desired: 'Yes',
-  conception: 'Natural',
-  ultrasound: 'Yes — 14th Jan 2025',
-  bookingWeight: '71 kg',
-  bookingHeight: '162 cm',
-  // Obstetric history
-  gravida: 2,
-  para: 1,
-  lastBirth: '2021 (C-section, UBTH, male, 3.1 kg, cried immediately)',
-  twins: 'No',
-  miscarriage: 'No',
-  // Booking labs
-  bloodType: 'O+',
-  genotype: 'AA',
-  bookingBP: '160/100 mmHg',
-  urinalysis: 'Protein ++',
-  hiv: 'Non-Reactive',
-  vdrl: 'Non-Reactive',
-  pcv: '29%',
-  hepB: 'Negative',
-  tetanus: 'Up to date',
-  // Gynae history
-  menarche: 14,
-  cycleDays: 28,
-  flowDays: 5,
-  heavyBleeding: 'No',
-  dysmenorrhea: 'No',
-  intermenstrual: 'No',
-  postcoital: 'No',
-  discharge: 'No',
-  contraceptive: 'Pill (stopped 2023)',
-  papSmear: 'Not done',
-  // Symptoms
+// ── Fallback mock for demo when no real patient is passed ─────────────────────
+const MOCK = {
+  name: 'Ngozi Okonkwo', age: 29, initials: 'NO', risk: 'HIGH',
+  edd: 'Sep 12, 2025', lmp: 'Dec 05, 2024', ega: '24w 3d',
+  bloodType: 'O+', gravida: 2, para: 1,
   symptoms: ['Severe Headache', 'Blurred Vision', 'Swollen Hands/Face'],
-  // Medical history
+  bookingBP: '160/100 mmHg', urinalysis: 'Protein ++', pcv: '29%',
   conditions: ['Hypertension (diagnosed 2022)'],
-  medications: 'Labetalol 200 mg twice daily, Folic acid',
-  bloodTransfusion: 'No',
-  surgeries: 'C-section (2021, UBTH)',
+  medications: 'Labetalol 200 mg BD, Folic acid',
   drugAllergies: 'Penicillin',
-  foodAllergies: 'None',
-  // Social
-  married: 'Married, Monogamous',
-  patientSmokes: 'No',
-  patientDrinks: 'No',
-  husbandOccupation: 'Mechanic',
-  husbandSmokes: 'Yes',
-  husbandDrinks: 'Yes',
 };
 
 const APPT_HISTORY = [
@@ -111,13 +57,42 @@ const SectionAccordion = ({ title, defaultOpen = false, children }) => {
 
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const passedPatient = location.state?.patient;
+
+  const p = passedPatient || MOCK;
+  const isReal = !!passedPatient?.id && typeof passedPatient.id === 'string' && passedPatient.id.length > 10;
+
+  const name = p.name || MOCK.name;
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const risk = (p.risk || 'HIGH').toUpperCase();
+  const riskBadgeClass = risk === 'HIGH' ? 'bg-secondary' : risk === 'MEDIUM' ? 'bg-amber-500' : 'bg-primary';
+
   const [clinicalNotes, setClinicalNotes] = useState('');
+  const [symptoms, setSymptoms] = useState([]);
+  const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+
+  useEffect(() => {
+    if (!isReal) return;
+    setLoadingSymptoms(true);
+    getPatientSymptoms(passedPatient.id, '30d')
+      .then(r => {
+        const data = r.data;
+        setSymptoms(Array.isArray(data) ? data : data?.symptoms || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSymptoms(false));
+  }, [isReal, passedPatient?.id]);
+
+  const displaySymptoms = symptoms.length > 0
+    ? symptoms.map(s => s.symptom_key?.replace(/_/g, ' ') || s.name || s).filter(Boolean)
+    : (p.symptoms || MOCK.symptoms);
 
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex justify-end overflow-hidden">
       <div className="grain-overlay" />
 
-      {/* Background dashboard ghost */}
+      {/* Background ghost */}
       <main className="hidden md:flex flex-col flex-1 p-12 opacity-20 grayscale pointer-events-none">
         <header className="flex justify-between items-center mb-12">
           <h1 className="font-display-xl text-display-xl">Provider Dashboard</h1>
@@ -138,29 +113,32 @@ const PatientDetailPanel = () => {
             <button onClick={() => navigate('/provider')} className="text-white/60 hover:text-white transition-colors">
               <span className="material-symbols-outlined">close</span>
             </button>
-            <div className="bg-secondary text-white px-3 py-1 rounded-full font-label-sm text-xs flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>error</span>
-              HIGH RISK
+            <div className={`${riskBadgeClass} text-white px-3 py-1 rounded-full font-label-sm text-xs flex items-center gap-1`}>
+              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                {risk === 'HIGH' ? 'error' : risk === 'MEDIUM' ? 'warning' : 'check_circle'}
+              </span>
+              {risk} RISK
             </div>
           </div>
 
           <div className="flex items-center gap-4 mb-4">
             <div className="w-16 h-16 rounded-2xl bg-amber-900/50 flex items-center justify-center shrink-0 border border-amber-400/20">
-              <span className="font-bold text-xl text-white">{PATIENT.initials}</span>
+              <span className="font-bold text-xl text-white">{initials}</span>
             </div>
             <div>
-              <h2 className="font-headline-lg text-2xl mb-0.5">{PATIENT.name}</h2>
+              <h2 className="font-headline-lg text-2xl mb-0.5">{name}</h2>
               <p className="font-body-md text-white/70">
-                Age {PATIENT.age} · G{PATIENT.gravida}P{PATIENT.para} · {PATIENT.ega}
+                Age {p.age || '—'} · G{p.gravida ?? p.gravida ?? MOCK.gravida}P{p.para ?? MOCK.para}
+                {p.weeks ? ` · Week ${p.weeks}` : ` · ${MOCK.ega}`}
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-3 text-center">
             {[
-              { label: 'EDD', value: PATIENT.edd },
-              { label: 'LMP', value: PATIENT.lmp },
-              { label: 'Blood Type', value: PATIENT.bloodType },
+              { label: 'EDD',        value: p.edd || MOCK.edd },
+              { label: 'LMP',        value: p.lmp || MOCK.lmp },
+              { label: 'Blood Type', value: p.bloodType || p.blood_group || MOCK.bloodType },
             ].map(item => (
               <div key={item.label} className="bg-white/10 rounded-xl p-2.5">
                 <p className="font-label-sm text-white/50 text-[10px] uppercase">{item.label}</p>
@@ -178,11 +156,12 @@ const PatientDetailPanel = () => {
             <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">AI Pre-Consult Summary</h3>
             <div className="bg-surface-container-low border-l-4 border-primary p-4 rounded-r-lg shadow-sm">
               <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                {PATIENT.name}, {PATIENT.age}-year-old G{PATIENT.gravida}P{PATIENT.para}, presenting at {PATIENT.ega} gestation.
-                Presenting complaints include:{' '}
-                <strong className="text-secondary">{PATIENT.symptoms.join(', ')}</strong>.
-                Booking BP: <strong className="text-secondary">{PATIENT.bookingBP}</strong>.
-                Notable: known hypertension, anaemia (PCV {PATIENT.pcv}), previous C-section. Urinalysis: {PATIENT.urinalysis}.
+                {name}, {p.age}-year-old G{p.gravida ?? MOCK.gravida}P{p.para ?? MOCK.para},
+                presenting at {p.weeks ? `week ${p.weeks}` : MOCK.ega} gestation.{' '}
+                {displaySymptoms.length > 0 && (
+                  <>Presenting complaints: <strong className="text-secondary">{displaySymptoms.join(', ')}</strong>. </>
+                )}
+                {(p.bookingBP || MOCK.bookingBP) && <>BP: <strong className="text-secondary">{p.bookingBP || MOCK.bookingBP}</strong>.</>}
               </p>
             </div>
           </section>
@@ -191,119 +170,109 @@ const PatientDetailPanel = () => {
           <section>
             <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Flags</h3>
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { icon: 'blood_pressure', label: 'Hypertension',       danger: true },
-                { icon: 'vital_signs',    label: 'Active Bleeding',     danger: true },
-                { icon: 'neurology',      label: 'Blurred Vision',      danger: true },
-                { icon: 'vaccines',       label: 'Anaemia (PCV 29%)',   danger: false },
-                { icon: 'monitor_weight', label: 'Normal BMI',          danger: false },
-                { icon: 'medical_services', label: 'Tetanus Up-to-date', danger: false },
-              ].map(f => (
-                <div key={f.label}
-                  className={`flex items-center gap-2 p-3 rounded-lg border ${
-                    f.danger ? 'bg-secondary-fixed border-secondary/20' : 'bg-tertiary-fixed border-tertiary/20'
-                  }`}
-                >
-                  <span className={`material-symbols-outlined ${f.danger ? 'text-secondary' : 'text-primary'}`}
-                    style={{ fontVariationSettings: "'FILL' 1" }}>
-                    {f.icon}
-                  </span>
-                  <span className={`font-label-sm text-xs ${f.danger ? 'text-on-secondary-fixed-variant' : 'text-on-tertiary-fixed-variant'}`}>
-                    {f.label}
-                  </span>
+              {(p.flags?.length ? p.flags : ['High BP', 'Low Hb']).map(flag => (
+                <div key={flag} className="flex items-center gap-2 p-3 rounded-lg border bg-secondary-fixed border-secondary/20">
+                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
+                  <span className="font-label-sm text-xs text-on-secondary-fixed-variant">{flag}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          {/* Full Clinical Intake — accordion sections */}
+          {/* Symptom Timeline */}
+          <section>
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
+              Symptom Timeline {isReal ? '(Last 30 days)' : '(Demo)'}
+            </h3>
+            {loadingSymptoms && (
+              <p className="text-on-surface-variant font-body-md text-sm">Loading symptoms…</p>
+            )}
+            {!loadingSymptoms && symptoms.length === 0 && !isReal && (
+              <div className="space-y-2">
+                {(p.symptoms || MOCK.symptoms).map((s, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-secondary/5 border border-secondary/20 rounded-lg">
+                    <span className="material-symbols-outlined text-secondary text-sm">report</span>
+                    <span className="font-body-md text-sm text-on-surface">{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!loadingSymptoms && symptoms.length > 0 && (
+              <div className="space-y-2">
+                {symptoms.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-surface-container-low border border-outline-variant/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <span className={`material-symbols-outlined text-sm ${s.severity === 'severe' ? 'text-secondary' : 'text-amber-500'}`}>
+                        {s.severity === 'severe' ? 'error' : 'warning'}
+                      </span>
+                      <span className="font-body-md text-sm text-on-surface capitalize">
+                        {(s.symptom_key || s.name || '').replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <span className="font-label-sm text-xs text-outline">
+                      {s.severity || ''} · {s.logged_at ? new Date(s.logged_at).toLocaleDateString('en-GB') : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!loadingSymptoms && symptoms.length === 0 && isReal && (
+              <p className="text-on-surface-variant font-body-md text-sm italic">No symptoms logged in the last 30 days.</p>
+            )}
+          </section>
+
+          {/* Full Clerking Record */}
           <section className="space-y-2">
             <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Full Clerking Record</h3>
 
             <SectionAccordion title="Biodata">
               <div className="mt-3 space-y-0">
-                <Row label="Name" value={PATIENT.name} />
-                <Row label="Age" value={`${PATIENT.age} years`} />
-                <Row label="Occupation" value={PATIENT.occupation} />
-                <Row label="Education" value={PATIENT.education} />
-                <Row label="Marital Status" value={PATIENT.marital} />
-                <Row label="State / LGA" value={PATIENT.state} />
-                <Row label="Religion" value={PATIENT.religion} />
-                <Row label="Ethnicity" value={PATIENT.ethnicity} />
+                <Row label="Name"          value={name} />
+                <Row label="Age"           value={p.age ? `${p.age} years` : '—'} />
+                <Row label="Occupation"    value={p.occupation || '—'} />
+                <Row label="Marital Status" value={p.marital || p.marital_status || '—'} />
+                <Row label="State / LGA"   value={p.state || p.address || '—'} />
               </div>
             </SectionAccordion>
 
             <SectionAccordion title="Index Pregnancy" defaultOpen>
               <div className="mt-3 space-y-0">
-                <Row label="LMP" value={PATIENT.lmp} />
-                <Row label="EDD" value={PATIENT.edd} />
-                <Row label="Gestational Age" value={PATIENT.ega} />
-                <Row label="Pregnancy Desired" value={PATIENT.desired} />
-                <Row label="Conception" value={PATIENT.conception} />
-                <Row label="Ultrasound Confirmed" value={PATIENT.ultrasound} />
-                <Row label="Booking Weight" value={PATIENT.bookingWeight} />
-                <Row label="Booking Height" value={PATIENT.bookingHeight} />
+                <Row label="LMP"              value={p.lmp || MOCK.lmp} />
+                <Row label="EDD"              value={p.edd || MOCK.edd} />
+                <Row label="Gestational Age"  value={p.weeks ? `Week ${p.weeks}` : MOCK.ega} />
+                <Row label="Booking Weight"   value={p.bookingWeight || p.booking_weight || '—'} />
+                <Row label="Booking Height"   value={p.bookingHeight || p.booking_height || '—'} />
               </div>
             </SectionAccordion>
 
             <SectionAccordion title="Booking Investigations" defaultOpen>
               <div className="mt-3 space-y-0">
-                <Row label="Blood Group" value={PATIENT.bloodType} />
-                <Row label="Genotype" value={PATIENT.genotype} />
-                <Row label="Blood Pressure" value={PATIENT.bookingBP} highlight />
-                <Row label="Urinalysis" value={PATIENT.urinalysis} highlight />
-                <Row label="HIV (RVD)" value={PATIENT.hiv} />
-                <Row label="VDRL" value={PATIENT.vdrl} />
-                <Row label="PCV" value={PATIENT.pcv} highlight />
-                <Row label="Hepatitis B" value={PATIENT.hepB} />
-                <Row label="Tetanus" value={PATIENT.tetanus} />
+                <Row label="Blood Group"   value={p.bloodType || p.blood_group || MOCK.bloodType} />
+                <Row label="Genotype"      value={p.genotype || '—'} />
+                <Row label="Blood Pressure" value={p.bookingBP || MOCK.bookingBP} highlight />
+                <Row label="Urinalysis"    value={p.urinalysis || MOCK.urinalysis} highlight />
+                <Row label="HIV (RVD)"     value={p.hiv || '—'} />
+                <Row label="VDRL"          value={p.vdrl || '—'} />
+                <Row label="PCV"           value={p.pcv || MOCK.pcv} highlight />
+                <Row label="Hepatitis B"   value={p.hepB || p.hep_b || '—'} />
+                <Row label="Tetanus"       value={p.tetanus || '—'} />
               </div>
             </SectionAccordion>
 
             <SectionAccordion title="Obstetric History">
               <div className="mt-3 space-y-0">
-                <Row label="Gravida" value={`G${PATIENT.gravida}`} />
-                <Row label="Para" value={`P${PATIENT.para}`} />
-                <Row label="Last Delivery" value={PATIENT.lastBirth} />
-                <Row label="Twin / Multiple" value={PATIENT.twins} />
-                <Row label="Miscarriage / TOP" value={PATIENT.miscarriage} />
-              </div>
-            </SectionAccordion>
-
-            <SectionAccordion title="Gynaecological History">
-              <div className="mt-3 space-y-0">
-                <Row label="Menarche" value={`Age ${PATIENT.menarche}`} />
-                <Row label="Cycle Length" value={`${PATIENT.cycleDays} days`} />
-                <Row label="Flow Duration" value={`${PATIENT.flowDays} days`} />
-                <Row label="Heavy Bleeding" value={PATIENT.heavyBleeding} />
-                <Row label="Dysmenorrhea" value={PATIENT.dysmenorrhea} />
-                <Row label="Intermenstrual Bleed" value={PATIENT.intermenstrual} />
-                <Row label="Postcoital Bleed" value={PATIENT.postcoital} />
-                <Row label="Abnormal Discharge" value={PATIENT.discharge} />
-                <Row label="Contraceptive Hx" value={PATIENT.contraceptive} />
-                <Row label="Pap Smear" value={PATIENT.papSmear} />
+                <Row label="Gravida"    value={p.gravida != null ? `G${p.gravida}` : '—'} />
+                <Row label="Para"       value={p.para != null ? `P${p.para}` : '—'} />
+                <Row label="Miscarriage / TOP" value={p.miscarriage != null ? (p.miscarriage ? 'Yes' : 'No') : '—'} />
               </div>
             </SectionAccordion>
 
             <SectionAccordion title="Past Medical & Surgical History">
               <div className="mt-3 space-y-0">
-                <Row label="Conditions" value={PATIENT.conditions.join(', ')} highlight />
-                <Row label="Current Medications" value={PATIENT.medications} />
-                <Row label="Blood Transfusion" value={PATIENT.bloodTransfusion} />
-                <Row label="Surgeries" value={PATIENT.surgeries} />
-                <Row label="Drug Allergies" value={PATIENT.drugAllergies} highlight />
-                <Row label="Food Allergies" value={PATIENT.foodAllergies} />
-              </div>
-            </SectionAccordion>
-
-            <SectionAccordion title="Family & Social History">
-              <div className="mt-3 space-y-0">
-                <Row label="Marital Type" value={PATIENT.married} />
-                <Row label="Patient Smokes" value={PATIENT.patientSmokes} />
-                <Row label="Patient Drinks" value={PATIENT.patientDrinks} />
-                <Row label="Partner Occupation" value={PATIENT.husbandOccupation} />
-                <Row label="Partner Smokes" value={PATIENT.husbandSmokes} />
-                <Row label="Partner Drinks" value={PATIENT.husbandDrinks} />
+                <Row label="Conditions"        value={Array.isArray(p.conditions) ? p.conditions.join(', ') : (p.conditions || MOCK.conditions.join(', '))} highlight />
+                <Row label="Current Medications" value={p.medications || MOCK.medications} />
+                <Row label="Drug Allergies"    value={p.drugAllergies || p.drug_allergies || MOCK.drugAllergies} highlight />
+                <Row label="Food Allergies"    value={p.foodAllergies || p.food_allergies || 'None'} />
               </div>
             </SectionAccordion>
           </section>
@@ -319,9 +288,7 @@ const PatientDetailPanel = () => {
                       {appt.active ? 'medical_services' : 'check'}
                     </span>
                   </div>
-                  <span className={`font-label-sm text-xs ${appt.active ? 'text-secondary' : 'text-on-surface-variant'}`}>
-                    {appt.date}
-                  </span>
+                  <span className={`font-label-sm text-xs ${appt.active ? 'text-secondary' : 'text-on-surface-variant'}`}>{appt.date}</span>
                   <p className="font-body-md font-medium text-on-surface">{appt.type}</p>
                   <p className="font-label-sm text-on-surface-variant text-xs mt-0.5">{appt.note}</p>
                 </div>
@@ -337,12 +304,8 @@ const PatientDetailPanel = () => {
                 value={clinicalNotes}
                 onChange={e => setClinicalNotes(e.target.value)}
                 className="w-full h-36 bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-outline/60 resize-none"
-                placeholder="Start typing clinical notes… (auto-saving)"
+                placeholder="Start typing clinical notes…"
               />
-              <div className="absolute bottom-3 right-3 flex items-center gap-1 text-[10px] text-primary uppercase font-bold tracking-tighter opacity-50">
-                <span className="material-symbols-outlined text-[12px]">sync</span>
-                SAVED
-              </div>
             </div>
           </section>
         </div>
@@ -356,7 +319,7 @@ const PatientDetailPanel = () => {
           <button className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20">
             Mark as Seen
           </button>
-          <button className="bg-primary text-white py-3 rounded-lg font-label-sm text-sm hover:bg-primary-container transition-all">
+          <button className="bg-primary text-white py-3 rounded-lg font-label-sm text-sm hover:opacity-90 transition-all">
             Refer to Specialist
           </button>
         </footer>

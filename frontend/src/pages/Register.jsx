@@ -1,13 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { requestOtp, verifyOtp, upsertProfile } from '../lib/api';
+import { setPatientAuth } from '../lib/auth';
 
 const RegistrationFlow = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState('phone'); // 'phone', 'otp', 'profile'
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [pinId, setPinId] = useState('');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(45);
   const [otpError, setOtpError] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -26,11 +31,29 @@ const RegistrationFlow = () => {
     }
   }, [step, resendTimer]);
 
-  const handlePhoneSubmit = (e) => {
+  const formatPhone = (num) => {
+    const digits = num.replace(/\D/g, '');
+    // Handle users who paste their full international number (+2348XXXXXXXXX → 2348XXXXXXXXX)
+    if (digits.startsWith('234') && digits.length >= 13) return '+' + digits;
+    return '+234' + digits.replace(/^0/, '');
+  };
+
+  const handlePhoneSubmit = async (e) => {
     e.preventDefault();
-    if (phoneNumber.trim().length >= 8) {
+    if (phoneNumber.trim().length < 8) return;
+    setLoading(true);
+    setApiError('');
+    try {
+      const { data } = await requestOtp(formatPhone(phoneNumber));
+      setPinId(data.pin_id);
       setStep('otp');
       setResendTimer(45);
+    } catch (err) {
+      const d = err.response?.data;
+      const msg = d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to send OTP. Try again.';
+      setApiError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,14 +76,26 @@ const RegistrationFlow = () => {
     }
   };
 
-  const handleOtpSubmit = (e) => {
+  const handleOtpSubmit = async (e) => {
     e.preventDefault();
     const code = otpCode.join('');
-    if (code === '123456') {
-      // Dummy validation – replace with real API
-      setStep('profile');
-    } else {
-      setOtpError(true);
+    if (code.length < 6) return;
+    setLoading(true);
+    setOtpError(false);
+    try {
+      const { data } = await verifyOtp(pinId, code);
+      setPatientAuth(data.access_token, data.refresh_token, data.patient);
+      if (!data.patient.name) {
+        setStep('profile');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      const d = err.response?.data;
+      const msg = d?.issues?.[0]?.message || d?.message || d?.error;
+      setOtpError(msg || true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -68,15 +103,40 @@ const RegistrationFlow = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleProfileSubmit = (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    navigate('/intake');
+    setLoading(true);
+    setApiError('');
+    try {
+      const dob = new Date(formData.dob);
+      const age = new Date().getFullYear() - dob.getFullYear();
+      await upsertProfile({
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        age,
+        language_preference: 'en',
+      });
+      navigate('/intake');
+    } catch (err) {
+      setApiError(err.response?.data?.message || 'Failed to save profile. Try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
-    if (resendTimer === 0) {
+  const handleResend = async () => {
+    if (resendTimer > 0) return;
+    setLoading(true);
+    setApiError('');
+    try {
+      const { data } = await requestOtp(formatPhone(phoneNumber));
+      setPinId(data.pin_id);
       setResendTimer(45);
-      // Call API to resend code
+    } catch (err) {
+      const d = err.response?.data;
+      const msg = d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to resend OTP.';
+      setApiError(msg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -144,12 +204,16 @@ const RegistrationFlow = () => {
                     />
                   </div>
                 </div>
+                {apiError && (
+                  <p className="text-error font-label-sm text-sm text-center">{apiError}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98]"
+                  disabled={loading}
+                  className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-60"
                 >
-                  Send verification code
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  {loading ? 'Sending…' : 'Send verification code'}
+                  {!loading && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
                 </button>
                 <div className="text-center">
                   <a href="#" className="font-label-sm text-secondary hover:underline underline-offset-4 flex items-center justify-center gap-2">
@@ -186,7 +250,9 @@ const RegistrationFlow = () => {
                   ))}
                 </div>
                 {otpError && (
-                  <p className="text-error font-label-sm text-center mb-4">Invalid code. Please check and try again.</p>
+                  <p className="text-error font-label-sm text-center mb-4">
+                    {typeof otpError === 'string' ? otpError : 'Invalid code. Please check and try again.'}
+                  </p>
                 )}
                 <div className="text-center space-y-6">
                   <p className="font-label-sm text-on-surface-variant">
@@ -194,11 +260,15 @@ const RegistrationFlow = () => {
                   </p>
                   <button
                     type="submit"
-                    className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90"
+                    disabled={loading}
+                    className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60"
                   >
-                    Confirm code
-                    <span className="material-symbols-outlined text-sm">check</span>
+                    {loading ? 'Verifying…' : 'Confirm code'}
+                    {!loading && <span className="material-symbols-outlined text-sm">check</span>}
                   </button>
+                  {apiError && (
+                    <p className="text-error font-label-sm text-sm">{apiError}</p>
+                  )}
                   {resendTimer === 0 && (
                     <button type="button" onClick={handleResend} className="font-label-sm text-secondary underline">
                       Resend code
@@ -247,12 +317,16 @@ const RegistrationFlow = () => {
                     required
                   />
                 </div>
+                {apiError && (
+                  <p className="text-error font-label-sm text-sm text-center">{apiError}</p>
+                )}
                 <button
                   type="submit"
-                  className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 mt-4"
+                  disabled={loading}
+                  className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 mt-4 disabled:opacity-60"
                 >
-                  Start my health profile
-                  <span className="material-symbols-outlined text-sm">colors_spark</span>
+                  {loading ? 'Saving…' : 'Start my health profile'}
+                  {!loading && <span className="material-symbols-outlined text-sm">colors_spark</span>}
                 </button>
               </form>
             </section>

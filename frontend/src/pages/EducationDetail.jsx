@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { markModuleComplete } from '../lib/api';
 
 const MODULES = {
   'baby-growth': {
@@ -507,7 +508,7 @@ const EducationDetail = () => {
               Back to list
             </button>
             <button
-              onClick={() => setCompleted(true)}
+              onClick={() => { setCompleted(true); markModuleComplete(id).catch(() => {}); }}
               className="flex-[2] py-4 font-bold text-on-primary bg-primary-container rounded-xl hover:bg-primary shadow-lg shadow-primary-container/20 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm"
             >
               <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>

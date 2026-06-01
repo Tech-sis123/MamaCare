@@ -1,8 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPatientDashboard, getPatientMe } from '../lib/api';
+import { getPatientData, isPatientAuthenticated } from '../lib/auth';
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
+  const [dashData, setDashData] = useState(null);
+  const [patientData, setPatientData] = useState(getPatientData());
+
+  useEffect(() => {
+    if (!isPatientAuthenticated()) {
+      navigate('/register');
+      return;
+    }
+    getPatientDashboard()
+      .then(r => setDashData(r.data))
+      .catch(() => {});
+    getPatientMe()
+      .then(r => setPatientData(r.data))
+      .catch(() => {});
+  }, [navigate]);
+
+  const firstName = patientData?.name?.split(' ')[0] || 'Mama';
+  const ega = dashData?.gestational_age || dashData?.ega;
+  const weeks = ega?.weeks ?? 12;
+  const trimester = weeks <= 12 ? 'First trimester' : weeks <= 27 ? 'Second trimester' : 'Third trimester';
+  const riskTier = (dashData?.risk_tier || dashData?.latest_risk_tier || 'LOW').toUpperCase();
+  const riskColor = riskTier === 'HIGH' ? 'bg-[#F8D7DA]' : riskTier === 'MEDIUM' ? 'bg-[#FFF3CD]' : 'bg-[#D4E6D8]';
+  const riskLabel = riskTier === 'HIGH' ? 'HIGH RISK' : riskTier === 'MEDIUM' ? 'MEDIUM RISK' : 'LOW RISK';
+  const nextAppt = dashData?.next_appointment;
+  const eduModule = dashData?.educational_module || dashData?.recommended_module;
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
       {/* Navbar & Header Cluster */}
@@ -19,8 +46,8 @@ const PatientDashboard = () => {
             </button>
           </nav>
           <div className="space-y-1">
-            <h1 className="font-headline-md text-headline-md text-white">Hello, Mama Efe 👋</h1>
-            <p className="font-body-md text-white/80">Week 12 · First trimester</p>
+            <h1 className="font-headline-md text-headline-md text-white">Hello, {firstName} 👋</h1>
+            <p className="font-body-md text-white/80">Week {weeks} · {trimester}</p>
           </div>
         </div>
       </header>
@@ -28,10 +55,10 @@ const PatientDashboard = () => {
       {/* Main Content */}
       <main className="max-w-[640px] mx-auto px-4 -mt-6 pb-32 space-y-6">
         {/* Risk Level Card */}
-        <section className="bg-[#D4E6D8] rounded-xl p-6 flex justify-between items-center card-shadow">
+        <section className={`${riskColor} rounded-xl p-6 flex justify-between items-center card-shadow`}>
           <div className="space-y-3">
             <div className="inline-flex items-center px-3 py-1 bg-primary text-white rounded-full font-label-sm text-[10px]">
-              LOW RISK
+              {riskLabel}
             </div>
             <div>
               <h3 className="font-label-sm text-primary uppercase opacity-60">Your risk level</h3>
@@ -54,12 +81,12 @@ const PatientDashboard = () => {
 
         {/* Pregnancy Progress Card */}
         <section className="bg-surface-container-lowest rounded-xl p-6 card-shadow border border-surface-container">
-          <h3 className="font-headline-md text-body-lg text-primary mb-6">Week 12 of 40</h3>
+          <h3 className="font-headline-md text-body-lg text-primary mb-6">Week {weeks} of 40</h3>
           <div className="relative pt-1">
             <div className="overflow-hidden h-2 mb-8 text-xs flex rounded-full bg-surface-container">
               <div
                 className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"
-                style={{ width: '30%' }}
+                style={{ width: `${Math.round((weeks / 40) * 100)}%` }}
               ></div>
             </div>
             <div className="flex justify-between relative">
@@ -69,12 +96,12 @@ const PatientDashboard = () => {
                   Week 1<br />Start
                 </p>
               </div>
-              <div className="text-center absolute left-[30%] -translate-x-1/2">
+              <div className="text-center absolute -translate-x-1/2" style={{ left: `${Math.round((weeks / 40) * 100)}%` }}>
                 <div className="w-5 h-5 bg-primary rounded-full mx-auto mb-1 flex items-center justify-center ring-4 ring-secondary/20">
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
                 <p className="text-[10px] font-label-sm text-primary">
-                  Week 12<br />You are here
+                  Week {weeks}<br />You are here
                 </p>
               </div>
               <div className="text-center">
@@ -95,12 +122,17 @@ const PatientDashboard = () => {
             </div>
             <div>
               <h3 className="font-label-sm text-outline uppercase mb-1">Next Appointment</h3>
-              <p className="font-headline-md text-lg text-primary">Tuesday, 14 May · 10:30 AM</p>
+              <p className="font-headline-md text-lg text-primary">
+                {nextAppt?.date
+                  ? new Date(nextAppt.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }) +
+                    (nextAppt.time ? ` · ${nextAppt.time}` : '')
+                  : 'Tuesday, 14 May · 10:30 AM'}
+              </p>
             </div>
           </div>
           <div className="space-y-1 mb-6 pl-16">
-            <p className="font-body-md text-on-surface">Dr. Adaeze Nwankwo</p>
-            <p className="font-body-md text-on-surface-variant text-sm">ANC Clinic B, UBTH</p>
+            <p className="font-body-md text-on-surface">{nextAppt?.doctor || 'Dr. Adaeze Nwankwo'}</p>
+            <p className="font-body-md text-on-surface-variant text-sm">{nextAppt?.location || 'ANC Clinic B, UBTH'}</p>
           </div>
           <div className="flex gap-3 pl-16">
             <button className="px-4 py-2 border border-outline rounded-lg text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors">
@@ -116,11 +148,11 @@ const PatientDashboard = () => {
         <section className="bg-primary rounded-xl p-6 card-shadow relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-white/70 font-label-sm text-xs mb-2">
-              <span>Week 12 tip</span>
+              <span>Week {weeks} tip</span>
               <span className="material-symbols-outlined text-xs">menu_book</span>
             </div>
             <h3 className="font-headline-md text-xl text-white mb-4 max-w-[200px]">
-              What happens to your body this week?
+              {eduModule?.title || 'What happens to your body this week?'}
             </h3>
             <button onClick={() => navigate('/education')} className="text-white font-label-sm text-sm underline underline-offset-4">
               Read full article

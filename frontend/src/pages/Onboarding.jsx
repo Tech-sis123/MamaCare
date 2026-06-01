@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { upsertProfile, addPregnancy, saveIntake, submitIntake } from '../lib/api';
+import { getPatientId, isPatientAuthenticated } from '../lib/auth';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -204,13 +206,125 @@ const IntakeQuestionnaire = () => {
     return true;
   };
 
-  const handleNext = () => {
+  const buildIntakePayload = (s) => {
+    switch (s) {
+      case 3:
+        return {
+          domain: 'obstetric',
+          responses: [
+            { question_key: 'gravidity', answer: String(answers.gravida ?? '') },
+            { question_key: 'parity', answer: String(answers.para ?? '') },
+            { question_key: 'last_birth_year', answer: answers.lastBirthYear || '' },
+            { question_key: 'twins', answer: answers.twins ? 'yes' : 'no' },
+            { question_key: 'miscarriage', answer: answers.miscarriage ? 'yes' : 'no' },
+          ],
+        };
+      case 4:
+        return {
+          domain: 'gynae',
+          responses: [
+            { question_key: 'menarche_age', answer: answers.menarche || '' },
+            { question_key: 'cycle_days', answer: answers.cycleDays || '' },
+            { question_key: 'flow_days', answer: answers.flowDays || '' },
+            { question_key: 'heavy_bleeding', answer: answers.heavyBleeding ? 'yes' : 'no' },
+            { question_key: 'dysmenorrhea', answer: answers.dysmenorrhea ? 'yes' : 'no' },
+            { question_key: 'contraceptive_used', answer: answers.contraceptiveUsed ? 'yes' : 'no' },
+            { question_key: 'contraceptive_type', answer: answers.contraceptiveType || '' },
+          ],
+        };
+      case 5:
+        return {
+          domain: 'symptoms',
+          responses: answers.symptoms
+            .filter(s => s !== 'none')
+            .map(s => ({ question_key: s, answer: 'yes' })),
+        };
+      case 6:
+        return {
+          domain: 'medical',
+          responses: [
+            ...answers.conditions.filter(c => c !== 'none').map(c => ({ question_key: c, answer: 'yes' })),
+            { question_key: 'blood_transfusion', answer: answers.bloodTransfusion ? 'yes' : 'no' },
+            { question_key: 'surgery', answer: answers.surgery ? 'yes' : 'no' },
+            { question_key: 'surgery_details', answer: answers.surgeryDetails || '' },
+            { question_key: 'drug_allergies', answer: answers.drugAllergies || 'none' },
+            { question_key: 'food_allergies', answer: answers.foodAllergies || 'none' },
+            { question_key: 'medications', answer: answers.medications || 'none' },
+          ],
+        };
+      case 7:
+        return {
+          domain: 'social',
+          responses: [
+            { question_key: 'patient_smokes', answer: answers.patientSmokes ? 'yes' : 'no' },
+            { question_key: 'patient_drinks', answer: answers.patientDrinks ? 'yes' : 'no' },
+            { question_key: 'husband_occupation', answer: answers.husbandOccupation || '' },
+            { question_key: 'husband_smokes', answer: answers.husbandSmokes ? 'yes' : 'no' },
+            { question_key: 'husband_drinks', answer: answers.husbandDrinks ? 'yes' : 'no' },
+          ],
+        };
+      default:
+        return null;
+    }
+  };
+
+  const handleNext = async () => {
+    const patientId = getPatientId();
+
     if (step < STEPS.length - 1) {
+      // Fire-and-forget saves — don't block the user
+      if (step === 0 && patientId) {
+        upsertProfile({
+          name: answers.name,
+          age: Number(answers.age) || undefined,
+          education_level: answers.education?.toLowerCase() || undefined,
+          occupation: answers.occupation || undefined,
+          marital_status: answers.marital?.toLowerCase() || undefined,
+          address: answers.state || undefined,
+          religion: answers.religion?.toLowerCase() || undefined,
+          ethnicity: answers.ethnicity || undefined,
+        }).catch(() => {});
+      }
+
+      if (step === 2 && patientId) {
+        addPregnancy({
+          lmp_date: answers.lmp ? new Date(answers.lmp).toISOString() : undefined,
+          blood_group: answers.bloodType || undefined,
+          genotype: answers.genotype || undefined,
+          booking_weight: Number(answers.bookingWeight) || undefined,
+          booking_height: Number(answers.bookingHeight) || undefined,
+          booking_bp_systolic: Number(answers.bpSystolic) || undefined,
+          booking_bp_diastolic: Number(answers.bpDiastolic) || undefined,
+          rvd_status: answers.hiv === 'non_reactive' ? 'negative' : answers.hiv === 'reactive' ? 'positive' : 'unknown',
+          vdrl: answers.vdrl === 'non_reactive' ? 'non-reactive' : answers.vdrl === 'reactive' ? 'reactive' : 'unknown',
+          pcv: Number(answers.pcv) || undefined,
+          hep_b: answers.hepB?.toLowerCase() || undefined,
+          tetanus_history: answers.tetanus || undefined,
+          gravidity: typeof answers.gravida === 'number' ? answers.gravida : undefined,
+          parity: typeof answers.para === 'number' ? answers.para : undefined,
+        }).catch(() => {});
+      }
+
+      if (step >= 3 && patientId) {
+        const payload = buildIntakePayload(step);
+        if (payload) saveIntake(patientId, payload.domain, payload.responses).catch(() => {});
+      }
+
       setStep(s => s + 1);
       setShowDangerBanner(false);
       window.scrollTo(0, 0);
     } else {
       setLoading(true);
+      let riskTier = null;
+      if (patientId) {
+        const payload = buildIntakePayload(step);
+        if (payload) await saveIntake(patientId, payload.domain, payload.responses).catch(() => {});
+        try {
+          const { data } = await submitIntake(patientId);
+          riskTier = data?.risk_tier || data?.tier || data?.risk || null;
+        } catch {}
+      }
+      if (riskTier && typeof riskTier === 'string') localStorage.setItem('mc_risk_tier', riskTier.toUpperCase());
       setTimeout(() => navigate('/risk-result'), 2800);
     }
   };

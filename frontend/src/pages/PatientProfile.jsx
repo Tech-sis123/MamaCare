@@ -1,10 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getPatientMe } from '../lib/api';
+import { getPatientData, clearPatientAuth } from '../lib/auth';
 
 const PatientProfile = () => {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [lang, setLang] = useState('EN');
+  const [patient, setPatient] = useState(getPatientData());
+
+  useEffect(() => {
+    getPatientMe()
+      .then(r => setPatient(r.data))
+      .catch(() => {});
+  }, []);
+
+  const handleSignOut = () => {
+    clearPatientAuth();
+    navigate('/');
+  };
+
+  const pregnancy = patient?.pregnancy_record || patient?.latest_pregnancy;
+  const weeks = pregnancy?.gestational_age?.weeks ?? 12;
+  const edd = pregnancy?.edd ? new Date(pregnancy.edd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nov 12, 2025';
+  const riskTier = patient?.risk_tier || 'Low Risk';
+  const progress = Math.round((weeks / 40) * 100);
 
   const InfoRow = ({ label, value, icon }) => (
     <div className="flex items-center justify-between py-4 border-b border-outline-variant/20 last:border-0">
@@ -43,8 +63,10 @@ const PatientProfile = () => {
             <span className="font-headline-md text-primary text-3xl">ME</span>
           </div>
           <div className="text-center">
-            <h2 className="font-headline-md text-primary text-xl">Mama Efe</h2>
-            <p className="font-body-md text-on-surface-variant text-sm mt-1">Patient ID: MCA-2025-0047</p>
+            <h2 className="font-headline-md text-primary text-xl">{patient?.name || 'Patient'}</h2>
+            <p className="font-body-md text-on-surface-variant text-sm mt-1">
+              Phone: {patient?.phone_number || '—'}
+            </p>
             <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 bg-tertiary-fixed rounded-full">
               <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               <span className="font-label-sm text-primary text-xs">UBTH Verified Patient</span>
@@ -58,14 +80,16 @@ const PatientProfile = () => {
             <span className="material-symbols-outlined text-[80px]">pregnant_woman</span>
           </div>
           <p className="font-label-sm text-xs uppercase tracking-widest opacity-70 mb-2">Current Pregnancy</p>
-          <h3 className="font-headline-md text-2xl mb-1">Week 12 of 40</h3>
-          <p className="font-body-md text-white/80 text-sm">First Trimester · Low Risk</p>
+          <h3 className="font-headline-md text-2xl mb-1">Week {weeks} of 40</h3>
+          <p className="font-body-md text-white/80 text-sm">
+            {weeks <= 12 ? 'First' : weeks <= 27 ? 'Second' : 'Third'} Trimester · {riskTier}
+          </p>
           <div className="mt-4 bg-white/10 rounded-full h-1.5">
-            <div className="bg-white/80 h-1.5 rounded-full" style={{ width: '30%' }} />
+            <div className="bg-white/80 h-1.5 rounded-full" style={{ width: `${progress}%` }} />
           </div>
           <div className="flex justify-between mt-2">
             <span className="font-label-sm text-[10px] opacity-60">Week 1</span>
-            <span className="font-label-sm text-[10px] opacity-90">EDD: Nov 12, 2025</span>
+            <span className="font-label-sm text-[10px] opacity-90">EDD: {edd}</span>
           </div>
         </section>
 
@@ -75,12 +99,12 @@ const PatientProfile = () => {
             <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">Personal Information</p>
           </div>
           <div className="px-6">
-            <InfoRow label="Full Name"    value="Efemena Okoye"        icon="person" />
-            <InfoRow label="Date of Birth" value="March 14, 2000"      icon="cake" />
-            <InfoRow label="Age"           value="25 years"            icon="today" />
-            <InfoRow label="Phone"         value="+234 801 234 5678"   icon="phone" />
-            <InfoRow label="Language"      value={lang}                icon="translate" />
-            <InfoRow label="State"         value="Edo State, Nigeria"  icon="location_on" />
+            <InfoRow label="Full Name"    value={patient?.name || '—'}                             icon="person" />
+            <InfoRow label="Age"           value={patient?.age ? `${patient.age} years` : '—'}      icon="today" />
+            <InfoRow label="Phone"         value={patient?.phone_number || '—'}                     icon="phone" />
+            <InfoRow label="Language"      value={lang}                                              icon="translate" />
+            <InfoRow label="Address"       value={patient?.address || '—'}                          icon="location_on" />
+            <InfoRow label="Occupation"    value={patient?.occupation || '—'}                       icon="work" />
           </div>
         </section>
 
@@ -90,11 +114,9 @@ const PatientProfile = () => {
             <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">Health Profile</p>
           </div>
           <div className="px-6">
-            <InfoRow label="Blood Type"    value="O+"           icon="bloodtype" />
-            <InfoRow label="Genotype"      value="AA"           icon="genetics" />
-            <InfoRow label="Allergies"     value="None known"   icon="warning" />
-            <InfoRow label="Risk Level"    value="Low Risk ✓"   icon="analytics" />
-            <InfoRow label="Last Assessed" value="Today"        icon="schedule" />
+            <InfoRow label="Blood Group"   value={pregnancy?.blood_group || patient?.blood_group || '—'}  icon="bloodtype" />
+            <InfoRow label="Genotype"      value={pregnancy?.genotype || patient?.genotype || '—'}         icon="genetics" />
+            <InfoRow label="Risk Level"    value={riskTier}                                                icon="analytics" />
           </div>
         </section>
 
@@ -158,7 +180,10 @@ const PatientProfile = () => {
             <span className="material-symbols-outlined text-outline group-hover:text-primary transition-colors">chevron_right</span>
           </button>
 
-          <button className="w-full flex items-center gap-3 p-4 bg-white rounded-xl card-shadow border border-outline-variant/30 hover:border-secondary/20 transition-all group text-secondary">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 p-4 bg-white rounded-xl card-shadow border border-outline-variant/30 hover:border-secondary/20 transition-all group text-secondary"
+          >
             <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
               <span className="material-symbols-outlined text-secondary text-lg">logout</span>
             </div>

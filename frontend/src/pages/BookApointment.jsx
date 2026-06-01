@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { bookAppointment } from '../lib/api';
+
+const buildSlotStart = (day, timeStr) => {
+  const [timePart, period] = timeStr.split(' ');
+  let [h, m] = timePart.split(':').map(Number);
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), day, h, m).toISOString();
+};
 
 const BookAppointment = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(15);
   const [selectedTime, setSelectedTime] = useState('10:30 AM');
   const [showSuccess, setShowSuccess] = useState(false);
   const [reminderMethod, setReminderMethod] = useState('SMS');
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [bookingRef, setBookingRef] = useState('');
 
   const dates = [
     { day: 29, enabled: false, currentMonth: false },
@@ -43,8 +57,20 @@ const BookAppointment = () => {
     { time: '04:00 PM', available: true, full: false },
   ];
 
-  const handleConfirmAppointment = () => {
-    setShowSuccess(true);
+  const handleConfirmAppointment = async () => {
+    setLoading(true);
+    setApiError('');
+    try {
+      const slot_start = buildSlotStart(selectedDate, selectedTime);
+      const doctor_id = location.state?.doctor_id || undefined;
+      const { data } = await bookAppointment(doctor_id, slot_start);
+      setBookingRef(data?.id || data?.reference || '');
+      setShowSuccess(true);
+    } catch (err) {
+      setApiError(err.response?.data?.message || 'Failed to book appointment. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddToCalendar = () => {
@@ -231,12 +257,16 @@ const BookAppointment = () => {
               </div>
             </div>
           </div>
+          {apiError && (
+            <p className="text-secondary font-label-sm text-sm text-center">{apiError}</p>
+          )}
           <button
             onClick={handleConfirmAppointment}
-            className="w-full bg-primary text-on-primary font-headline-md text-xl py-6 rounded-xl shadow-xl hover:bg-primary/95 transition-all flex items-center justify-center gap-3 active:scale-95"
+            disabled={loading}
+            className="w-full bg-primary text-on-primary font-headline-md text-xl py-6 rounded-xl shadow-xl hover:bg-primary/95 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-60"
           >
-            Confirm appointment
-            <span className="material-symbols-outlined">arrow_forward</span>
+            {loading ? 'Booking…' : 'Confirm appointment'}
+            {!loading && <span className="material-symbols-outlined">arrow_forward</span>}
           </button>
         </section>
       </main>
@@ -254,7 +284,9 @@ const BookAppointment = () => {
             </div>
             <div className="bg-surface-container py-4 px-6 rounded-2xl border border-outline-variant/30">
               <p className="text-label-sm font-label-sm text-outline uppercase mb-1">Reference Number</p>
-              <p className="font-mono text-lg font-bold text-tertiary tracking-widest">MCA-20250515-0047</p>
+              <p className="font-mono text-lg font-bold text-tertiary tracking-widest">
+                {bookingRef || 'MCA-' + Date.now().toString().slice(-8)}
+              </p>
             </div>
             <div className="grid grid-cols-1 gap-4">
               <button

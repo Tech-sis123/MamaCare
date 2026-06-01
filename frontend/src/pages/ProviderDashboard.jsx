@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { doctorLogin as apiDoctorLogin, searchPatients, acknowledgeAlert } from '../lib/api';
+import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 
 // ── Mock data ────────────────────────────────────────────────────
 const PATIENTS = [
@@ -70,7 +72,7 @@ const PROVIDER_PROFILE = {
 
 // ── Sub-views ────────────────────────────────────────────────────
 
-const QueueView = ({ navigate }) => {
+const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
   const [filter, setFilter] = useState('All');
   const filters = ['All', 'HIGH', 'MEDIUM', 'LOW', 'Done'];
   const filtered = PATIENTS.filter(p => {
@@ -82,16 +84,22 @@ const QueueView = ({ navigate }) => {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      <div className="fixed top-24 right-10 z-[60] bg-secondary text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 border border-secondary/50 animate-slide-up">
-        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-        <div>
-          <p className="font-label-sm text-xs uppercase tracking-wide">Critical Alert</p>
-          <p className="font-body-md font-bold text-sm">New high-risk alert — Ngozi Okonkwo</p>
-        </div>
-        <button className="ml-2 text-white/60 hover:text-white">
-          <span className="material-symbols-outlined text-sm">close</span>
-        </button>
+      {/* SSE alert toasts */}
+      <div className="fixed top-24 right-6 z-[60] flex flex-col gap-3 max-w-sm w-full">
+        {(sseAlerts || []).map((alert, i) => (
+          <div key={alert.id || i} className="bg-secondary text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 border border-secondary/50 animate-slide-up">
+            <span className="material-symbols-outlined flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-label-sm text-xs uppercase tracking-wide">Critical Alert</p>
+              <p className="font-body-md font-bold text-sm truncate">
+                {alert.patient_name || alert.message || 'New high-risk alert'}
+              </p>
+            </div>
+            <button onClick={() => onDismiss(alert)} className="ml-1 text-white/60 hover:text-white shrink-0">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* Urgent banner */}
@@ -179,7 +187,7 @@ const QueueView = ({ navigate }) => {
                 </span>
                 {p.status !== 'DONE' && (
                   <button
-                    onClick={() => navigate('/provider/patient')}
+                    onClick={() => navigate('/provider/patient', { state: { patient: p } })}
                     className="bg-primary text-white px-5 py-2 rounded-lg font-label-sm text-xs hover:bg-primary-container transition-all flex items-center gap-1"
                   >
                     View
@@ -278,7 +286,40 @@ const MetricsView = () => {
 const PatientsView = ({ navigate }) => {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
-  const filtered = PATIENTS.filter(p => {
+  const [apiResults, setApiResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    if (!search.trim()) { setApiResults(null); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const { data } = await searchPatients(search);
+        setApiResults(Array.isArray(data) ? data : data?.patients || []);
+      } catch {
+        setApiResults(null);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const baseList = apiResults
+    ? apiResults.map(p => ({
+        id: p.id,
+        name: p.name || '—',
+        age: p.age || '—',
+        weeks: p.gestational_age?.weeks || '—',
+        risk: (p.risk_tier || 'LOW').toUpperCase(),
+        flags: p.flags || [],
+        time: '',
+        status: 'QUEUED',
+        initials: (p.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+      }))
+    : PATIENTS;
+
+  const filtered = baseList.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchRisk   = riskFilter === 'All' || p.risk === riskFilter;
     return matchSearch && matchRisk;
@@ -317,7 +358,10 @@ const PatientsView = ({ navigate }) => {
 
       {/* Patient cards */}
       <div className="space-y-3">
-        {filtered.length === 0 && (
+        {searching && (
+          <div className="text-center py-8 text-on-surface-variant font-body-md text-sm">Searching…</div>
+        )}
+        {!searching && filtered.length === 0 && (
           <div className="text-center py-16 text-on-surface-variant">
             <span className="material-symbols-outlined text-4xl block mb-2">person_search</span>
             <p className="font-body-md">No patients found</p>
@@ -328,7 +372,7 @@ const PatientsView = ({ navigate }) => {
           return (
             <button
               key={p.id}
-              onClick={() => navigate('/provider/patient')}
+              onClick={() => navigate('/provider/patient', { state: { patient: p } })}
               className="w-full text-left group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20"
             >
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${rc.bar} rounded-l-xl`} />
@@ -396,16 +440,19 @@ const ResourcesView = () => (
   </div>
 );
 
-const ProfileView = () => (
+const ProfileView = ({ doctor }) => {
+  const d = doctor || PROVIDER_PROFILE;
+  const initials = (d.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  return (
   <div className="space-y-6 animate-fade-in">
     <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
       <div>
         <h2 className="font-headline-lg text-amber-900 text-2xl">Provider Profile</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">Mock profile for dashboard preview and internal testing</p>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Maternal Health Portal</p>
       </div>
       <div className="flex items-center gap-2 text-xs font-label-sm text-primary bg-primary/10 px-3 py-2 rounded-full w-fit">
         <span className="w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
-        {PROVIDER_PROFILE.status}
+        Active today
       </div>
     </div>
 
@@ -414,22 +461,17 @@ const ProfileView = () => (
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-primary/10 pointer-events-none" />
         <div className="relative flex flex-col md:flex-row md:items-center gap-6">
           <div className="w-24 h-24 rounded-3xl bg-amber-900/50 flex items-center justify-center shrink-0 border border-amber-400/20">
-            <span className="font-headline-lg text-3xl text-white">{PROVIDER_PROFILE.initials}</span>
+            <span className="font-headline-lg text-3xl text-white">{initials}</span>
           </div>
           <div className="flex-1">
             <p className="text-amber-300/70 text-xs uppercase tracking-[0.24em] font-label-sm">Clinical profile</p>
-            <h3 className="font-headline-lg text-3xl mt-2">{PROVIDER_PROFILE.name}</h3>
-            <p className="text-amber-100/80 mt-1">{PROVIDER_PROFILE.title}</p>
+            <h3 className="font-headline-lg text-3xl mt-2">{d.name}</h3>
+            <p className="text-amber-100/80 mt-1">{d.title || 'Obstetrician · UBTH'}</p>
             <div className="flex flex-wrap gap-2 mt-4">
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{PROVIDER_PROFILE.department}</span>
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{PROVIDER_PROFILE.hospital}</span>
-              <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">{PROVIDER_PROFILE.status}</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{d.department || 'Obstetrics & Gynaecology'}</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{d.hospital || 'UBTH'}</span>
+              <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">{d.role || 'doctor'}</span>
             </div>
-          </div>
-          <div className="bg-white/10 rounded-2xl border border-white/10 p-4 min-w-[220px]">
-            <p className="text-xs uppercase tracking-[0.2em] text-amber-300/70 font-label-sm">Current shift</p>
-            <p className="text-xl font-headline-md mt-2">{PROVIDER_PROFILE.shift}</p>
-            <p className="text-sm text-amber-100/70 mt-1">{PROVIDER_PROFILE.location}</p>
           </div>
         </div>
 
@@ -448,10 +490,10 @@ const ProfileView = () => (
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Contact</p>
           <div className="mt-4 space-y-3">
             {[
-              { icon: 'mail', label: 'Email', value: PROVIDER_PROFILE.email },
-              { icon: 'call', label: 'Phone', value: PROVIDER_PROFILE.phone },
-              { icon: 'location_on', label: 'Location', value: PROVIDER_PROFILE.location },
-              { icon: 'badge', label: 'License', value: PROVIDER_PROFILE.license },
+              { icon: 'mail',        label: 'Email',    value: d.email || '—' },
+              { icon: 'call',        label: 'Phone',    value: d.phone || PROVIDER_PROFILE.phone },
+              { icon: 'location_on', label: 'Location', value: d.location || PROVIDER_PROFILE.location },
+              { icon: 'badge',       label: 'License',  value: d.license || PROVIDER_PROFILE.license },
             ].map(item => (
               <div key={item.label} className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -523,9 +565,10 @@ const ProfileView = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
-const SettingsView = ({ onEditProfile }) => {
+const SettingsView = ({ onEditProfile, onSignOut }) => {
   const [notifSMS, setNotifSMS]         = useState(true);
   const [notifWhatsApp, setNotifWhatsApp] = useState(true);
   const [notifEmail, setNotifEmail]     = useState(false);
@@ -612,10 +655,74 @@ const SettingsView = ({ onEditProfile }) => {
         </div>
       </div>
 
-      <button className="text-secondary font-label-sm text-sm flex items-center gap-2 hover:underline">
+      <button onClick={onSignOut} className="text-secondary font-label-sm text-sm flex items-center gap-2 hover:underline">
         <span className="material-symbols-outlined text-sm">logout</span>
         Sign out
       </button>
+    </div>
+  );
+};
+
+// ── Doctor Login ─────────────────────────────────────────────────
+const DoctorLoginScreen = ({ onLogin }) => {
+  const [email, setEmail] = useState('dr.adaeze@ubth.ng');
+  const [password, setPassword] = useState('mamacare123');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await apiDoctorLogin(email, password);
+      setDoctorAuth(data.access_token, data.refresh_token, data.doctor);
+      onLogin(data.doctor);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#1A1A18] flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl">
+        <div className="mb-8">
+          <h1 className="font-headline-lg text-amber-900 text-2xl mb-1">UBTH Provider Portal</h1>
+          <p className="font-body-md text-on-surface-variant text-sm">Sign in to access patient care dashboard</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+              required
+            />
+          </div>
+          <div>
+            <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+              required
+            />
+          </div>
+          {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60"
+          >
+            {loading ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -632,8 +739,53 @@ const NAV_ITEMS = [
 
 const ProviderDashboard = () => {
   const navigate = useNavigate();
+  const [loggedIn, setLoggedIn] = useState(isDoctorAuthenticated());
+  const [doctor, setDoctor] = useState(getDoctorData());
   const [activeView, setActiveView] = useState('queue');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sseAlerts, setSseAlerts] = useState([]);
+  const sseRef = useRef(null);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    const token = localStorage.getItem('mc_doctor_token');
+    if (!token) return;
+    const es = new EventSource(
+      `https://mamacare-api.onrender.com/alerts/subscribe?token=${token}`
+    );
+    es.onmessage = (e) => {
+      try {
+        const alert = JSON.parse(e.data);
+        setSseAlerts(prev => [alert, ...prev].slice(0, 5));
+      } catch {}
+    };
+    sseRef.current = es;
+    return () => es.close();
+  }, [loggedIn]);
+
+  const handleDoctorLogin = (doc) => {
+    setDoctor(doc);
+    setLoggedIn(true);
+  };
+
+  const handleDismissAlert = (alert) => {
+    if (alert.id) acknowledgeAlert(alert.id).catch(() => {});
+    setSseAlerts(prev => prev.filter(a => a !== alert));
+  };
+
+  const handleSignOut = () => {
+    clearDoctorAuth();
+    if (sseRef.current) sseRef.current.close();
+    setLoggedIn(false);
+    setDoctor(null);
+  };
+
+  if (!loggedIn) {
+    return <DoctorLoginScreen onLogin={handleDoctorLogin} />;
+  }
+
+  const doctorInitials = (doctor?.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const doctorShortName = doctor?.name?.split(' ').slice(0, 2).join(' ') || 'Doctor';
 
   const VIEWS = {
     queue: QueueView,
@@ -683,15 +835,22 @@ const ProviderDashboard = () => {
           ))}
         </nav>
         <div className="mt-auto pt-6 border-t border-amber-900/40">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-lg bg-amber-900/50 flex items-center justify-center flex-shrink-0">
-              <span className="font-bold text-white text-sm">DO</span>
+              <span className="font-bold text-white text-sm">{doctorInitials}</span>
             </div>
             <div>
-              <p className="text-white font-medium text-sm">Dr. Osagie</p>
+              <p className="text-white font-medium text-sm">{doctorShortName}</p>
               <p className="text-amber-500/60 text-xs">Obstetrician · UBTH</p>
             </div>
           </div>
+          <button
+            onClick={handleSignOut}
+            className="text-amber-200/50 hover:text-white font-label-sm text-xs flex items-center gap-2 transition-colors"
+          >
+            <span className="material-symbols-outlined text-sm">logout</span>
+            Sign out
+          </button>
         </div>
       </aside>
 
@@ -740,17 +899,28 @@ const ProviderDashboard = () => {
           <div className="flex items-center gap-4">
             <div className="relative">
               <span className="material-symbols-outlined text-amber-900 cursor-pointer p-2 hover:bg-amber-50 rounded-full transition-all">notifications</span>
-              <span className="absolute top-2 right-2 w-2 h-2 bg-secondary rounded-full border-2 border-[#F7F3ED] animate-pulse-dot" />
+              {sseAlerts.length > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-secondary rounded-full text-white text-[9px] font-bold flex items-center justify-center border border-[#F7F3ED]">
+                  {sseAlerts.length}
+                </span>
+              )}
             </div>
-            <button onClick={() => navigate('/')} className="hidden md:flex items-center gap-2 text-sm font-label-sm text-on-surface-variant hover:text-primary transition-colors">
+            <button onClick={handleSignOut} className="hidden md:flex items-center gap-2 text-sm font-label-sm text-on-surface-variant hover:text-primary transition-colors">
               <span className="material-symbols-outlined text-sm">logout</span>
-              Exit
+              Sign out
             </button>
           </div>
         </header>
 
         <div className="max-w-[1100px] mx-auto p-6 lg:p-10">
-          <ActiveView navigate={navigate} onEditProfile={() => setActiveView('profile')} />
+          <ActiveView
+            navigate={navigate}
+            onEditProfile={() => setActiveView('profile')}
+            onSignOut={handleSignOut}
+            sseAlerts={sseAlerts}
+            onDismiss={handleDismissAlert}
+            doctor={doctor}
+          />
         </div>
       </main>
 

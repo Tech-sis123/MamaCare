@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const RISK_CONFIG = {
@@ -67,7 +67,8 @@ const RISK_CONFIG = {
 
 const RiskAssessmentResult = () => {
   const navigate = useNavigate();
-  const [riskLevel, setRiskLevel] = useState('HIGH');
+  const stored = localStorage.getItem('mc_risk_tier');
+  const riskLevel = ['HIGH', 'MEDIUM', 'LOW'].includes(stored) ? stored : 'LOW';
   const cfg = RISK_CONFIG[riskLevel];
 
   const factorStyles = {
@@ -228,25 +229,6 @@ const RiskAssessmentResult = () => {
         </div>
       </div>
 
-      {/* Demo State Switcher */}
-      <div className="fixed bottom-52 right-5 z-[100] flex flex-col gap-2 bg-white/95 backdrop-blur p-3 rounded-xl shadow-lg border border-outline-variant">
-        <p className="text-[9px] font-bold text-center text-outline uppercase tracking-wide">Demo</p>
-        {['HIGH', 'MEDIUM', 'LOW'].map(level => (
-          <button
-            key={level}
-            onClick={() => setRiskLevel(level)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              riskLevel === level
-                ? level === 'HIGH'   ? 'bg-secondary text-white'
-                : level === 'MEDIUM' ? 'bg-amber-500 text-white'
-                : 'bg-primary text-white'
-                : 'bg-surface-container text-outline hover:bg-surface-container-high'
-            }`}
-          >
-            {level}
-          </button>
-        ))}
-      </div>
     </div>
   );
 };

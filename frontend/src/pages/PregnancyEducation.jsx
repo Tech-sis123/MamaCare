@@ -1,8 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getEducationModules } from '../lib/api';
+
+const TYPE_STYLE = {
+  video:   { icon: 'play_circle',  bg: 'bg-primary-fixed-dim', color: 'text-primary-container', border: 'border-tertiary-fixed' },
+  audio:   { icon: 'music_note',   bg: 'bg-tertiary-fixed',    color: 'text-primary-container', border: 'border-primary/20' },
+  article: { icon: 'description',  bg: 'bg-surface-container', color: 'text-on-surface-variant', border: 'border-transparent' },
+};
+
+const getTypeStyle = type => TYPE_STYLE[(type || '').toLowerCase()] || TYPE_STYLE.article;
+
+const STATIC_MODULES = [
+  { id: 'baby-growth',        type: 'video',   title: "Understanding Baby's Growth",    description: "Week 12 · 8 min · Your baby is now the size of a lime.", completed: true,  recommended: true },
+  { id: 'mindful-breathing',  type: 'audio',   title: 'Mindful Breathing for Relief',  description: 'Simple exercises for managing morning sickness.',         completed: true,  recommended: false },
+  { id: 'nutrition-iron-zinc',type: 'article', title: 'Nutrition Essentials: Iron & Zinc', description: 'Best local foods to boost your energy levels.',        completed: false, recommended: false },
+  { id: 'first-scan',         type: 'video',   title: 'First Scan: What to Expect',    description: 'A guide to your first ultrasound at UBTH.',               completed: false, recommended: false },
+];
 
 const PregnancyEducation = () => {
   const navigate = useNavigate();
+  const [modules, setModules] = useState([]);
+  const [modulesLoading, setModulesLoading] = useState(true);
+
+  useEffect(() => {
+    getEducationModules()
+      .then(r => {
+        const data = Array.isArray(r.data) ? r.data : r.data?.modules || [];
+        if (data.length > 0) setModules(data);
+      })
+      .catch(() => {})
+      .finally(() => setModulesLoading(false));
+  }, []);
+
+  const displayModules = modules.length > 0 ? modules : STATIC_MODULES;
+
   return (
     <div className="font-body-md text-on-surface min-h-screen">
       {/* Grain overlay */}
@@ -88,108 +119,57 @@ const PregnancyEducation = () => {
 
           {/* MODULE CARDS */}
           <div className="px-6 space-y-4">
-            {/* CARD 1: VIDEO (Recommended) */}
-            <div onClick={() => navigate('/education/baby-growth')} className="bg-surface-container-lowest rounded-[10px] organic-shadow overflow-hidden flex border-l-4 border-tertiary-fixed relative group cursor-pointer">
-              <div className="p-4 flex gap-4 w-full">
-                <div className="w-16 h-16 bg-primary-fixed-dim rounded-lg flex items-center justify-center text-primary-container shrink-0">
-                  <span className="material-symbols-outlined text-3xl">play_circle</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="bg-tertiary-fixed text-primary px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter">
-                      Recommended
-                    </span>
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">• Video</span>
-                  </div>
-                  <h3 className="font-bold text-body-lg text-on-surface truncate">
-                    Understanding Baby's Growth
-                  </h3>
-                  <p className="text-on-surface-variant text-sm truncate">
-                    Week 12 · 8 min · Your baby is now the size of a lime.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center shrink-0 w-8">
-                  <span className="material-symbols-outlined text-outline-variant">cloud_download</span>
-                </div>
+            {modulesLoading && (
+              <div className="flex justify-center py-8">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               </div>
-            </div>
-
-            {/* CARD 2: AUDIO */}
-            <div onClick={() => navigate('/education/mindful-breathing')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
-              <div className="p-4 flex gap-4 w-full">
-                <div className="w-16 h-16 bg-tertiary-fixed rounded-lg flex items-center justify-center text-primary-container shrink-0">
-                  <span className="material-symbols-outlined text-3xl">music_note</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">Audio</span>
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">• 12 min</span>
+            )}
+            {!modulesLoading && displayModules.map((mod, idx) => {
+              const ts = getTypeStyle(mod.type || mod.content_type);
+              const isRecommended = mod.recommended || mod.is_recommended || mod.is_pinned || idx === 0;
+              const isCompleted = mod.completed || mod.is_completed;
+              const typeLabel = (mod.type || mod.content_type || 'Article');
+              const duration = mod.duration || mod.estimated_duration || '';
+              const description = mod.description || mod.subtitle || '';
+              return (
+                <div
+                  key={mod.id}
+                  onClick={() => navigate(`/education/${mod.id}`)}
+                  className={`bg-surface-container-lowest rounded-[10px] organic-shadow overflow-hidden flex border-l-4 ${ts.border} relative group cursor-pointer`}
+                >
+                  <div className="p-4 flex gap-4 w-full">
+                    <div className={`w-16 h-16 ${ts.bg} rounded-lg flex items-center justify-center ${ts.color} shrink-0`}>
+                      <span className="material-symbols-outlined text-3xl">{ts.icon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {isRecommended && (
+                          <span className="bg-tertiary-fixed text-primary px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter">
+                            Recommended
+                          </span>
+                        )}
+                        <span className="text-on-surface-variant font-label-sm text-[10px] capitalize">
+                          {isRecommended ? '• ' : ''}{typeLabel}{duration ? ` · ${duration}` : ''}
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-body-lg text-on-surface truncate">{mod.title}</h3>
+                      {description && (
+                        <p className="text-on-surface-variant text-sm truncate">{description}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center shrink-0 w-8">
+                      {isCompleted ? (
+                        <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>
+                          check_circle
+                        </span>
+                      ) : (
+                        <span className="material-symbols-outlined text-outline-variant">circle</span>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="font-bold text-body-lg text-on-surface truncate">
-                    Mindful Breathing for Relief
-                  </h3>
-                  <p className="text-on-surface-variant text-sm truncate">
-                    Simple exercises for managing morning sickness.
-                  </p>
                 </div>
-                <div className="flex items-center justify-center shrink-0 w-8">
-                  <span
-                    className="material-symbols-outlined text-secondary"
-                    style={{ fontVariationSettings: "'FILL' 1" }}
-                  >
-                    check_circle
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 3: TEXT */}
-            <div onClick={() => navigate('/education/nutrition-iron-zinc')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
-              <div className="p-4 flex gap-4 w-full">
-                <div className="w-16 h-16 bg-surface-container rounded-lg flex items-center justify-center text-on-surface-variant shrink-0">
-                  <span className="material-symbols-outlined text-3xl">description</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">Article</span>
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">• 5 min read</span>
-                  </div>
-                  <h3 className="font-bold text-body-lg text-on-surface truncate">
-                    Nutrition Essentials: Iron &amp; Zinc
-                  </h3>
-                  <p className="text-on-surface-variant text-sm truncate">
-                    Best local foods to boost your energy levels.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center shrink-0 w-8">
-                  <span className="material-symbols-outlined text-outline-variant">circle</span>
-                </div>
-              </div>
-            </div>
-
-            {/* CARD 4: VIDEO */}
-            <div onClick={() => navigate('/education/first-scan')} className="bg-surface-container-lowest rounded-[10px] organic-shadow flex relative group cursor-pointer">
-              <div className="p-4 flex gap-4 w-full">
-                <div className="w-16 h-16 bg-primary-fixed-dim rounded-lg flex items-center justify-center text-primary-container shrink-0">
-                  <span className="material-symbols-outlined text-3xl">play_circle</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">Video</span>
-                    <span className="text-on-surface-variant font-label-sm text-[10px]">• 15 min</span>
-                  </div>
-                  <h3 className="font-bold text-body-lg text-on-surface truncate">
-                    First Scan: What to Expect
-                  </h3>
-                  <p className="text-on-surface-variant text-sm truncate">
-                    A guide to your first ultrasound at UBTH.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center shrink-0 w-8">
-                  <span className="material-symbols-outlined text-outline-variant">download_for_offline</span>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
 

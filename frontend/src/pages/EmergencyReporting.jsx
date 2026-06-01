@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { logSymptoms } from '../lib/api';
 
 const EmergencyReporting = () => {
   const navigate = useNavigate();
@@ -24,9 +25,25 @@ const EmergencyReporting = () => {
     }
   };
 
-  const handleSendAlert = () => {
+  const SYMPTOM_KEY_MAP = {
+    headache: 'severe_headache',
+    bleeding: 'bleeding',
+    swelling: 'swelling',
+    pain: 'epigastric_pain',
+    fever: 'fever',
+    movement: 'reduced_fetal_movement',
+  };
+
+  const handleSendAlert = async () => {
+    const symptoms = selectedSymptoms.map(id => ({
+      symptom_key: SYMPTOM_KEY_MAP[id] || id,
+      severity: 'severe',
+      notes: symptomsList.find(s => s.id === id)?.title || id,
+    }));
+
+    logSymptoms(symptoms).catch(() => {});
+
     setIsEmergencyActive(true);
-    // Start countdown timer
     const interval = setInterval(() => {
       setTimer((prev) => {
         if (prev <= 1) {

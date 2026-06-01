@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const controller_1 = require("./controller");
+const auth_1 = require("../../middleware/auth");
+const rbac_1 = require("../../middleware/rbac");
+const validate_1 = require("../../middleware/validate");
+const schemas_1 = require("./schemas");
+const router = (0, express_1.Router)();
+router.get('/risk-overview', auth_1.authenticate, (0, rbac_1.rbac)('department_head'), controller_1.adminController.riskOverview);
+router.get('/risk-overview/export', auth_1.authenticate, (0, rbac_1.rbac)('department_head'), controller_1.adminController.exportRiskOverview);
+router.post('/patients/:id/assign-doctor', auth_1.authenticate, (0, rbac_1.rbac)('department_head', 'admin'), (0, validate_1.validate)(schemas_1.assignDoctorSchema), controller_1.adminController.assignDoctor);
+exports.default = router;

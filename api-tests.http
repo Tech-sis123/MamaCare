@@ -1,0 +1,165 @@
+### MamaCare REST API Comprehensive Tests
+# To use in Postman: You can copy the JSON blocks directly into the raw Body of your Postman requests.
+# Or use the VS Code "REST Client" extension to click "Send Request" right here!
+
+@baseUrl = http://localhost:3000
+@phone_number = +2348012345678
+@admin_token = your_admin_jwt_here
+@patient_token = your_patient_jwt_here
+@doctor_token = your_doctor_jwt_here
+
+### =======================================
+### 1. AUTHENTICATION
+### =======================================
+
+### 1a. Patient Signup (Request OTP)
+POST {{baseUrl}}/auth/patient/otp/request
+Content-Type: application/json
+
+{
+  "phone_number": "+2347048413823"
+}
+
+### 1b. Patient Signup (Verify OTP)
+POST {{baseUrl}}/auth/patient/otp/verify
+Content-Type: application/json
+
+{
+ "pin_id": "d2c1456b-5fbd-4080-ba48-2819bbfd4906",
+  "code":"798978"
+  
+}
+
+### 1c. Doctor Login
+POST {{baseUrl}}/auth/doctor/login
+Content-Type: application/json
+
+{
+  "email": "dr.adaeze@ubth.ng",
+  "password": "mamacare123"
+}
+
+### =======================================
+### 2. PATIENT PROFILE & INTAKE
+### =======================================
+
+### 2a. Get Current Patient Profile
+GET {{baseUrl}}/patients/me
+Authorization: Bearer {{patient_token}}
+
+### 2b. Add Pregnancy Record
+POST {{baseUrl}}/patients/pregnancy
+Content-Type: application/json
+Authorization: Bearer {{patient_token}}
+
+{
+  "lmp_date": "2023-10-01T00:00:00Z",
+  "blood_group": "O+",
+  "genotype": "AA",
+  "booking_weight": 65.5,
+  "booking_height": 165
+}
+
+### 2c. Submit Medical Intake Form (Biodata, Obstetric, etc.)
+POST {{baseUrl}}/intake
+Content-Type: application/json
+Authorization: Bearer {{patient_token}}
+
+{
+  "domain": "biodata",
+  "question_key": "marital_status",
+  "answer": "Married"
+}
+
+### =======================================
+### 3. RISK ASSESSMENT & SYMPTOMS
+### =======================================
+
+### 3a. Trigger Risk Assessment (AI evaluates patient risk)
+POST {{baseUrl}}/risk/assess
+Content-Type: application/json
+Authorization: Bearer {{doctor_token}}
+
+{
+  "patient_id": "REPLACE_WITH_PATIENT_ID"
+}
+
+### 3b. Log Symptoms (Triggers Danger Pipeline & WhatsApp Alerts)
+POST {{baseUrl}}/symptoms
+Content-Type: application/json
+Idempotency-Key: unique-random-string-123
+Authorization: Bearer {{patient_token}}
+
+{
+  "symptoms": [
+    {
+      "symptom_key": "vaginal_bleeding",
+      "severity": "moderate",
+      "notes": "Started this morning"
+    }
+  ]
+}
+
+### 3c. Get Patient Symptom Timeline
+GET {{baseUrl}}/patients/REPLACE_WITH_PATIENT_ID/symptoms
+Authorization: Bearer {{doctor_token}}
+
+### =======================================
+### 4. DOCTOR ALERTS
+### =======================================
+
+### 4a. Get Active Danger Alerts
+GET {{baseUrl}}/alerts?status=open
+Authorization: Bearer {{doctor_token}}
+
+### 4b. Acknowledge Alert (Doctor claims it)
+POST {{baseUrl}}/alerts/REPLACE_WITH_ALERT_ID/acknowledge
+Authorization: Bearer {{doctor_token}}
+
+### =======================================
+### 5. APPOINTMENTS
+### =======================================
+
+### 5a. Book Appointment
+POST {{baseUrl}}/appointments
+Content-Type: application/json
+Idempotency-Key: unique-random-string-456
+Authorization: Bearer {{patient_token}}
+
+{
+  "doctor_id": "REPLACE_WITH_DOCTOR_ID",
+  "slot_start": "2024-11-20T10:00:00Z"
+}
+
+### 5b. Get Appointments
+GET {{baseUrl}}/appointments?status=booked
+Authorization: Bearer {{doctor_token}}
+
+### =======================================
+### 6. AI EDUCATION & PROVIDERS
+### =======================================
+
+### 6a. Get Education Modules
+GET {{baseUrl}}/education/modules
+Authorization: Bearer {{patient_token}}
+
+### 6b. Search Nearby Hospitals
+GET {{baseUrl}}/providers/nearby?lat=6.5244&lng=3.3792&radius=10
+Authorization: Bearer {{patient_token}}
+
+### =======================================
+### 7. ADMIN (DEPARTMENT HEAD)
+### =======================================
+
+### 7a. Assign Doctor to Patient (Triggers SMS to patient)
+POST {{baseUrl}}/admin/patients/REPLACE_WITH_PATIENT_ID/assign-doctor
+Content-Type: application/json
+Authorization: Bearer {{admin_token}}
+
+{
+  "doctor_id": "REPLACE_WITH_DOCTOR_ID"
+}
+
+### 7b. Get Hospital Risk Overview
+GET {{baseUrl}}/admin/risk-overview
+Authorization: Bearer {{admin_token}}

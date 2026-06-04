@@ -1,7 +1,7 @@
 import axios from 'axios';
-import { getPatientToken, getDoctorToken } from './auth';
+import { getPatientToken, getDoctorToken, clearPatientAuth, clearDoctorAuth } from './auth';
 
-const BASE = 'https://mamacare-api.onrender.com';
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const patientApi = axios.create({ baseURL: BASE });
 export const doctorApi = axios.create({ baseURL: BASE });
@@ -17,6 +17,29 @@ doctorApi.interceptors.request.use(cfg => {
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });
+
+// Auto-logout on 401 — stale or wrong-env token
+patientApi.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      clearPatientAuth();
+      window.location.href = '/register';
+    }
+    return Promise.reject(err);
+  }
+);
+
+doctorApi.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      clearDoctorAuth();
+      window.location.href = '/provider';
+    }
+    return Promise.reject(err);
+  }
+);
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -52,6 +75,10 @@ export const logSymptoms = symptoms =>
     { symptoms },
     { headers: { 'Idempotency-Key': crypto.randomUUID() } }
   );
+
+// ── Providers ─────────────────────────────────────────────────────────────────
+
+export const getProviders = () => patientApi.get('/providers');
 
 // ── Doctor ────────────────────────────────────────────────────────────────────
 

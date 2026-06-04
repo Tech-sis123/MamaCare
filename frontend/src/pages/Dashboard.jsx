@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Bell, CheckCircle2, Leaf, CalendarDays, CalendarCheck,
+  BookOpen, AlertTriangle, ClipboardList, Home, Calendar,
+  User, ChevronRight, Heart,
+} from 'lucide-react';
 import { getPatientDashboard, getPatientMe } from '../lib/api';
 import { getPatientData, isPatientAuthenticated } from '../lib/auth';
 
@@ -37,11 +42,11 @@ const PatientDashboard = () => {
         <div className="max-w-[640px] mx-auto">
           <nav className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2 text-on-primary font-headline-md text-xl">
-              <span className="material-symbols-outlined text-on-primary">pregnant_woman</span>
+              <Heart className="w-5 h-5 text-on-primary fill-current" />
               <span>Mama Care AI</span>
             </div>
             <button className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
-              <span className="material-symbols-outlined text-white">notifications</span>
+              <Bell className="w-5 h-5 text-white" />
               <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-secondary rounded-full border-2 border-primary"></span>
             </button>
           </nav>
@@ -63,7 +68,7 @@ const PatientDashboard = () => {
             <div>
               <h3 className="font-label-sm text-primary uppercase opacity-60">Your risk level</h3>
               <div className="flex items-center gap-2 mt-1">
-                <span className="material-symbols-outlined text-primary text-3xl font-bold">check_circle</span>
+                <CheckCircle2 className="w-8 h-8 text-primary" />
                 <p className="font-body-md text-primary/80">Safe &amp; Stable</p>
               </div>
             </div>
@@ -74,8 +79,8 @@ const PatientDashboard = () => {
               </button>
             </div>
           </div>
-          <div className="w-20 h-20 opacity-10">
-            <span className="material-symbols-outlined text-[80px]">spa</span>
+          <div className="w-20 h-20 opacity-10 flex items-center justify-center">
+            <Leaf className="w-20 h-20" />
           </div>
         </section>
 
@@ -118,7 +123,7 @@ const PatientDashboard = () => {
         <section className="bg-surface-container-lowest rounded-xl p-6 card-shadow border border-surface-container">
           <div className="flex gap-4 mb-6">
             <div className="w-12 h-12 bg-surface-container-low rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">calendar_month</span>
+              <CalendarDays className="w-5 h-5 text-primary" />
             </div>
             <div>
               <h3 className="font-label-sm text-outline uppercase mb-1">Next Appointment</h3>
@@ -149,7 +154,7 @@ const PatientDashboard = () => {
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-white/70 font-label-sm text-xs mb-2">
               <span>Week {weeks} tip</span>
-              <span className="material-symbols-outlined text-xs">menu_book</span>
+              <BookOpen className="w-3 h-3" />
             </div>
             <h3 className="font-headline-md text-xl text-white mb-4 max-w-[200px]">
               {eduModule?.title || 'What happens to your body this week?'}
@@ -171,25 +176,25 @@ const PatientDashboard = () => {
         <section className="grid grid-cols-2 gap-4">
           <button onClick={() => navigate('/appointments')} className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95 hover:border-primary/20 hover:shadow-md">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">event_available</span>
+              <CalendarCheck className="w-5 h-5 text-primary" />
             </div>
             <span className="font-label-sm text-xs text-on-surface">Book appointment</span>
           </button>
           <button onClick={() => navigate('/education')} className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95 hover:border-primary/20 hover:shadow-md">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">school</span>
+              <BookOpen className="w-5 h-5 text-primary" />
             </div>
             <span className="font-label-sm text-xs text-on-surface">Learn</span>
           </button>
           <button onClick={() => navigate('/emergency')} className="bg-[#FCEBEB] p-4 rounded-xl card-shadow border border-secondary/20 flex flex-col items-center gap-3 text-center transition-transform active:scale-95 hover:bg-secondary/10">
             <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-secondary">report_problem</span>
+              <AlertTriangle className="w-5 h-5 text-secondary" />
             </div>
             <span className="font-label-sm text-xs text-secondary">Danger sign</span>
           </button>
           <button className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95 hover:border-primary/20 hover:shadow-md">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">content_paste</span>
+              <ClipboardList className="w-5 h-5 text-primary" />
             </div>
             <span className="font-label-sm text-xs text-on-surface">My records</span>
           </button>
@@ -252,19 +257,19 @@ const PatientDashboard = () => {
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-surface-container z-50 px-6 py-3 pb-8">
         <div className="max-w-[640px] mx-auto flex justify-between items-center">
           <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1">
-            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>home</span>
+            <Home className="w-5 h-5 text-primary" />
             <span className="text-[10px] font-label-sm text-primary">Home</span>
           </button>
           <button onClick={() => navigate('/appointments')} className="flex flex-col items-center gap-1 text-outline hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">calendar_month</span>
+            <Calendar className="w-5 h-5" />
             <span className="text-[10px] font-label-sm">Appointments</span>
           </button>
           <button onClick={() => navigate('/education')} className="flex flex-col items-center gap-1 text-outline hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">auto_stories</span>
+            <BookOpen className="w-5 h-5" />
             <span className="text-[10px] font-label-sm">Learn</span>
           </button>
           <button onClick={() => navigate('/profile')} className="flex flex-col items-center gap-1 text-outline hover:text-primary transition-colors">
-            <span className="material-symbols-outlined">person</span>
+            <User className="w-5 h-5" />
             <span className="text-[10px] font-label-sm">Profile</span>
           </button>
         </div>

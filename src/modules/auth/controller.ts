@@ -27,11 +27,17 @@ export const authController = {
     try {
       const { phone_number } = req.body;
 
-      const result = await termiiService.requestOTP({ phone_number });
-      
-      // Store mapping in Redis (expires in 15 minutes)
-      await redis.set(`otp:${result.pin_id}`, phone_number, 'EX', 900);
+      // Dev mode: skip Termii when API key is not set
+      if (!env.TERMII_API_KEY) {
+        const pin_id = `dev-${Date.now()}`;
+        await redis.set(`otp:${pin_id}`, phone_number, 'EX', 900);
+        await redis.set(`otp:code:${pin_id}`, '123456', 'EX', 900);
+        logger.info({ phone_number, pin_id, code: '123456' }, '[DEV] OTP bypassed — use code 123456');
+        return res.status(200).json({ pin_id, dev_code: '123456' });
+      }
 
+      const result = await termiiService.requestOTP({ phone_number });
+      await redis.set(`otp:${result.pin_id}`, phone_number, 'EX', 900);
       res.status(200).json({ pin_id: result.pin_id });
     } catch (err) {
       next(err);
@@ -52,9 +58,14 @@ export const authController = {
         throw new UnauthorizedError('OTP session expired or invalid');
       }
 
-      const result = await termiiService.verifyOTP({ pin_id, pin: code });
-      if (!result.verified) {
-        throw new UnauthorizedError('Invalid or expired OTP');
+      // Dev mode: verify against stored dev code
+      const devCode = await redis.get(`otp:code:${pin_id}`);
+      if (devCode) {
+        if (code !== devCode) throw new UnauthorizedError('Invalid or expired OTP');
+        await redis.del(`otp:code:${pin_id}`);
+      } else {
+        const result = await termiiService.verifyOTP({ pin_id, pin: code });
+        if (!result.verified) throw new UnauthorizedError('Invalid or expired OTP');
       }
 
       // Upsert patient now that their phone is verified

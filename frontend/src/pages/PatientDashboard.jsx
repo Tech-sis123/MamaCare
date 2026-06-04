@@ -1,6 +1,9 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const PatientDashboard = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
       {/* Navbar & Header Cluster */}
@@ -135,7 +138,7 @@ const PatientDashboard = () => {
 
         {/* Quick Actions Grid */}
         <section className="grid grid-cols-2 gap-4">
-          <button className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95">
+          <button onClick={() => navigate('/appointments')} className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
               <span className="material-symbols-outlined text-primary">event_available</span>
             </div>
@@ -217,24 +220,24 @@ const PatientDashboard = () => {
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-container z-50 px-6 py-3 pb-8">
         <div className="max-w-[640px] mx-auto flex justify-between items-center">
-          <a href="#" className="flex flex-col items-center gap-1 group">
+          <button onClick={() => navigate('/patient-dashboard')} className="flex flex-col items-center gap-1 group">
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
               home
             </span>
             <span className="text-[10px] font-label-sm text-primary">Home</span>
-          </a>
-          <a href="#" className="flex flex-col items-center gap-1 group text-outline">
+          </button>
+          <button onClick={() => navigate('/appointments')} className="flex flex-col items-center gap-1 group text-outline">
             <span className="material-symbols-outlined">calendar_month</span>
             <span className="text-[10px] font-label-sm">Appointments</span>
-          </a>
-          <a href="#" className="flex flex-col items-center gap-1 group text-outline">
+          </button>
+          <button onClick={() => navigate('/education')} className="flex flex-col items-center gap-1 group text-outline">
             <span className="material-symbols-outlined">auto_stories</span>
             <span className="text-[10px] font-label-sm">Learn</span>
-          </a>
-          <a href="#" className="flex flex-col items-center gap-1 group text-outline">
+          </button>
+          <button onClick={() => navigate('/profile')} className="flex flex-col items-center gap-1 group text-outline">
             <span className="material-symbols-outlined">person</span>
             <span className="text-[10px] font-label-sm">Profile</span>
-          </a>
+          </button>
         </div>
       </nav>
     </div>

@@ -8,6 +8,14 @@ import { patientIdParamSchema } from '../symptoms/schemas';
 
 const router = Router();
 
+// List all doctors (for patients selecting who to book with)
+router.get(
+  '/',
+  authenticate,
+  rbac('patient', 'doctor', 'department_head'),
+  providersController.listDoctors
+);
+
 // Doctor queue
 router.get(
   '/queue',

@@ -8,6 +8,21 @@ import { logger } from '../../utils/logger';
 
 export const providersController = {
   /**
+   * GET /providers — list all doctors (patient-accessible)
+   */
+  async listDoctors(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const doctors = await prisma.doctor.findMany({
+        select: { id: true, name: true, role: true },
+        orderBy: { name: 'asc' },
+      });
+      res.status(200).json({ doctors });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * GET /providers/queue?date=today
    * Today's patients for the logged-in doctor.
    * Red-tier patients pinned top, then medium, then low.

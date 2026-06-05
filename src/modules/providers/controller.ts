@@ -141,6 +141,47 @@ export const providersController = {
   },
 
   /**
+   * GET /providers/patients?q=
+   * Search or list all patients (doctor-accessible).
+   */
+  async searchPatients(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const q = ((req.query.q as string) || '').trim();
+      const patients = await prisma.patient.findMany({
+        where: q
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' } },
+                { phone_number: { contains: q } },
+              ],
+            }
+          : {},
+        include: {
+          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
+          pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+        },
+        orderBy: { name: 'asc' },
+        take: 50,
+      });
+
+      const result = patients.map((p) => ({
+        id: p.id,
+        name: p.name,
+        age: p.age,
+        phone_number: p.phone_number,
+        risk_tier: p.risk_assessments[0]?.tier || null,
+        ega_weeks: p.pregnancies[0]?.lmp_date
+          ? calculateEGAWeeks(new Date(p.pregnancies[0].lmp_date))
+          : null,
+      }));
+
+      res.status(200).json({ patients: result });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * POST /visits/:id/notes
    * Create visit notes for an appointment.
    */

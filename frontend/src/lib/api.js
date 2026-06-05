@@ -82,8 +82,17 @@ export const getProviders = () => patientApi.get('/providers');
 
 // ── Doctor ────────────────────────────────────────────────────────────────────
 
-export const searchPatients = q =>
-  doctorApi.get('/providers/patients/search', { params: { q } });
+export const getDoctorQueue = (date) =>
+  doctorApi.get('/providers/queue', date ? { params: { date } } : {});
+
+export const getPatientSummary = (patientId) =>
+  doctorApi.get(`/providers/patients/${patientId}/summary`);
+
+export const saveVisitNotes = (appointmentId, doctor_notes) =>
+  doctorApi.post(`/visits/${appointmentId}/notes`, { doctor_notes });
+
+export const searchPatients = (q = '') =>
+  doctorApi.get('/providers/patients', { params: { q } });
 
 export const getPatientSymptoms = (patientId, range = '30d') =>
   doctorApi.get(`/patients/${patientId}/symptoms`, { params: { range } });

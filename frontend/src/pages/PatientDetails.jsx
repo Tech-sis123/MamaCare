@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getPatientSymptoms } from '../lib/api';
+import { getPatientSymptoms, getPatientSummary, saveVisitNotes } from '../lib/api';
 
-// ── Fallback mock for demo when no real patient is passed ─────────────────────
 const MOCK = {
   name: 'Ngozi Okonkwo', age: 29, initials: 'NO', risk: 'HIGH',
   edd: 'Sep 12, 2025', lmp: 'Dec 05, 2024', ega: '24w 3d',
@@ -13,14 +12,6 @@ const MOCK = {
   medications: 'Labetalol 200 mg BD, Folic acid',
   drugAllergies: 'Penicillin',
 };
-
-const APPT_HISTORY = [
-  { date: 'TODAY - CURRENT', type: 'Emergency Consult', note: 'Attending: Dr. Emeka A.', active: true },
-  { date: 'FEB 20, 2025', type: 'Routine ANC — 16 wks', note: 'Stable vitals, UBTH Branch', active: false },
-  { date: 'JAN 14, 2025', type: 'Booking Visit', note: 'Ultrasound confirmed, labs done', active: false },
-];
-
-// ── Shared sub-components ─────────────────────────────────────────────────────
 
 const Row = ({ label, value, highlight }) => (
   <div className="flex items-start justify-between gap-4 py-2 border-b border-outline-variant/15 last:border-0">
@@ -53,15 +44,13 @@ const SectionAccordion = ({ title, defaultOpen = false, children }) => {
   );
 };
 
-// ── Main component ────────────────────────────────────────────────────────────
-
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const passedPatient = location.state?.patient;
+  const { patient: passedPatient, appointment_id } = location.state || {};
 
   const p = passedPatient || MOCK;
-  const isReal = !!passedPatient?.id && typeof passedPatient.id === 'string' && passedPatient.id.length > 10;
+  const isReal = !!passedPatient?.id && typeof passedPatient.id === 'string' && passedPatient.id.length > 8;
 
   const name = p.name || MOCK.name;
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
@@ -69,8 +58,14 @@ const PatientDetailPanel = () => {
   const riskBadgeClass = risk === 'HIGH' ? 'bg-secondary' : risk === 'MEDIUM' ? 'bg-amber-500' : 'bg-primary';
 
   const [clinicalNotes, setClinicalNotes] = useState('');
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
+
   const [symptoms, setSymptoms] = useState([]);
   const [loadingSymptoms, setLoadingSymptoms] = useState(false);
+
+  const [aiSummary, setAiSummary] = useState('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     if (!isReal) return;
@@ -84,9 +79,43 @@ const PatientDetailPanel = () => {
       .finally(() => setLoadingSymptoms(false));
   }, [isReal, passedPatient?.id]);
 
+  useEffect(() => {
+    if (!isReal) return;
+    setLoadingSummary(true);
+    getPatientSummary(passedPatient.id)
+      .then(r => setAiSummary(r.data?.summary || ''))
+      .catch(() => {})
+      .finally(() => setLoadingSummary(false));
+  }, [isReal, passedPatient?.id]);
+
+  const handleSaveNotes = async () => {
+    if (!appointment_id || !clinicalNotes.trim()) return;
+    setNotesSaving(true);
+    try {
+      await saveVisitNotes(appointment_id, clinicalNotes);
+      setNotesSaved(true);
+    } catch {
+      // silently fail — doctor keeps notes locally
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  const handleMarkSeen = async () => {
+    if (!appointment_id) return;
+    try {
+      await saveVisitNotes(appointment_id, clinicalNotes || 'Appointment completed.');
+      navigate('/provider');
+    } catch {
+      navigate('/provider');
+    }
+  };
+
   const displaySymptoms = symptoms.length > 0
     ? symptoms.map(s => s.symptom_key?.replace(/_/g, ' ') || s.name || s).filter(Boolean)
     : (p.symptoms || MOCK.symptoms);
+
+  const fallbackSummary = `${name}, ${p.age}-year-old G${p.gravida ?? MOCK.gravida}P${p.para ?? MOCK.para}, presenting at ${p.weeks ? `week ${p.weeks}` : MOCK.ega} gestation. ${displaySymptoms.length > 0 ? `Presenting complaints: ${displaySymptoms.join(', ')}. ` : ''}${(p.bookingBP || MOCK.bookingBP) ? `BP: ${p.bookingBP || MOCK.bookingBP}.` : ''}`;
 
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex justify-end overflow-hidden">
@@ -128,7 +157,7 @@ const PatientDetailPanel = () => {
             <div>
               <h2 className="font-headline-lg text-2xl mb-0.5">{name}</h2>
               <p className="font-body-md text-white/70">
-                Age {p.age || '—'} · G{p.gravida ?? p.gravida ?? MOCK.gravida}P{p.para ?? MOCK.para}
+                Age {p.age || '—'} · G{p.gravida ?? MOCK.gravida}P{p.para ?? MOCK.para}
                 {p.weeks ? ` · Week ${p.weeks}` : ` · ${MOCK.ega}`}
               </p>
             </div>
@@ -155,29 +184,30 @@ const PatientDetailPanel = () => {
           <section>
             <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">AI Pre-Consult Summary</h3>
             <div className="bg-surface-container-low border-l-4 border-primary p-4 rounded-r-lg shadow-sm">
-              <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                {name}, {p.age}-year-old G{p.gravida ?? MOCK.gravida}P{p.para ?? MOCK.para},
-                presenting at {p.weeks ? `week ${p.weeks}` : MOCK.ega} gestation.{' '}
-                {displaySymptoms.length > 0 && (
-                  <>Presenting complaints: <strong className="text-secondary">{displaySymptoms.join(', ')}</strong>. </>
-                )}
-                {(p.bookingBP || MOCK.bookingBP) && <>BP: <strong className="text-secondary">{p.bookingBP || MOCK.bookingBP}</strong>.</>}
-              </p>
+              {loadingSummary ? (
+                <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
+              ) : (
+                <p className="font-body-md text-on-surface leading-relaxed text-sm">
+                  {aiSummary || fallbackSummary}
+                </p>
+              )}
             </div>
           </section>
 
           {/* Clinical Flags */}
-          <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Flags</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {(p.flags?.length ? p.flags : ['High BP', 'Low Hb']).map(flag => (
-                <div key={flag} className="flex items-center gap-2 p-3 rounded-lg border bg-secondary-fixed border-secondary/20">
-                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                  <span className="font-label-sm text-xs text-on-secondary-fixed-variant">{flag}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+          {(p.flags?.length > 0 || !isReal) && (
+            <section>
+              <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Flags</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {(p.flags?.length ? p.flags : ['High BP', 'Low Hb']).map(flag => (
+                  <div key={flag} className="flex items-center gap-2 p-3 rounded-lg border bg-secondary-fixed border-secondary/20">
+                    <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
+                    <span className="font-label-sm text-xs text-on-secondary-fixed-variant">{flag}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Symptom Timeline */}
           <section>
@@ -269,31 +299,12 @@ const PatientDetailPanel = () => {
 
             <SectionAccordion title="Past Medical & Surgical History">
               <div className="mt-3 space-y-0">
-                <Row label="Conditions"        value={Array.isArray(p.conditions) ? p.conditions.join(', ') : (p.conditions || MOCK.conditions.join(', '))} highlight />
+                <Row label="Conditions"          value={Array.isArray(p.conditions) ? p.conditions.join(', ') : (p.conditions || MOCK.conditions.join(', '))} highlight />
                 <Row label="Current Medications" value={p.medications || MOCK.medications} />
-                <Row label="Drug Allergies"    value={p.drugAllergies || p.drug_allergies || MOCK.drugAllergies} highlight />
-                <Row label="Food Allergies"    value={p.foodAllergies || p.food_allergies || 'None'} />
+                <Row label="Drug Allergies"      value={p.drugAllergies || p.drug_allergies || MOCK.drugAllergies} highlight />
+                <Row label="Food Allergies"      value={p.foodAllergies || p.food_allergies || 'None'} />
               </div>
             </SectionAccordion>
-          </section>
-
-          {/* Appointment History */}
-          <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Appointment History</h3>
-            <div className="relative pl-8 space-y-6 before:content-[''] before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant">
-              {APPT_HISTORY.map(appt => (
-                <div key={appt.date} className={`relative ${!appt.active ? 'opacity-60' : ''}`}>
-                  <div className={`absolute -left-8 top-1 w-6 h-6 rounded-full ring-4 ring-white flex items-center justify-center ${appt.active ? 'bg-secondary' : 'bg-primary'}`}>
-                    <span className="material-symbols-outlined text-[14px] text-white">
-                      {appt.active ? 'medical_services' : 'check'}
-                    </span>
-                  </div>
-                  <span className={`font-label-sm text-xs ${appt.active ? 'text-secondary' : 'text-on-surface-variant'}`}>{appt.date}</span>
-                  <p className="font-body-md font-medium text-on-surface">{appt.type}</p>
-                  <p className="font-label-sm text-on-surface-variant text-xs mt-0.5">{appt.note}</p>
-                </div>
-              ))}
-            </div>
           </section>
 
           {/* Clinical Notes */}
@@ -302,10 +313,24 @@ const PatientDetailPanel = () => {
             <div className="relative">
               <textarea
                 value={clinicalNotes}
-                onChange={e => setClinicalNotes(e.target.value)}
+                onChange={e => { setClinicalNotes(e.target.value); setNotesSaved(false); }}
                 className="w-full h-36 bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-outline/60 resize-none"
                 placeholder="Start typing clinical notes…"
               />
+              {appointment_id && clinicalNotes.trim() && (
+                <button
+                  onClick={handleSaveNotes}
+                  disabled={notesSaving || notesSaved}
+                  className="mt-2 text-primary font-label-sm text-xs underline underline-offset-2 disabled:opacity-50"
+                >
+                  {notesSaving ? 'Saving…' : notesSaved ? 'Saved ✓' : 'Save notes'}
+                </button>
+              )}
+              {!appointment_id && (
+                <p className="mt-1 font-label-sm text-outline text-xs">
+                  Notes can only be saved for queue appointments.
+                </p>
+              )}
             </div>
           </section>
         </div>
@@ -316,8 +341,11 @@ const PatientDetailPanel = () => {
             <span className="material-symbols-outlined">emergency_share</span>
             ESCALATE TO EMERGENCY
           </button>
-          <button className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20">
-            Mark as Seen
+          <button
+            onClick={handleMarkSeen}
+            className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20"
+          >
+            {appointment_id ? 'Mark as Seen' : 'Back'}
           </button>
           <button className="bg-primary text-white py-3 rounded-lg font-label-sm text-sm hover:opacity-90 transition-all">
             Refer to Specialist

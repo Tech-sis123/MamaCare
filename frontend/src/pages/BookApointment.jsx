@@ -152,7 +152,7 @@ const BookAppointment = () => {
         <h1 className="font-headline-md text-headline-md tracking-tight">Book Appointment</h1>
       </header>
 
-      <main className="max-w-[600px] mx-auto px-6 py-12 space-y-12">
+      <main className="max-w-[600px] mx-auto px-6 py-12 pb-28 space-y-12">
         {/* Step 1: Pick a Date */}
         <section className="space-y-6">
           <div className="flex items-center gap-3">
@@ -344,14 +344,27 @@ const BookAppointment = () => {
         </div>
       )}
 
-      <footer className="bg-stone-50 border-t border-amber-900/10 w-full">
-        <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
-          <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
-          <p className="font-serif text-sm tracking-wide text-amber-900 text-center md:text-right opacity-70">
-            © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
-          </p>
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-container z-50 px-6 py-3 pb-8">
+        <div className="max-w-[640px] mx-auto flex justify-between items-center">
+          <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">home</span>
+            <span className="text-[10px] font-label-sm">Home</span>
+          </button>
+          <button onClick={() => navigate('/appointments')} className="flex flex-col items-center gap-1 text-primary">
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>calendar_month</span>
+            <span className="text-[10px] font-label-sm font-bold">Appointments</span>
+          </button>
+          <button onClick={() => navigate('/education')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">auto_stories</span>
+            <span className="text-[10px] font-label-sm">Learn</span>
+          </button>
+          <button onClick={() => navigate('/profile')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">person</span>
+            <span className="text-[10px] font-label-sm">Profile</span>
+          </button>
         </div>
-      </footer>
+      </nav>
     </div>
   );
 };

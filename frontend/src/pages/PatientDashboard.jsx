@@ -220,7 +220,7 @@ const PatientDashboard = () => {
       {/* Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-container z-50 px-6 py-3 pb-8">
         <div className="max-w-[640px] mx-auto flex justify-between items-center">
-          <button onClick={() => navigate('/patient-dashboard')} className="flex flex-col items-center gap-1 group">
+          <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1 group">
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
               home
             </span>

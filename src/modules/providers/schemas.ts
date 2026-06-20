@@ -11,3 +11,8 @@ export const visitNotesSchema = z.object({
 export const visitIdParamSchema = z.object({
   id: z.string().uuid('Invalid visit/appointment ID'),
 });
+
+export const askQuestionSchema = z.object({
+  question: z.string().min(5, 'Question must be at least 5 characters long').max(1000, 'Question is too long'),
+  patient_id: z.string().uuid('Invalid patient ID').optional(),
+});

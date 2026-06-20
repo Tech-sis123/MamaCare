@@ -111,7 +111,7 @@ export const adminController = {
    */
   async assignDoctor(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id: patientId } = req.params;
+      const patientId = req.params.id as string;
       const { doctor_id } = req.body;
 
       // Verify doctor exists

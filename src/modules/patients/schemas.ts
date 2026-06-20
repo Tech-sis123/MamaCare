@@ -28,3 +28,7 @@ export const createPregnancySchema = z.object({
   gravidity: z.number().int().min(0).optional(),
   parity: z.number().int().min(0).optional(),
 });
+
+export const askQuestionSchema = z.object({
+  question: z.string().min(5, "Question must be at least 5 characters long").max(500, "Question is too long"),
+});

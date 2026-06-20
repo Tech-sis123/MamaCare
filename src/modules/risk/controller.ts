@@ -12,7 +12,7 @@ export const riskController = {
    */
   async runRisk(req: Request, res: Response, next: NextFunction) {
     try {
-      const { patientId } = req.params;
+      const patientId = req.params.patientId as string;
 
       // Fetch patient and pregnancy data
       const patient = await prisma.patient.findUnique({
@@ -59,7 +59,7 @@ export const riskController = {
         data: {
           patient_id: patientId,
           tier: result.tier,
-          reasons: result.reasons,
+          reasons: result.reasons as any,
           engine_version: result.engine_version,
           input_snapshot: riskInput as any,
         },
@@ -78,7 +78,7 @@ export const riskController = {
             tier: result.tier,
             reasons: result.reasons,
             engine_version: result.engine_version,
-            input_snapshot: riskInput,
+            input_snapshot: riskInput as any,
           },
         },
       });
@@ -105,7 +105,7 @@ export const riskController = {
    */
   async getLatest(req: Request, res: Response, next: NextFunction) {
     try {
-      const { patientId } = req.params;
+      const patientId = req.params.patientId as string;
 
       const assessment = await prisma.riskAssessment.findFirst({
         where: { patient_id: patientId },

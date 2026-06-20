@@ -134,7 +134,7 @@ export const appointmentsController = {
    */
   async reschedule(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { slot_start } = req.body;
 
       const existing = await prisma.appointment.findUnique({ where: { id } });
@@ -191,7 +191,7 @@ export const appointmentsController = {
    */
   async cancel(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const existing = await prisma.appointment.findUnique({ where: { id } });
       if (!existing) {

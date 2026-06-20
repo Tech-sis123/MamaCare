@@ -82,7 +82,7 @@ export const alertsController = {
    */
   async acknowledge(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const doctorId = req.user!.id;
 
       const alert = await prisma.dangerAlert.findUnique({ where: { id } });

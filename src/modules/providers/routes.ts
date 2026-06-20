@@ -3,7 +3,7 @@ import { providersController } from './controller';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
-import { queueQuerySchema, visitNotesSchema, visitIdParamSchema } from './schemas';
+import { queueQuerySchema, visitNotesSchema, visitIdParamSchema, askQuestionSchema } from './schemas';
 import { patientIdParamSchema } from '../symptoms/schemas';
 
 const router = Router();
@@ -42,6 +42,15 @@ router.post(
   validate(visitIdParamSchema, 'params'),
   validate(visitNotesSchema),
   providersController.createVisitNotes
+);
+
+// Ask AI
+router.post(
+  '/ask',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(askQuestionSchema),
+  providersController.askAI
 );
 
 export default router;

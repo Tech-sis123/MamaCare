@@ -48,7 +48,7 @@ export const educationController = {
         include: {
           pregnancies: { orderBy: { id: 'desc' }, take: 1 },
           risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
-          education_progresses: true,
+          education_progress: true,
         },
       });
 
@@ -57,7 +57,7 @@ export const educationController = {
         return;
       }
 
-      const completedIds = new Set(patient.education_progresses.map((p) => p.module_id));
+      const completedIds = new Set(patient.education_progress.map((p) => p.module_id));
       const pregnancy = patient.pregnancies[0] || null;
       const riskTier = patient.risk_assessments[0]?.tier || 'LOW';
 
@@ -143,7 +143,7 @@ export const educationController = {
    */
   async getModule(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const module = await prisma.educationModule.findUnique({ where: { id } });
       if (!module) {

@@ -4,6 +4,7 @@ import { AuthRequest } from '../../utils/types';
 import { NotFoundError } from '../../utils/errors';
 import { calculateEDD, calculateEGAWeeks, calculateEGADetailed } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
+import { aiService } from '../../services/ai';
 
 export const patientsController = {
   /**
@@ -209,6 +210,36 @@ export const patientsController = {
           : null,
         education_module: educationModule,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /patients/me/ask
+   * Patient asking the AI a question
+   */
+  async askAI(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const patientId = req.user!.id;
+      const { question } = req.body;
+
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        include: {
+          pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
+          symptoms: { orderBy: { reported_at: 'desc' }, take: 5 },
+        },
+      });
+
+      if (!patient) {
+        throw new NotFoundError('Patient not found');
+      }
+
+      const responseText = await aiService.answerPatientQuestion(patient, question);
+
+      res.status(200).json({ answer: responseText });
     } catch (err) {
       next(err);
     }

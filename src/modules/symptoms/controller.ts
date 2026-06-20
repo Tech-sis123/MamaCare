@@ -208,7 +208,7 @@ export const symptomsController = {
             after: {
               patient_id: patientId,
               doctor_id: doctorId,
-              triggers: dangerResult.triggers,
+              triggers: dangerResult.triggers as any,
               sms_sent: !!smsSentAt,
               whatsapp_sent: !!whatsappSentAt,
             },
@@ -241,7 +241,7 @@ export const symptomsController = {
    */
   async getSymptomTimeline(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const range = (req.query.range as string) || '30d';
       const days = parseInt(range.replace('d', ''), 10) || 30;
 

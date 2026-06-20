@@ -10,10 +10,10 @@ import { logger } from '../../utils/logger';
 
 function generateTokens(payload: { id: string; role: string; type: string }) {
   const access_token = jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_ACCESS_EXPIRY,
+    expiresIn: env.JWT_ACCESS_EXPIRY as any,
   });
   const refresh_token = jwt.sign({ ...payload, tokenType: 'refresh' }, env.JWT_SECRET, {
-    expiresIn: env.JWT_REFRESH_EXPIRY,
+    expiresIn: env.JWT_REFRESH_EXPIRY as any,
   });
   return { access_token, refresh_token };
 }

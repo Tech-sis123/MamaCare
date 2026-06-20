@@ -11,7 +11,7 @@ export const intakeController = {
    */
   async patchIntake(req: Request, res: Response, next: NextFunction) {
     try {
-      const { patientId } = req.params;
+      const patientId = req.params.patientId as string;
       const { domain, responses } = req.body;
 
       // Verify patient exists
@@ -74,7 +74,7 @@ export const intakeController = {
    */
   async getIntake(req: Request, res: Response, next: NextFunction) {
     try {
-      const { patientId } = req.params;
+      const patientId = req.params.patientId as string;
 
       const responses = await prisma.intakeResponse.findMany({
         where: { patient_id: patientId },
@@ -104,7 +104,7 @@ export const intakeController = {
    */
   async submitIntake(req: Request, res: Response, next: NextFunction) {
     try {
-      const { patientId } = req.params;
+      const patientId = req.params.patientId as string;
 
       // Verify patient exists
       const patient = await prisma.patient.findUnique({ where: { id: patientId } });

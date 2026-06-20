@@ -4,8 +4,8 @@ import { Request } from 'express';
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    role: 'patient' | 'doctor' | 'department_head';
-    type: 'patient' | 'doctor';
+    role: 'patient' | 'doctor' | 'department_head' | 'admin';
+    type: 'patient' | 'doctor' | 'admin';
   };
 }
 

@@ -5,6 +5,7 @@ import { NotFoundError } from '../../utils/errors';
 import { generatePreConsultSummary } from '../../services/summary-generator';
 import { calculateEGAWeeks } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
+import { aiService } from '../../services/ai';
 
 export const providersController = {
   /**
@@ -93,7 +94,7 @@ export const providersController = {
    */
   async getPatientSummary(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
 
       const patient = await prisma.patient.findUnique({
         where: { id },
@@ -146,7 +147,7 @@ export const providersController = {
    */
   async createVisitNotes(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { doctor_notes } = req.body;
       const doctorId = req.user!.id;
 
@@ -183,6 +184,38 @@ export const providersController = {
       });
 
       res.status(201).json({ visit });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /providers/ask
+   * Doctor asking the AI a question
+   */
+  async askAI(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { question, patient_id } = req.body;
+      
+      let patientData = null;
+      if (patient_id) {
+        patientData = await prisma.patient.findUnique({
+          where: { id: patient_id },
+          include: {
+            pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+            risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
+            symptoms: { orderBy: { reported_at: 'desc' }, take: 5 },
+          },
+        });
+        
+        if (!patientData) {
+          throw new NotFoundError('Patient not found');
+        }
+      }
+
+      const responseText = await aiService.answerDoctorQuestion(question, patientData);
+
+      res.status(200).json({ answer: responseText });
     } catch (err) {
       next(err);
     }

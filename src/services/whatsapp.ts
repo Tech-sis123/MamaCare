@@ -31,16 +31,16 @@ export const initWhatsApp = () => {
   });
 
   client.on('auth_failure', (msg) => {
-    logger.error('WhatsApp authentication failure', { msg });
+    logger.error({ msg }, 'WhatsApp authentication failure');
   });
 
   client.on('disconnected', (reason) => {
     isReady = false;
-    logger.warn('WhatsApp disconnected', { reason });
+    logger.warn({ reason }, 'WhatsApp disconnected');
   });
 
   client.initialize().catch((err) => {
-    logger.error('Failed to initialize WhatsApp client', { err });
+    logger.error({ err }, 'Failed to initialize WhatsApp client');
   });
 };
 

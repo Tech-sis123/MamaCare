@@ -3,7 +3,7 @@ import { patientsController } from './controller';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
-import { createProfileSchema, createPregnancySchema } from './schemas';
+import { createProfileSchema, createPregnancySchema, askQuestionSchema } from './schemas';
 
 const router = Router();
 
@@ -35,6 +35,14 @@ router.get(
   authenticate,
   rbac('patient'),
   patientsController.getDashboard
+);
+
+router.post(
+  '/me/ask',
+  authenticate,
+  rbac('patient'),
+  validate(askQuestionSchema),
+  patientsController.askAI
 );
 
 export default router;

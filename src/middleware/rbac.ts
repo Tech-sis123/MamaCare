@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../utils/types';
 import { ForbiddenError, UnauthorizedError } from '../utils/errors';
 
-type AllowedRole = 'patient' | 'doctor' | 'department_head';
+type AllowedRole = 'patient' | 'doctor' | 'department_head' | 'admin';
 
 export const rbac = (...allowedRoles: AllowedRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {

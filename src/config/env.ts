@@ -21,7 +21,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   LOG_LEVEL: z.string().default('info'),
-  OPENAI_API_KEY: z.string().default(''),
+  GROQ_API_KEY: z.string().default(''),
   CRON_SECRET: z.string().default('my-super-secret-cron-key'),
 });
 

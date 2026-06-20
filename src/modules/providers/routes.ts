@@ -25,6 +25,14 @@ router.get(
   providersController.getQueue
 );
 
+// Search / list patients (doctor-accessible)
+router.get(
+  '/patients',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  providersController.searchPatients
+);
+
 // Patient summary (mounted here but uses patient ID)
 router.get(
   '/patients/:id/summary',

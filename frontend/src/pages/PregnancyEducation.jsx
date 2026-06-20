@@ -53,7 +53,7 @@ const PregnancyEducation = () => {
         </header>
 
         {/* VIEW A: MODULE LIST */}
-        <section className="flex-1 flex flex-col gap-6 pb-24">
+        <section className="flex-1 flex flex-col gap-6 pb-32">
           {/* HERO STRIP */}
           <div className="bg-tertiary-fixed px-6 py-8 flex items-center justify-between">
             <div className="space-y-1">
@@ -283,35 +283,29 @@ const PregnancyEducation = () => {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="mt-auto bg-stone-50 border-t border-amber-900/10 px-8 py-12 flex flex-col items-center gap-6">
-          <p className="font-headline-md text-primary text-xl font-bold">Mama Care AI</p>
-          <p className="text-on-tertiary-fixed-variant text-sm text-center max-w-[280px]">
-            Safe pregnancies, every time. Partnered with UBTH.
-          </p>
-          <div className="flex gap-6">
-            <a href="#" className="text-stone-500 hover:text-primary transition-colors">
-              About
-            </a>
-            <a href="#" className="text-stone-500 hover:text-primary transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="text-stone-500 hover:text-primary transition-colors">
-              Help
-            </a>
-          </div>
-          <p className="text-[10px] text-stone-400 uppercase tracking-widest mt-4">
-            © 2024 Mama Care AI. Benin City, Nigeria.
-          </p>
-        </footer>
       </main>
 
-      {/* FLOATING ACTION BUTTON */}
-      <button className="fixed bottom-8 right-8 md:right-[calc(50%-280px)] w-14 h-14 bg-secondary text-on-secondary rounded-full flex items-center justify-center organic-shadow group">
-        <span className="material-symbols-outlined text-3xl group-hover:rotate-12 transition-transform">
-          chat_bubble
-        </span>
-      </button>
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-surface-container z-50 px-6 py-3 pb-8">
+        <div className="max-w-[640px] mx-auto flex justify-between items-center">
+          <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">home</span>
+            <span className="text-[10px] font-label-sm">Home</span>
+          </button>
+          <button onClick={() => navigate('/appointments')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">calendar_month</span>
+            <span className="text-[10px] font-label-sm">Appointments</span>
+          </button>
+          <button onClick={() => navigate('/education')} className="flex flex-col items-center gap-1 text-primary">
+            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_stories</span>
+            <span className="text-[10px] font-label-sm font-bold">Learn</span>
+          </button>
+          <button onClick={() => navigate('/profile')} className="flex flex-col items-center gap-1 text-outline">
+            <span className="material-symbols-outlined">person</span>
+            <span className="text-[10px] font-label-sm">Profile</span>
+          </button>
+        </div>
+      </nav>
     </div>
   );
 };

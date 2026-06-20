@@ -1,23 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doctorLogin as apiDoctorLogin, searchPatients, acknowledgeAlert } from '../lib/api';
+import {
+  doctorLogin as apiDoctorLogin,
+  getDoctorQueue,
+  searchPatients,
+  acknowledgeAlert,
+} from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 
-// ── Mock data ────────────────────────────────────────────────────
-const PATIENTS = [
-  { id: 1, name: 'Ngozi Okonkwo',   age: 29, weeks: 14, risk: 'HIGH',   flags: ['High BP', 'Low Hb'],   time: '08:30', status: 'WAITING',     initials: 'NO' },
-  { id: 2, name: 'Fatima Yusuf',    age: 22, weeks: 20, risk: 'HIGH',   flags: ['Severe Edema'],        time: '09:15', status: 'IN PROGRESS', initials: 'FY' },
-  { id: 3, name: 'Chioma Adebayo',  age: 31, weeks: 24, risk: 'MEDIUM', flags: ['Gestational GTT'],     time: '10:00', status: 'QUEUED',      initials: 'CA' },
-  { id: 4, name: 'Blessing Efe',    age: 27, weeks: 16, risk: 'LOW',    flags: ['Routine 24wk'],        time: '11:30', status: 'QUEUED',      initials: 'BE' },
-  { id: 5, name: 'Amaka Obi',       age: 25, weeks: 32, risk: 'LOW',    flags: ['Routine Follow-up'],   time: '07:45', status: 'DONE',        initials: 'AO' },
-  { id: 6, name: 'Kemi Adeyemi',    age: 34, weeks: 8,  risk: 'MEDIUM', flags: ['Anaemia'],             time: '12:00', status: 'QUEUED',      initials: 'KA' },
-  { id: 7, name: 'Grace Eze',       age: 19, weeks: 6,  risk: 'LOW',    flags: ['First visit'],         time: '13:30', status: 'QUEUED',      initials: 'GE' },
-];
-
 const RISK_COLORS = {
-  HIGH:   { bar: 'bg-secondary', badge: 'bg-secondary text-white',        border: 'border-secondary',    text: 'text-secondary' },
-  MEDIUM: { bar: 'bg-amber-500', badge: 'bg-amber-100 text-amber-800',   border: 'border-amber-500',    text: 'text-amber-700' },
-  LOW:    { bar: 'bg-primary',   badge: 'bg-primary/10 text-primary',     border: 'border-primary',      text: 'text-primary' },
+  HIGH:   { bar: 'bg-secondary', badge: 'bg-secondary text-white',       border: 'border-secondary',   text: 'text-secondary' },
+  MEDIUM: { bar: 'bg-amber-500', badge: 'bg-amber-100 text-amber-800',  border: 'border-amber-500',   text: 'text-amber-700' },
+  LOW:    { bar: 'bg-primary',   badge: 'bg-primary/10 text-primary',    border: 'border-primary',     text: 'text-primary' },
 };
 
 const STATUS_STYLE = {
@@ -36,51 +30,50 @@ const RESOURCES = [
   { title: 'UBTH Referral Forms',          type: 'DOC',  size: '0.3 MB', category: 'Admin' },
 ];
 
-const PROVIDER_PROFILE = {
-  name: 'Dr. Osasumwen Osagie',
-  initials: 'DO',
-  title: 'Consultant Obstetrician & Gynaecologist',
-  hospital: 'University of Benin Teaching Hospital',
-  department: 'Obstetrics & Gynaecology',
-  license: 'MDCN/OBG/20841',
-  email: 'dr.osagie@ubth.edu.ng',
-  phone: '+234 803 555 0194',
-  location: 'Benin City, Edo State',
-  status: 'Active today',
-  shift: '08:00 - 16:00',
-  languages: ['English', 'Pidgin', 'Edo'],
-  specialties: ['High-risk ANC', 'Pre-eclampsia', 'Antenatal triage', 'Fetal monitoring'],
-  bio:
-    'Focused on high-risk maternal care, safe triage, and practical counseling for pregnant mothers in low-resource settings.',
-  stats: [
-    { label: 'Patients reviewed', value: '47' },
-    { label: 'High-risk escalations', value: '8' },
-    { label: 'Avg response time', value: '38s' },
-    { label: 'Follow-up adherence', value: '81%' },
-  ],
-  credentials: [
-    { label: 'MBBS', value: 'University of Lagos' },
-    { label: 'FWACS', value: 'West African College of Surgeons' },
-    { label: 'Department role', value: 'ANC Lead, UBTH Pilot' },
-  ],
-  availability: [
-    { day: 'Mon - Wed', time: 'Ward round and triage' },
-    { day: 'Thu', time: 'Referral review clinic' },
-    { day: 'Fri', time: 'Remote case follow-up' },
-  ],
-};
+const toQueuePatient = (apt) => ({
+  id: apt.patient.id,
+  appointment_id: apt.appointment_id,
+  name: apt.patient.name || '—',
+  age: apt.patient.age || '—',
+  weeks: apt.patient.ega_weeks || '—',
+  risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
+  flags: [],
+  time: new Date(apt.slot_start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+  status: apt.status === 'completed' ? 'DONE' : 'QUEUED',
+  initials: (apt.patient.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+});
+
+const toPatientRow = (p) => ({
+  id: p.id,
+  name: p.name || '—',
+  age: p.age || '—',
+  weeks: p.ega_weeks || '—',
+  risk: (p.risk_tier || 'LOW').toUpperCase(),
+  flags: [],
+  initials: (p.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+});
 
 // ── Sub-views ────────────────────────────────────────────────────
 
 const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
   const [filter, setFilter] = useState('All');
+  const [queue, setQueue] = useState([]);
+  const [loading, setLoading] = useState(true);
   const filters = ['All', 'HIGH', 'MEDIUM', 'LOW', 'Done'];
-  const filtered = PATIENTS.filter(p => {
+
+  useEffect(() => {
+    getDoctorQueue()
+      .then(({ data }) => setQueue((data.queue || []).map(toQueuePatient)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = queue.filter(p => {
     if (filter === 'All') return p.status !== 'DONE';
     if (filter === 'Done') return p.status === 'DONE';
     return p.risk === filter;
   });
-  const highCount = PATIENTS.filter(p => p.risk === 'HIGH').length;
+  const highCount = queue.filter(p => p.risk === 'HIGH').length;
 
   return (
     <div className="space-y-6">
@@ -102,27 +95,30 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
         ))}
       </div>
 
-      {/* Urgent banner */}
-      <div className="bg-secondary/10 border border-secondary/20 rounded-xl p-4 flex items-center gap-4">
-        <div className="bg-secondary text-white w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
-          <span className="material-symbols-outlined text-lg">priority_high</span>
+      {highCount > 0 && (
+        <div className="bg-secondary/10 border border-secondary/20 rounded-xl p-4 flex items-center gap-4">
+          <div className="bg-secondary text-white w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="material-symbols-outlined text-lg">priority_high</span>
+          </div>
+          <p className="font-body-md text-secondary font-semibold">
+            🚨 {highCount} HIGH RISK patient{highCount !== 1 ? 's' : ''} in queue — review immediately
+          </p>
         </div>
-        <p className="font-body-md text-secondary font-semibold">
-          🚨 {highCount} HIGH RISK patients in queue — review immediately
-        </p>
-      </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Today',  value: PATIENTS.length, bg: 'bg-white border border-amber-50',                     fg: 'text-primary' },
-          { label: 'High Risk',    value: highCount,        bg: 'bg-secondary/5 border border-secondary/10',              fg: 'text-secondary' },
-          { label: 'Pending',      value: PATIENTS.filter(p => p.status === 'QUEUED').length, bg: 'bg-amber-50 border border-amber-200', fg: 'text-amber-800' },
-          { label: 'Seen Today',   value: PATIENTS.filter(p => p.status === 'DONE').length,  bg: 'bg-primary/5 border border-primary/10', fg: 'text-primary' },
+          { label: 'Total Today',  value: queue.length,                                          bg: 'bg-white border border-amber-50',                        fg: 'text-primary' },
+          { label: 'High Risk',    value: highCount,                                              bg: 'bg-secondary/5 border border-secondary/10',              fg: 'text-secondary' },
+          { label: 'Pending',      value: queue.filter(p => p.status === 'QUEUED').length,        bg: 'bg-amber-50 border border-amber-200',                    fg: 'text-amber-800' },
+          { label: 'Seen Today',   value: queue.filter(p => p.status === 'DONE').length,          bg: 'bg-primary/5 border border-primary/10',                  fg: 'text-primary' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-6 custom-shadow`}>
             <p className={`font-label-sm text-xs uppercase mb-1 ${s.fg} opacity-70`}>{s.label}</p>
-            <h3 className={`font-display-xl text-4xl leading-none ${s.fg}`}>{String(s.value).padStart(2, '0')}</h3>
+            <h3 className={`font-display-xl text-4xl leading-none ${s.fg}`}>
+              {loading ? '—' : String(s.value).padStart(2, '0')}
+            </h3>
           </div>
         ))}
       </div>
@@ -146,8 +142,19 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
 
       {/* Patient rows */}
       <div className="space-y-3">
+        {loading && (
+          <div className="text-center py-12 text-on-surface-variant font-body-md text-sm">
+            Loading today's queue…
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <div className="text-center py-16 text-on-surface-variant">
+            <span className="material-symbols-outlined text-4xl block mb-2">event_available</span>
+            <p className="font-body-md">No patients in queue for this filter</p>
+          </div>
+        )}
         {filtered.map(p => {
-          const rc = RISK_COLORS[p.risk];
+          const rc = RISK_COLORS[p.risk] || RISK_COLORS.LOW;
           return (
             <div
               key={p.id}
@@ -165,29 +172,34 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
                 </div>
                 <div>
                   <h4 className="font-headline-md text-amber-900 text-base">{p.name}</h4>
-                  <div className="flex gap-2 mt-1.5 flex-wrap">
-                    {p.flags.map(f => (
-                      <span
-                        key={f}
-                        className={`font-label-sm text-[10px] px-2 py-0.5 rounded-full border ${
-                          p.risk === 'HIGH' ? 'bg-secondary text-white border-secondary' :
-                          p.risk === 'MEDIUM' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                          'bg-primary/5 text-primary border-primary/10'
-                        }`}
-                      >
-                        {f}
-                      </span>
-                    ))}
-                  </div>
+                  <p className="font-body-md text-on-surface-variant text-sm mt-0.5">
+                    Age {p.age} · Week {p.weeks}
+                  </p>
+                  {p.flags.length > 0 && (
+                    <div className="flex gap-2 mt-1.5 flex-wrap">
+                      {p.flags.map(f => (
+                        <span
+                          key={f}
+                          className={`font-label-sm text-[10px] px-2 py-0.5 rounded-full border ${
+                            p.risk === 'HIGH' ? 'bg-secondary text-white border-secondary' :
+                            p.risk === 'MEDIUM' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                            'bg-primary/5 text-primary border-primary/10'
+                          }`}
+                        >
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <span className={`font-label-sm text-[10px] px-3 py-1 rounded-full ${STATUS_STYLE[p.status]}`}>
+                <span className={`font-label-sm text-[10px] px-3 py-1 rounded-full ${STATUS_STYLE[p.status] || STATUS_STYLE.QUEUED}`}>
                   {p.status}
                 </span>
                 {p.status !== 'DONE' && (
                   <button
-                    onClick={() => navigate('/provider/patient', { state: { patient: p } })}
+                    onClick={() => navigate('/provider/patient', { state: { patient: p, appointment_id: p.appointment_id } })}
                     className="bg-primary text-white px-5 py-2 rounded-lg font-label-sm text-xs hover:bg-primary-container transition-all flex items-center gap-1"
                   >
                     View
@@ -214,18 +226,17 @@ const MetricsView = () => {
     <div className="space-y-8">
       <div>
         <h2 className="font-headline-lg text-amber-900 text-2xl">Health Metrics</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Pilot — Week 12 Summary</p>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Pilot — Summary</p>
       </div>
 
-      {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {[
-          { label: 'Registered Patients', value: '47',   sub: '+3 this week',    icon: 'group',         color: 'text-primary' },
-          { label: 'Avg Risk Score',       value: '2.1', sub: 'of 3.0 max',      icon: 'analytics',     color: 'text-amber-700' },
-          { label: 'Alert Response Time',  value: '38s', sub: 'avg · SLA: 60s',  icon: 'timer',         color: 'text-primary' },
-          { label: 'Appt Adherence',       value: '81%', sub: '↑ 6% vs last week', icon: 'event_available', color: 'text-primary' },
-          { label: 'Danger Alerts Sent',   value: '3',   sub: 'this week',       icon: 'warning',       color: 'text-secondary' },
-          { label: 'Modules Completed',    value: '112', sub: 'across all patients', icon: 'school',    color: 'text-primary' },
+          { label: 'Registered Patients', value: '—',   sub: 'Live data coming soon', icon: 'group',           color: 'text-primary' },
+          { label: 'Avg Risk Score',       value: '—',   sub: 'Live data coming soon', icon: 'analytics',       color: 'text-amber-700' },
+          { label: 'Alert Response Time',  value: '—',   sub: 'SLA: 60s',              icon: 'timer',           color: 'text-primary' },
+          { label: 'Appt Adherence',       value: '—',   sub: 'Live data coming soon', icon: 'event_available', color: 'text-primary' },
+          { label: 'Danger Alerts Sent',   value: '—',   sub: 'Live data coming soon', icon: 'warning',         color: 'text-secondary' },
+          { label: 'Modules Completed',    value: '—',   sub: 'Live data coming soon', icon: 'school',          color: 'text-primary' },
         ].map(k => (
           <div key={k.label} className="bg-white rounded-xl p-5 custom-shadow border border-amber-50">
             <div className="flex justify-between items-start mb-3">
@@ -238,7 +249,6 @@ const MetricsView = () => {
         ))}
       </div>
 
-      {/* Risk distribution */}
       <div className="bg-white rounded-xl p-6 custom-shadow border border-amber-50">
         <h3 className="font-headline-md text-amber-900 mb-6">Risk Distribution — Today's Queue</h3>
         <div className="flex h-40 items-end gap-6 mb-4">
@@ -261,24 +271,6 @@ const MetricsView = () => {
           ))}
         </div>
       </div>
-
-      {/* Weekly trend placeholder */}
-      <div className="bg-white rounded-xl p-6 custom-shadow border border-amber-50">
-        <h3 className="font-headline-md text-amber-900 mb-2">Registrations — Last 4 Weeks</h3>
-        <p className="font-body-md text-on-surface-variant text-sm mb-6">New patients registered per week</p>
-        <div className="flex items-end gap-4 h-28">
-          {[9, 12, 15, 11].map((v, i) => (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <span className="font-label-sm text-on-surface-variant text-xs">{v}</span>
-              <div
-                className="w-full bg-primary/70 rounded-t-md"
-                style={{ height: `${(v / 15) * 100}%` }}
-              />
-              <span className="font-label-sm text-outline text-[10px]">W{i + 1}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };
@@ -286,40 +278,25 @@ const MetricsView = () => {
 const PatientsView = ({ navigate }) => {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
-  const [apiResults, setApiResults] = useState(null);
-  const [searching, setSearching] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!search.trim()) { setApiResults(null); return; }
-    const t = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const { data } = await searchPatients(search);
-        setApiResults(Array.isArray(data) ? data : data?.patients || []);
-      } catch {
-        setApiResults(null);
-      } finally {
-        setSearching(false);
-      }
-    }, 400);
+    const delay = search.trim() ? 400 : 0;
+    const t = setTimeout(() => {
+      setLoading(true);
+      searchPatients(search)
+        .then(({ data }) => {
+          const list = Array.isArray(data) ? data : data?.patients || [];
+          setPatients(list.map(toPatientRow));
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    }, delay);
     return () => clearTimeout(t);
   }, [search]);
 
-  const baseList = apiResults
-    ? apiResults.map(p => ({
-        id: p.id,
-        name: p.name || '—',
-        age: p.age || '—',
-        weeks: p.gestational_age?.weeks || '—',
-        risk: (p.risk_tier || 'LOW').toUpperCase(),
-        flags: p.flags || [],
-        time: '',
-        status: 'QUEUED',
-        initials: (p.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
-      }))
-    : PATIENTS;
-
-  const filtered = baseList.filter(p => {
+  const filtered = patients.filter(p => {
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchRisk   = riskFilter === 'All' || p.risk === riskFilter;
     return matchSearch && matchRisk;
@@ -329,10 +306,11 @@ const PatientsView = ({ navigate }) => {
     <div className="space-y-6">
       <div>
         <h2 className="font-headline-lg text-amber-900 text-2xl">All Patients</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">{PATIENTS.length} registered in pilot</p>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">
+          {loading ? 'Loading…' : `${patients.length} patient${patients.length !== 1 ? 's' : ''} registered`}
+        </p>
       </div>
 
-      {/* Search + filter */}
       <div className="flex gap-3 flex-col sm:flex-row">
         <div className="relative flex-grow">
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
@@ -356,19 +334,18 @@ const PatientsView = ({ navigate }) => {
         </select>
       </div>
 
-      {/* Patient cards */}
       <div className="space-y-3">
-        {searching && (
-          <div className="text-center py-8 text-on-surface-variant font-body-md text-sm">Searching…</div>
+        {loading && (
+          <div className="text-center py-8 text-on-surface-variant font-body-md text-sm">Loading patients…</div>
         )}
-        {!searching && filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="text-center py-16 text-on-surface-variant">
             <span className="material-symbols-outlined text-4xl block mb-2">person_search</span>
             <p className="font-body-md">No patients found</p>
           </div>
         )}
         {filtered.map(p => {
-          const rc = RISK_COLORS[p.risk];
+          const rc = RISK_COLORS[p.risk] || RISK_COLORS.LOW;
           return (
             <button
               key={p.id}
@@ -441,7 +418,7 @@ const ResourcesView = () => (
 );
 
 const ProfileView = ({ doctor }) => {
-  const d = doctor || PROVIDER_PROFILE;
+  const d = doctor || {};
   const initials = (d.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   return (
   <div className="space-y-6 animate-fade-in">
@@ -465,23 +442,16 @@ const ProfileView = ({ doctor }) => {
           </div>
           <div className="flex-1">
             <p className="text-amber-300/70 text-xs uppercase tracking-[0.24em] font-label-sm">Clinical profile</p>
-            <h3 className="font-headline-lg text-3xl mt-2">{d.name}</h3>
-            <p className="text-amber-100/80 mt-1">{d.title || 'Obstetrician · UBTH'}</p>
+            <h3 className="font-headline-lg text-3xl mt-2">{d.name || 'Provider'}</h3>
+            <p className="text-amber-100/80 mt-1">Obstetrician · UBTH</p>
             <div className="flex flex-wrap gap-2 mt-4">
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{d.department || 'Obstetrics & Gynaecology'}</span>
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">{d.hospital || 'UBTH'}</span>
-              <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">{d.role || 'doctor'}</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">Obstetrics & Gynaecology</span>
+              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">UBTH</span>
+              <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">
+                {d.role || 'doctor'}
+              </span>
             </div>
           </div>
-        </div>
-
-        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-8 relative">
-          {PROVIDER_PROFILE.stats.map(stat => (
-            <div key={stat.label} className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              <p className="text-xs uppercase tracking-widest text-amber-300/60 font-label-sm">{stat.label}</p>
-              <p className="text-2xl font-headline-md mt-2">{stat.value}</p>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -490,10 +460,8 @@ const ProfileView = ({ doctor }) => {
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Contact</p>
           <div className="mt-4 space-y-3">
             {[
-              { icon: 'mail',        label: 'Email',    value: d.email || '—' },
-              { icon: 'call',        label: 'Phone',    value: d.phone || PROVIDER_PROFILE.phone },
-              { icon: 'location_on', label: 'Location', value: d.location || PROVIDER_PROFILE.location },
-              { icon: 'badge',       label: 'License',  value: d.license || PROVIDER_PROFILE.license },
+              { icon: 'mail',  label: 'Email', value: d.email || '—' },
+              { icon: 'badge', label: 'Role',  value: d.role || '—' },
             ].map(item => (
               <div key={item.label} className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -507,71 +475,19 @@ const ProfileView = ({ doctor }) => {
             ))}
           </div>
         </div>
-
-        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
-          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Credentials</p>
-          <div className="mt-4 space-y-3">
-            {PROVIDER_PROFILE.credentials.map(item => (
-              <div key={item.label} className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/20 last:border-0">
-                <span className="text-xs uppercase tracking-wider text-outline font-label-sm">{item.label}</span>
-                <span className="text-sm text-on-surface text-right">{item.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
-          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Languages</p>
-          <div className="flex flex-wrap gap-2 mt-4">
-            {PROVIDER_PROFILE.languages.map(lang => (
-              <span key={lang} className="px-3 py-1 rounded-full bg-amber-50 border border-amber-100 text-sm text-amber-900">
-                {lang}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div className="grid lg:grid-cols-[1fr_1fr] gap-6">
-      <div className="bg-white rounded-2xl p-6 custom-shadow border border-amber-50">
-        <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">About</p>
-        <p className="mt-4 text-on-surface leading-7">{PROVIDER_PROFILE.bio}</p>
-        <div className="flex flex-wrap gap-2 mt-5">
-          {PROVIDER_PROFILE.specialties.map(item => (
-            <span key={item} className="px-3 py-1 rounded-full bg-primary/10 text-primary text-sm border border-primary/10">
-              {item}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl p-6 custom-shadow border border-amber-50">
-        <div className="flex items-center justify-between">
-          <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Availability</p>
-          <span className="text-xs text-outline font-label-sm">Mock weekly schedule</span>
-        </div>
-        <div className="mt-4 space-y-3">
-          {PROVIDER_PROFILE.availability.map(slot => (
-            <div key={slot.day} className="flex items-center justify-between gap-4 py-3 px-4 rounded-xl bg-amber-50/70">
-              <div>
-                <p className="text-sm font-medium text-on-surface">{slot.day}</p>
-                <p className="text-xs text-outline mt-1">{slot.time}</p>
-              </div>
-              <span className="material-symbols-outlined text-primary">schedule</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   </div>
   );
 };
 
-const SettingsView = ({ onEditProfile, onSignOut }) => {
+const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
   const [notifSMS, setNotifSMS]         = useState(true);
   const [notifWhatsApp, setNotifWhatsApp] = useState(true);
   const [notifEmail, setNotifEmail]     = useState(false);
+
+  const d = doctor || {};
+  const initials = (d.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   const Toggle = ({ value, onChange }) => (
     <button
@@ -589,19 +505,20 @@ const SettingsView = ({ onEditProfile, onSignOut }) => {
         <p className="font-body-md text-on-surface-variant/70 mt-1">Account and notification preferences</p>
       </div>
 
-      {/* Account */}
       <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
         <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Account</p>
         </div>
         <div className="flex items-center gap-4 p-6">
           <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center">
-            <span className="font-headline-md text-primary text-2xl">DO</span>
+            <span className="font-headline-md text-primary text-2xl">{initials}</span>
           </div>
           <div>
-            <p className="font-headline-md text-amber-900 text-lg">Dr. Osasumwen Osagie</p>
-            <p className="font-body-md text-on-surface-variant text-sm">Obstetrician · UBTH</p>
-            <p className="font-label-sm text-outline text-xs mt-1">dr.osagie@ubth.edu.ng</p>
+            <p className="font-headline-md text-amber-900 text-lg">{d.name || 'Provider'}</p>
+            <p className="font-body-md text-on-surface-variant text-sm">
+              {d.role === 'department_head' ? 'Department Head' : 'Obstetrician'} · UBTH
+            </p>
+            <p className="font-label-sm text-outline text-xs mt-1">{d.email || '—'}</p>
           </div>
         </div>
         <div className="px-6 pb-6">
@@ -614,7 +531,6 @@ const SettingsView = ({ onEditProfile, onSignOut }) => {
         </div>
       </div>
 
-      {/* Notifications */}
       <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
         <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Alert Notifications</p>
@@ -636,7 +552,6 @@ const SettingsView = ({ onEditProfile, onSignOut }) => {
         </div>
       </div>
 
-      {/* Department */}
       <div className="bg-white rounded-xl custom-shadow border border-amber-50 overflow-hidden">
         <div className="p-4 border-b border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Department</p>
@@ -736,6 +651,10 @@ const NAV_ITEMS = [
   { id: 'profile',  icon: 'badge',      label: 'Profile' },
   { id: 'settings', icon: 'settings',   label: 'Settings' },
 ];
+
+const TODAY_DATE = new Date().toLocaleDateString('en-GB', {
+  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+});
 
 const ProviderDashboard = () => {
   const navigate = useNavigate();
@@ -841,7 +760,7 @@ const ProviderDashboard = () => {
             </div>
             <div>
               <p className="text-white font-medium text-sm">{doctorShortName}</p>
-              <p className="text-amber-500/60 text-xs">Obstetrician · UBTH</p>
+              <p className="text-amber-500/60 text-xs">{doctor?.role === 'department_head' ? 'Dept. Head' : 'Obstetrician'} · UBTH</p>
             </div>
           </div>
           <button
@@ -885,7 +804,6 @@ const ProviderDashboard = () => {
 
       {/* Main content */}
       <main className="lg:ml-64 flex-1 min-h-screen">
-        {/* Top header */}
         <header className="sticky top-0 w-full z-40 bg-[#F7F3ED]/90 backdrop-blur-md border-b border-amber-100 px-6 lg:px-10 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 hover:bg-amber-50 rounded-full">
@@ -893,7 +811,7 @@ const ProviderDashboard = () => {
             </button>
             <div>
               <h2 className="font-headline-lg text-amber-900">{TODAY_LABELS[activeView]}</h2>
-              <p className="font-body-md text-on-surface-variant/70 text-sm">Wednesday 14 May 2025</p>
+              <p className="font-body-md text-on-surface-variant/70 text-sm">{TODAY_DATE}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

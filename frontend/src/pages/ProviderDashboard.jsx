@@ -660,7 +660,7 @@ const AskAIView = () => {
 
   const send = async () => {
     const q = question.trim();
-    if (!q || loading) return;
+    if (!q || q.length < 5 || loading) return;
     const pid = patientId.trim() || undefined;
     setQuestion('');
     const userLabel = pid ? `[Patient ${pid.slice(0, 8)}…] ${q}` : q;
@@ -769,7 +769,7 @@ const AskAIView = () => {
         />
         <button
           onClick={send}
-          disabled={!question.trim() || loading}
+          disabled={question.trim().length < 5 || loading}
           className="w-12 h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity hover:opacity-90"
         >
           <span className="material-symbols-outlined text-white">send</span>

@@ -16,7 +16,7 @@ const AIChatPanel = ({ onClose }) => {
 
   const send = async () => {
     const q = input.trim();
-    if (!q || loading) return;
+    if (!q || q.length < 5 || loading) return;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', text: q }]);
     setLoading(true);
@@ -108,7 +108,7 @@ const AIChatPanel = ({ onClose }) => {
           />
           <button
             onClick={send}
-            disabled={!input.trim() || loading}
+            disabled={input.trim().length < 5 || loading}
             className="w-11 h-11 bg-primary rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
           >
             <span className="material-symbols-outlined text-white text-lg">send</span>

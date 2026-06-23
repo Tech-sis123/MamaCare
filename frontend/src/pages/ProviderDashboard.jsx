@@ -5,6 +5,7 @@ import {
   getDoctorQueue,
   searchPatients,
   acknowledgeAlert,
+  askDoctorAI,
 } from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 
@@ -642,11 +643,151 @@ const DoctorLoginScreen = ({ onLogin }) => {
   );
 };
 
+// ── Ask AI View ──────────────────────────────────────────────────
+
+const AskAIView = () => {
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: 'Hello, Doctor. Ask me a clinical question or provide a Patient ID for a patient-specific analysis.' },
+  ]);
+  const [question, setQuestion] = useState('');
+  const [patientId, setPatientId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const send = async () => {
+    const q = question.trim();
+    if (!q || loading) return;
+    const pid = patientId.trim() || undefined;
+    setQuestion('');
+    const userLabel = pid ? `[Patient ${pid.slice(0, 8)}…] ${q}` : q;
+    setMessages(prev => [...prev, { role: 'user', text: userLabel }]);
+    setLoading(true);
+    try {
+      const { data } = await askDoctorAI(q, pid);
+      setMessages(prev => [...prev, { role: 'ai', text: data.answer }]);
+    } catch (err) {
+      const msg = err.response?.status === 404
+        ? 'Patient not found. Double-check the Patient ID.'
+        : err.response?.status === 403
+          ? 'Access denied. Only doctors and department heads can use this assistant.'
+          : 'Unable to reach the AI right now. Please try again.';
+      setMessages(prev => [...prev, { role: 'ai', text: msg }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-10rem)] max-h-[700px]">
+      {/* Optional patient context input */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex-1">
+          <label className="font-label-sm text-xs text-on-surface-variant uppercase tracking-widest block mb-1">
+            Patient ID (optional — for patient-specific analysis)
+          </label>
+          <input
+            type="text"
+            value={patientId}
+            onChange={e => setPatientId(e.target.value)}
+            placeholder="Paste patient UUID here…"
+            className="w-full px-4 py-2.5 border border-amber-100 rounded-xl font-body-md text-sm bg-white focus:outline-none focus:border-primary transition-colors"
+          />
+        </div>
+        {patientId && (
+          <button
+            onClick={() => setPatientId('')}
+            className="mt-5 text-on-surface-variant hover:text-secondary"
+            title="Clear patient ID"
+          >
+            <span className="material-symbols-outlined text-sm">close</span>
+          </button>
+        )}
+      </div>
+
+      {patientId && (
+        <div className="mb-3 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
+          <span className="material-symbols-outlined text-amber-600 text-sm">person_search</span>
+          <p className="font-label-sm text-xs text-amber-800">
+            Context locked to patient <span className="font-bold">{patientId.slice(0, 8)}…</span>
+          </p>
+        </div>
+      )}
+
+      {/* Chat messages */}
+      <div className="flex-1 overflow-y-auto space-y-4 bg-white rounded-2xl border border-amber-50 p-4">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+            {m.role === 'ai' && (
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                <span className="material-symbols-outlined text-primary text-base">smart_toy</span>
+              </div>
+            )}
+            <div
+              className={`max-w-[80%] px-4 py-3 rounded-2xl font-body-md text-sm leading-relaxed whitespace-pre-wrap ${
+                m.role === 'user'
+                  ? 'bg-primary text-white rounded-tr-sm'
+                  : 'bg-amber-50 text-amber-900 rounded-tl-sm border border-amber-100'
+              }`}
+            >
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-primary text-base">smart_toy</span>
+            </div>
+            <div className="bg-amber-50 border border-amber-100 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="mt-4 flex items-end gap-3">
+        <textarea
+          rows={2}
+          value={question}
+          onChange={e => setQuestion(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Ask a clinical question… (Shift+Enter for new line)"
+          className="flex-1 resize-none rounded-2xl border border-amber-100 bg-white px-4 py-3 font-body-md text-sm focus:outline-none focus:border-primary transition-colors"
+          style={{ maxHeight: '120px', overflowY: 'auto' }}
+        />
+        <button
+          onClick={send}
+          disabled={!question.trim() || loading}
+          className="w-12 h-12 bg-primary rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity hover:opacity-90"
+        >
+          <span className="material-symbols-outlined text-white">send</span>
+        </button>
+      </div>
+      <p className="mt-2 font-label-sm text-[10px] text-on-surface-variant/50 text-center">
+        Powered by Groq · Responses reference ACOG/WHO guidelines · Not a substitute for clinical judgment
+      </p>
+    </div>
+  );
+};
+
 // ── Main component ────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: 'queue',    icon: 'dashboard',  label: 'Patient Queue' },
   { id: 'metrics',  icon: 'monitoring', label: 'Health Metrics' },
   { id: 'patients', icon: 'group',      label: 'Patients' },
+  { id: 'ask_ai',   icon: 'smart_toy',  label: 'Ask AI' },
   { id: 'resources',icon: 'menu_book',  label: 'Resources' },
   { id: 'profile',  icon: 'badge',      label: 'Profile' },
   { id: 'settings', icon: 'settings',   label: 'Settings' },
@@ -710,6 +851,7 @@ const ProviderDashboard = () => {
     queue: QueueView,
     metrics: MetricsView,
     patients: PatientsView,
+    ask_ai: AskAIView,
     resources: ResourcesView,
     profile: ProfileView,
     settings: SettingsView,
@@ -720,6 +862,7 @@ const ProviderDashboard = () => {
     queue: "Today's Queue",
     metrics: 'Health Metrics',
     patients: 'All Patients',
+    ask_ai: 'Clinical AI Assistant',
     resources: 'Resources',
     profile: 'Provider Profile',
     settings: 'Settings',

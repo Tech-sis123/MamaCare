@@ -118,3 +118,11 @@ export const getEducationModules = () => patientApi.get('/education/modules');
 
 export const markModuleComplete = module_id =>
   patientApi.patch('/education/progress', { module_id });
+
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+
+export const askPatientAI = (question) =>
+  patientApi.post('/patients/me/ask', { question });
+
+export const askDoctorAI = (question, patient_id) =>
+  doctorApi.post('/providers/ask', patient_id ? { question, patient_id } : { question });

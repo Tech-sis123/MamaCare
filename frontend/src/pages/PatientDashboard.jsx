@@ -1,8 +1,127 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { askPatientAI } from '../lib/api';
+
+const AIChatPanel = ({ onClose }) => {
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: 'Hi! I'm your Mama Care AI assistant. Ask me anything about your pregnancy, symptoms, or health.' },
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const send = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: q }]);
+    setLoading(true);
+    try {
+      const { data } = await askPatientAI(q);
+      setMessages(prev => [...prev, { role: 'ai', text: data.answer }]);
+    } catch (err) {
+      const msg = err.response?.status === 404
+        ? 'Please complete your profile first so I can give personalised advice.'
+        : 'Sorry, I couldn't reach the AI right now. Please try again.';
+      setMessages(prev => [...prev, { role: 'ai', text: msg }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col justify-end bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-3xl w-full max-w-[640px] mx-auto flex flex-col shadow-2xl"
+        style={{ maxHeight: '85vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-container">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-white text-lg">smart_toy</span>
+            </div>
+            <div>
+              <p className="font-headline-md text-sm text-primary">Mama Care AI</p>
+              <p className="font-label-sm text-[10px] text-outline">Powered by Groq · Not medical advice</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container">
+            <span className="material-symbols-outlined text-outline">close</span>
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex gap-3 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              {m.role === 'ai' && (
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <span className="material-symbols-outlined text-primary text-sm">smart_toy</span>
+                </div>
+              )}
+              <div
+                className={`max-w-[78%] px-4 py-3 rounded-2xl font-body-md text-sm leading-relaxed ${
+                  m.role === 'user'
+                    ? 'bg-primary text-white rounded-tr-sm'
+                    : 'bg-surface-container text-on-surface rounded-tl-sm'
+                }`}
+              >
+                {m.text}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex gap-3">
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-primary text-sm">smart_toy</span>
+              </div>
+              <div className="bg-surface-container px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-4 pb-8 pt-3 border-t border-surface-container flex items-end gap-3">
+          <textarea
+            rows={1}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKey}
+            placeholder="Ask about your pregnancy…"
+            className="flex-1 resize-none rounded-2xl border border-surface-container bg-surface-container-low px-4 py-3 font-body-md text-sm focus:outline-none focus:border-primary transition-colors"
+            style={{ maxHeight: '120px', overflowY: 'auto' }}
+          />
+          <button
+            onClick={send}
+            disabled={!input.trim() || loading}
+            className="w-11 h-11 bg-primary rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-opacity"
+          >
+            <span className="material-symbols-outlined text-white text-lg">send</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const PatientDashboard = () => {
   const navigate = useNavigate();
+  const [showAI, setShowAI] = useState(false);
 
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
@@ -156,11 +275,11 @@ const PatientDashboard = () => {
             </div>
             <span className="font-label-sm text-xs text-secondary">Danger sign</span>
           </button>
-          <button className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95">
+          <button onClick={() => setShowAI(true)} className="bg-primary/5 p-4 rounded-xl card-shadow border border-primary/20 flex flex-col items-center gap-3 text-center transition-transform active:scale-95">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary">content_paste</span>
+              <span className="material-symbols-outlined text-primary">smart_toy</span>
             </div>
-            <span className="font-label-sm text-xs text-on-surface">My records</span>
+            <span className="font-label-sm text-xs text-primary">Ask AI</span>
           </button>
         </section>
 
@@ -240,6 +359,18 @@ const PatientDashboard = () => {
           </button>
         </div>
       </nav>
+
+      {/* Floating AI button */}
+      <button
+        onClick={() => setShowAI(true)}
+        className="fixed bottom-24 right-5 z-50 w-14 h-14 bg-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+        aria-label="Ask AI"
+      >
+        <span className="material-symbols-outlined text-white text-2xl">smart_toy</span>
+      </button>
+
+      {/* AI Chat Panel */}
+      {showAI && <AIChatPanel onClose={() => setShowAI(false)} />}
     </div>
   );
 };

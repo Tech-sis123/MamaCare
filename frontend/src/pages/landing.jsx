@@ -22,6 +22,12 @@ const Landing = () => {
             </span>
             <span className="font-headline-md">Mama Care AI</span>
           </div>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="fixed bottom-4 right-4 z-[999] bg-black/80 text-white text-xs px-3 py-1.5 rounded-full font-mono hover:bg-black transition-colors"
+          >
+            → patient dash
+          </button>
           <div className="hidden md:flex items-center gap-8">
             <a
               className="text-amber-900 border-b-2 border-amber-800 pb-1 font-body-md"

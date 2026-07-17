@@ -69,7 +69,7 @@ const PatientProfile = () => {
             </p>
             <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 bg-tertiary-fixed rounded-full">
               <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span className="font-label-sm text-primary text-xs">UBTH Verified Patient</span>
+              <span className="font-label-sm text-primary text-xs">Verified Patient</span>
             </div>
           </div>
         </div>

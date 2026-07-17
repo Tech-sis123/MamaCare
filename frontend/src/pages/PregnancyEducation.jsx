@@ -14,7 +14,7 @@ const STATIC_MODULES = [
   { id: 'baby-growth',        type: 'video',   title: "Understanding Baby's Growth",    description: "Week 12 · 8 min · Your baby is now the size of a lime.", completed: true,  recommended: true },
   { id: 'mindful-breathing',  type: 'audio',   title: 'Mindful Breathing for Relief',  description: 'Simple exercises for managing morning sickness.',         completed: true,  recommended: false },
   { id: 'nutrition-iron-zinc',type: 'article', title: 'Nutrition Essentials: Iron & Zinc', description: 'Best local foods to boost your energy levels.',        completed: false, recommended: false },
-  { id: 'first-scan',         type: 'video',   title: 'First Scan: What to Expect',    description: 'A guide to your first ultrasound at UBTH.',               completed: false, recommended: false },
+  { id: 'first-scan',         type: 'video',   title: 'First Scan: What to Expect',    description: 'A guide to your first ultrasound.',               completed: false, recommended: false },
 ];
 
 const PregnancyEducation = () => {

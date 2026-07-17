@@ -201,7 +201,7 @@ const BookAppointment = () => {
             <div className="mt-6 flex items-start gap-2 bg-primary/5 p-4 rounded-lg border border-primary/10">
               <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <p className="text-label-sm font-label-sm text-primary/80">
-                Appointments available Monday–Friday at UBTH ANC Clinic
+                Appointments available Monday–Friday at the ANC Clinic
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ const BookAppointment = () => {
                 </div>
                 <div>
                   <p className="text-label-sm font-label-sm text-outline uppercase tracking-widest">Clinic Location</p>
-                  <p className="font-headline-md text-xl text-tertiary">ANC Clinic B, UBTH</p>
+                  <p className="font-headline-md text-xl text-tertiary">ANC Clinic B</p>
                 </div>
               </div>
               <div className="pt-6 border-t border-dashed border-outline-variant">

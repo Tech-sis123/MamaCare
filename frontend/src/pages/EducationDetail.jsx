@@ -57,7 +57,7 @@ const MODULES = {
       {
         kind: 'body',
         heading: 'Your Antenatal Appointment',
-        body: `Your first major antenatal scan — called the dating or nuchal scan — usually happens between 11 and 13 weeks. If you have not had yours yet, book it now at UBTH. The scan checks that your baby is growing well, confirms the due date, and screens for certain chromosomal conditions. Your midwife will measure the fluid at the back of the baby's neck (the nuchal fold) and check the blood flow in the placenta.\n\nBring your UBTH appointment card and a full bladder. The ultrasound gel may feel cold, but the scan is painless and usually takes 20–30 minutes.`,
+        body: `Your first major antenatal scan — called the dating or nuchal scan — usually happens between 11 and 13 weeks. If you have not had yours yet, book it at your clinic. The scan checks that your baby is growing well, confirms the due date, and screens for certain chromosomal conditions. Your midwife will measure the fluid at the back of the baby's neck (the nuchal fold) and check the blood flow in the placenta.\n\nBring your antenatal card and a full bladder. The ultrasound gel may feel cold, but the scan is painless and usually takes 20–30 minutes.`,
       },
       {
         kind: 'highlight',
@@ -172,12 +172,12 @@ const MODULES = {
     tag: 'Antenatal Care',
     duration: '15 min',
     title: 'First Scan: What to Expect',
-    subtitle: 'A guide to your dating ultrasound at UBTH.',
+    subtitle: 'A guide to your dating ultrasound.',
     nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
     sections: [
       {
         kind: 'intro',
-        body: `Your first ultrasound scan is one of the most exciting moments of early pregnancy. It is the first time you will see your baby on screen — and it provides your midwife with important information about how your pregnancy is progressing. This guide will help you know what to expect before, during, and after the scan at UBTH.`,
+        body: `Your first ultrasound scan is one of the most exciting moments of early pregnancy. It is the first time you will see your baby on screen — and it provides your midwife with important information about how your pregnancy is progressing. This guide will help you know what to expect before, during, and after the scan at your clinic.`,
       },
       {
         kind: 'body',
@@ -189,7 +189,7 @@ const MODULES = {
         heading: 'How to Prepare',
         items: [
           'Drink 4–6 glasses of water in the hour before the scan and do not use the toilet — a full bladder helps the image quality.',
-          'Bring your UBTH antenatal card and any previous scan reports.',
+          'Bring your antenatal card and any previous scan reports.',
           'Wear loose, comfortable clothing you can lift or roll down easily.',
           'You may bring one support person with you — a partner, mother, or friend.',
           'The scan is painless. Cold gel will be applied to your belly.',
@@ -204,11 +204,11 @@ const MODULES = {
       {
         kind: 'body',
         heading: 'After the Scan',
-        body: `You will receive printed scan images to take home. Your midwife will review the measurements and results with you, usually at the same appointment or shortly after. If everything looks normal, your next scan will be at around 20 weeks — the anatomy scan.\n\nIf any measurements are outside the normal range, do not panic. Your midwife will refer you to an obstetrician at UBTH who will carry out further assessments. Most concerns found at the dating scan turn out to be nothing serious.`,
+        body: `You will receive printed scan images to take home. Your midwife will review the measurements and results with you, usually at the same appointment or shortly after. If everything looks normal, your next scan will be at around 20 weeks — the anatomy scan.\n\nIf any measurements are outside the normal range, do not panic. Your midwife will refer you to an obstetrician who will carry out further assessments. Most concerns found at the dating scan turn out to be nothing serious.`,
       },
       {
         kind: 'warning',
-        heading: 'Contact UBTH If You Have',
+        heading: 'Contact Your Clinic If You Have',
         items: [
           'Not yet had a scan and are past 13 weeks and 6 days',
           'Vaginal bleeding or cramping before your appointment',
@@ -494,7 +494,7 @@ const EducationDetail = () => {
 
           {/* Source note */}
           <p className="px-5 pb-6 text-center italic text-outline font-body-md text-xs">
-            Content reviewed by UBTH obstetric team · Mama Care AI v1.0
+            Content reviewed by clinical team · 9Care AI v1.0
           </p>
         </div>
 

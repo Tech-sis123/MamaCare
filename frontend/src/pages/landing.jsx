@@ -20,7 +20,7 @@ const Landing = () => {
             >
               pregnant_woman
             </span>
-            <span className="font-headline-md">Mama Care AI</span>
+            <span className="font-headline-md">9Care AI</span>
           </div>
           <button
             onClick={() => navigate('/dashboard')}
@@ -67,16 +67,16 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center py-20">
           <div className="z-10">
             <span className="inline-block py-1 px-4 bg-tertiary-fixed text-primary font-label-sm rounded-full mb-6">
-              UBTH PILOT · BENIN CITY
+              BENIN CITY
             </span>
             <h1 className="font-display-xl text-primary mb-6 leading-tight">
               Smart care for you <br />
               and your baby.
             </h1>
             <p className="font-body-lg text-on-surface-variant mb-10 max-w-lg">
-              Mama Care AI guides first-trimester mothers through a safe
+              9Care AI guides first-trimester mothers through a safe
               pregnancy with personalized risk assessments and direct links to
-              specialists at UBTH.
+              specialists.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <button
@@ -148,7 +148,7 @@ const Landing = () => {
             <div className="space-y-2 px-4">
               <h3 className="font-display-xl text-on-primary-container">200+</h3>
               <p className="font-label-sm uppercase tracking-widest opacity-80">
-                Women in pilot
+                Women enrolled
               </p>
             </div>
             <div className="space-y-2 px-4">
@@ -178,7 +178,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-20">
             <h2 className="font-headline-lg text-primary mb-4">
-              How Mama Care works
+              How 9Care works
             </h2>
             <div className="w-20 h-1 bg-secondary mx-auto rounded-full"></div>
           </div>
@@ -192,7 +192,7 @@ const Landing = () => {
               </div>
               <h4 className="font-headline-md text-primary mb-2">1. Register</h4>
               <p className="text-on-surface-variant font-body-md">
-                Sign up quickly with your phone number at UBTH.
+                Sign up quickly with your phone number.
               </p>
             </div>
             {/* Step 2 */}
@@ -273,7 +273,7 @@ const Landing = () => {
               </h3>
               <p className="text-on-surface-variant font-body-md">
                 Immediate notification system for red flags like bleeding or
-                blurred vision, alerting UBTH staff instantly.
+                blurred vision, alerting medical staff instantly.
               </p>
             </div>
             {/* Card 3 */}
@@ -304,8 +304,8 @@ const Landing = () => {
               before they walk in.
             </h2>
             <p className="text-on-surface-variant font-body-lg mb-8">
-              Our clinician dashboard gives UBTH obstetricians a real-time view
-              of the entire pilot population. Prioritize high-risk patients and
+              Our clinician dashboard gives obstetricians a real-time view
+              of all patients. Prioritize high-risk patients and
               respond to alerts in seconds.
             </p>
             <ul className="space-y-4">
@@ -338,7 +338,7 @@ const Landing = () => {
               <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10">
                 <h4 className="text-white font-headline-md">Patient Queue</h4>
                 <span className="text-stone-400 font-label-sm">
-                  LIVE · UBTH
+                  LIVE
                 </span>
               </div>
               <div className="space-y-4">
@@ -401,7 +401,7 @@ const Landing = () => {
             format_quote
           </span>
           <blockquote className="font-display-xl italic text-primary mb-10 leading-snug">
-            "Mama Care AI has bridged the gap between home and hospital. We are
+            "9Care AI has bridged the gap between home and hospital. We are
             catching potential issues weeks earlier than we used to, saving
             lives in Benin City."
           </blockquote>
@@ -413,7 +413,7 @@ const Landing = () => {
             />
             <p className="font-bold text-primary">Dr. Osasumwen I. Osagie</p>
             <p className="font-label-sm text-sm uppercase tracking-widest text-primary/60">
-              Obstetrician, UBTH
+              Obstetrician
             </p>
           </div>
         </div>
@@ -424,11 +424,10 @@ const Landing = () => {
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
           <div className="text-center md:text-left">
             <div className="text-xl font-serif font-bold text-amber-50 mb-4">
-              Mama Care AI
+              9Care AI
             </div>
             <p className="font-serif text-sm tracking-wide opacity-80 max-w-sm">
-              © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with
-              UBTH. Supporting maternal health in Edo State.
+              © 2026 9Care AI. Safe pregnancies, every time.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-8 font-serif text-sm tracking-wide">

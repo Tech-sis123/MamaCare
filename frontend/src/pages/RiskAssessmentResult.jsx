@@ -50,7 +50,7 @@ const RISK_CONFIG = {
     icon: 'notifications_active',
     iconColor: 'text-secondary',
     title: "You need to see a doctor today.",
-    body: "A doctor has been notified and will contact you. Please go to UBTH today — do not wait.",
+    body: "A doctor has been notified and will contact you. Please go to your nearest hospital today — do not wait.",
     reason: "Your blood pressure is very high and your headache is a warning sign of a condition called pre-eclampsia. This can be dangerous for you and your baby if not treated quickly. Please go to the hospital now — you do not need to wait for an appointment.",
     factors: [
       { type: 'danger', icon: 'emergency_home',      title: 'BP critically elevated',  desc: 'Your latest reading was 160/110 mmHg — requires immediate attention.' },
@@ -58,7 +58,7 @@ const RISK_CONFIG = {
       { type: 'ok',     icon: 'check_circle',        title: 'Age within range',         desc: 'Your age factor is currently considered low-risk.' },
       { type: 'ok',     icon: 'check_circle',        title: 'No prior complications',   desc: 'Your history does not indicate previous high-risk pregnancies.' },
     ],
-    ctaLabel: 'CALL UBTH EMERGENCY LINE NOW',
+    ctaLabel: 'CALL EMERGENCY LINE NOW',
     ctaRoute: null,
     ctaPhone: 'tel:08012345678',
     urgent: true,
@@ -179,7 +179,7 @@ const RiskAssessmentResult = () => {
             ))}
           </div>
           <p className="mt-6 text-center italic text-outline font-body-md text-sm">
-            Assessed by Mama Care AI clinical rules based on current medical standards.
+            Assessed by 9Care AI clinical rules based on current medical standards.
           </p>
         </section>
       </main>

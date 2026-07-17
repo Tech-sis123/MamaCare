@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 
-console.log('Mama Care AI starting...');
+console.log('9Care AI starting...');
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

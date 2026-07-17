@@ -10,7 +10,7 @@ import { getPatientData, isPatientAuthenticated } from '../lib/auth';
 
 const AIChatPanel = ({ onClose }) => {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Hi! I\'m your Mama Care AI assistant. Ask me anything about your pregnancy, symptoms, or health.' },
+    { role: 'ai', text: 'Hi! I\'m your 9Care AI assistant. Ask me anything about your pregnancy, symptoms, or health.' },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,7 +57,7 @@ const AIChatPanel = ({ onClose }) => {
               <Bot className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="font-headline-md text-sm text-primary">Mama Care AI</p>
+              <p className="font-headline-md text-sm text-primary">9Care AI</p>
               <p className="font-label-sm text-[10px] text-outline">Powered by Groq · Not medical advice</p>
             </div>
           </div>
@@ -161,7 +161,7 @@ const PatientDashboard = () => {
           <nav className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-2 text-on-primary font-headline-md text-xl">
               <Heart className="w-5 h-5 text-on-primary fill-current" />
-              <span>Mama Care AI</span>
+              <span>9Care AI</span>
             </div>
             <button className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors">
               <Bell className="w-5 h-5 text-white" />
@@ -255,7 +255,7 @@ const PatientDashboard = () => {
           </div>
           <div className="space-y-1 mb-6 pl-16">
             <p className="font-body-md text-on-surface">{nextAppt?.doctor || 'Dr. Adaeze Nwankwo'}</p>
-            <p className="font-body-md text-on-surface-variant text-sm">{nextAppt?.location || 'ANC Clinic B, UBTH'}</p>
+            <p className="font-body-md text-on-surface-variant text-sm">{nextAppt?.location || 'ANC Clinic B'}</p>
           </div>
           <div className="flex gap-3 pl-16">
             <button className="px-4 py-2 border border-outline rounded-lg text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors">
@@ -354,9 +354,9 @@ const PatientDashboard = () => {
 
       {/* Footer Copyright */}
       <footer className="max-w-[640px] mx-auto px-8 py-16 text-center border-t border-primary/10 bg-surface-container-low mb-20">
-        <div className="font-headline-md text-xl font-bold text-primary mb-4">Mama Care AI</div>
+        <div className="font-headline-md text-xl font-bold text-primary mb-4">9Care AI</div>
         <p className="font-body-md text-sm text-outline tracking-wide leading-relaxed">
-          © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
+          © 2026 9Care AI. Safe pregnancies, every time.
         </p>
         <div className="flex justify-center gap-6 mt-8 flex-wrap">
           <a href="#" className="text-outline text-xs font-label-sm hover:text-primary underline underline-offset-4">

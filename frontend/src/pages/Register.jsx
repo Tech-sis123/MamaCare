@@ -149,7 +149,7 @@ const RegistrationFlow = () => {
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
               pregnant_woman
             </span>
-            <span className="font-headline-md">Mama Care AI</span>
+            <span className="font-headline-md">9Care AI</span>
           </div>
           <div className="flex items-center gap-6">
             <div className="hidden md:flex gap-6">
@@ -343,9 +343,9 @@ const RegistrationFlow = () => {
       <footer className="bg-stone-50 border-t border-amber-900/10 mt-auto">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
+            <div className="text-xl font-serif font-bold text-amber-900">9Care AI</div>
             <p className="font-serif text-sm tracking-wide text-stone-500 text-center md:text-left max-w-md">
-              © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
+              © 2026 9Care AI. Safe pregnancies, every time.
             </p>
           </div>
           <nav className="flex flex-wrap justify-center gap-6">

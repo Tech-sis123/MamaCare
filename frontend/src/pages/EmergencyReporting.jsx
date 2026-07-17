@@ -78,7 +78,7 @@ const EmergencyReporting = () => {
           <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-2xl font-serif font-bold text-amber-900 hover:opacity-80 transition-opacity">
             <span className="material-symbols-outlined text-base">arrow_back</span>
             <span className="material-symbols-outlined">pregnant_woman</span>
-            Mama Care AI
+            9Care AI
           </button>
           <div className="hidden md:flex gap-8 items-center">
             <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
@@ -107,7 +107,7 @@ const EmergencyReporting = () => {
             <div className="mb-12">
               <h1 className="font-headline-lg text-display-xl text-primary mb-4">Danger Sign Reporting</h1>
               <p className="font-body-lg text-on-surface-variant max-w-2xl">
-                If you feel unwell, please select any symptoms you are experiencing. This alert goes directly to UBTH medical staff.
+                If you feel unwell, please select any symptoms you are experiencing. This alert goes directly to medical staff.
               </p>
             </div>
 
@@ -194,7 +194,7 @@ const EmergencyReporting = () => {
               </div>
               <h2 className="font-headline-lg text-display-xl mb-4">Emergency Alert Active</h2>
               <p className="font-body-lg mb-12 opacity-90">
-                Your location and health data have been sent to UBTH Emergency Care. A nurse is reviewing your case now.
+                Your location and health data have been sent to emergency care. A nurse is reviewing your case now.
               </p>
 
               {/* Countdown Timer */}
@@ -210,7 +210,7 @@ const EmergencyReporting = () => {
                   className="bg-white text-secondary w-full py-6 rounded-2xl font-bold text-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all"
                 >
                   <span className="material-symbols-outlined text-3xl">call</span>
-                  Call UBTH Emergency
+                  Call Emergency Line
                 </a>
                 <button
                   onClick={handleCancelAlert}
@@ -242,10 +242,10 @@ const EmergencyReporting = () => {
                 Institutional Trust
               </span>
               <h2 className="font-headline-lg text-headline-lg text-primary mb-6">
-                Partnered with University of Benin Teaching Hospital (UBTH)
+                Partnered with University of Benin Teaching Hospital
               </h2>
               <p className="font-body-lg text-on-surface-variant mb-8">
-                Every alert sent through Mama Care AI is routed directly to the obstetrics triage team.
+                Every alert sent through 9Care AI is routed directly to the obstetrics triage team.
                 We ensure that your data is shared securely and that medical professionals have the context
                 they need to provide immediate life-saving care.
               </p>
@@ -263,14 +263,14 @@ const EmergencyReporting = () => {
             <div className="relative">
               <img
                 className="rounded-2xl shadow-xl w-full h-[400px] object-cover"
-                alt="UBTH hospital entrance"
+                alt="Hospital entrance"
                 src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8wNJW-kuJ0PKFUWyTF4bi55BYUE9isEYXeH75Pbdqa7FgS0ks685Oqus3r901Uqvnsd65bEILb8uBZugXJkLtqi7L3PhHewfSamTH2Jj8pMMv0Rp_hljtaVz9GzVAddDVX5iYtB99AlWi-Ug9kEPJDUS5o1NYVAlzx85TFHlSU_rFsMtL-P8AL3OCYyPS_Kt8INuu514R5ESPLSe9TJnH5o1VIZEeYdbhIpG1OGBRn-iCgjQ0aH4LgQ9-jB7AW4bf3oK0UlbeFeg"
               />
               <div className="absolute -bottom-6 -left-6 bg-primary text-white p-6 rounded-xl shadow-lg max-w-[240px]">
                 <p className="font-headline-md text-headline-md leading-tight italic">
-                  "Response times improved by 40% using Mama Care AI triage."
+                  "Response times improved by 40% using 9Care AI triage."
                 </p>
-                <p className="mt-4 font-label-sm opacity-80">— Dr. Osa, UBTH Obstetrics</p>
+                <p className="mt-4 font-label-sm opacity-80">— Dr. Osa, Obstetrics</p>
               </div>
             </div>
           </div>
@@ -280,7 +280,7 @@ const EmergencyReporting = () => {
       {/* Footer Shell */}
       <footer className="bg-stone-50 border-t border-amber-900/10 w-full mt-24">
         <div className="flex flex-col md:flex-row justify-between items-center w-full px-8 py-16 max-w-7xl mx-auto gap-8">
-          <div className="text-xl font-serif font-bold text-amber-900">Mama Care AI</div>
+          <div className="text-xl font-serif font-bold text-amber-900">9Care AI</div>
           <div className="flex flex-wrap justify-center gap-6">
             <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
@@ -299,7 +299,7 @@ const EmergencyReporting = () => {
             </a>
           </div>
           <div className="font-serif text-sm tracking-wide text-amber-900 text-center md:text-right">
-            © 2024 Mama Care AI. Safe pregnancies, every time. Partnered with UBTH.
+            © 2026 9Care AI. Safe pregnancies, every time.
           </div>
         </div>
       </footer>

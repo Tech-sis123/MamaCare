@@ -28,7 +28,7 @@ const RESOURCES = [
   { title: 'WHO Antenatal Care Guidelines', type: 'PDF', size: '8.7 MB', category: 'Guidelines' },
   { title: 'Danger Signs Quick Reference', type: 'PDF',  size: '0.5 MB', category: 'Emergency' },
   { title: 'Pregnancy Nutrition Chart',    type: 'IMG',  size: '0.8 MB', category: 'Education' },
-  { title: 'UBTH Referral Forms',          type: 'DOC',  size: '0.3 MB', category: 'Admin' },
+  { title: 'Referral Forms',          type: 'DOC',  size: '0.3 MB', category: 'Admin' },
 ];
 
 const toQueuePatient = (apt) => ({
@@ -227,7 +227,7 @@ const MetricsView = () => {
     <div className="space-y-8">
       <div>
         <h2 className="font-headline-lg text-amber-900 text-2xl">Health Metrics</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Pilot — Summary</p>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">Provider Summary</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -426,7 +426,7 @@ const ProfileView = ({ doctor }) => {
     <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
       <div>
         <h2 className="font-headline-lg text-amber-900 text-2xl">Provider Profile</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">UBTH Maternal Health Portal</p>
+        <p className="font-body-md text-on-surface-variant/70 mt-1">Maternal Health Portal</p>
       </div>
       <div className="flex items-center gap-2 text-xs font-label-sm text-primary bg-primary/10 px-3 py-2 rounded-full w-fit">
         <span className="w-2 h-2 rounded-full bg-primary animate-pulse-dot" />
@@ -444,10 +444,10 @@ const ProfileView = ({ doctor }) => {
           <div className="flex-1">
             <p className="text-amber-300/70 text-xs uppercase tracking-[0.24em] font-label-sm">Clinical profile</p>
             <h3 className="font-headline-lg text-3xl mt-2">{d.name || 'Provider'}</h3>
-            <p className="text-amber-100/80 mt-1">Obstetrician · UBTH</p>
+            <p className="text-amber-100/80 mt-1">Obstetrician</p>
             <div className="flex flex-wrap gap-2 mt-4">
               <span className="px-3 py-1 rounded-full bg-white/10 text-xs">Obstetrics & Gynaecology</span>
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs">UBTH</span>
+              
               <span className="px-3 py-1 rounded-full bg-secondary/20 text-secondary text-xs border border-secondary/30">
                 {d.role || 'doctor'}
               </span>
@@ -517,7 +517,7 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
           <div>
             <p className="font-headline-md text-amber-900 text-lg">{d.name || 'Provider'}</p>
             <p className="font-body-md text-on-surface-variant text-sm">
-              {d.role === 'department_head' ? 'Department Head' : 'Obstetrician'} · UBTH
+              {d.role === 'department_head' ? 'Department Head' : 'Obstetrician'}
             </p>
             <p className="font-label-sm text-outline text-xs mt-1">{d.email || '—'}</p>
           </div>
@@ -561,7 +561,7 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
           {[
             { label: 'Hospital',    value: 'University of Benin Teaching Hospital' },
             { label: 'Department',  value: 'Obstetrics & Gynaecology' },
-            { label: 'Pilot Group', value: 'UBTH ANC Pilot — Cohort 1' },
+            { label: 'Pilot Group', value: 'Cohort 1' },
           ].map(d => (
             <div key={d.label} className="flex justify-between items-center py-2 border-b border-outline-variant/20 last:border-0">
               <span className="font-label-sm text-on-surface-variant text-xs uppercase">{d.label}</span>
@@ -581,8 +581,8 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
 
 // ── Doctor Login ─────────────────────────────────────────────────
 const DoctorLoginScreen = ({ onLogin }) => {
-  const [email, setEmail] = useState('dr.adaeze@ubth.ng');
-  const [password, setPassword] = useState('mamacare123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -605,7 +605,7 @@ const DoctorLoginScreen = ({ onLogin }) => {
     <div className="min-h-screen bg-[#1A1A18] flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl">
         <div className="mb-8">
-          <h1 className="font-headline-lg text-amber-900 text-2xl mb-1">UBTH Provider Portal</h1>
+          <h1 className="font-headline-lg text-amber-900 text-2xl mb-1">Provider Portal</h1>
           <p className="font-body-md text-on-surface-variant text-sm">Sign in to access patient care dashboard</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -875,7 +875,7 @@ const ProviderDashboard = () => {
       {/* Sidebar — desktop */}
       <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 bg-[#1A1A18] border-r border-amber-900/30 shadow-2xl flex-col p-6 z-50">
         <div className="mb-8">
-          <h1 className="font-headline-md text-xl font-bold text-white mb-1">UBTH Care</h1>
+          <h1 className="font-headline-md text-xl font-bold text-white mb-1">9Care</h1>
           <p className="font-label-sm text-amber-500/70 text-[10px] uppercase tracking-widest">Maternal Health Portal</p>
         </div>
         <nav className="flex-1 space-y-1">
@@ -903,7 +903,7 @@ const ProviderDashboard = () => {
             </div>
             <div>
               <p className="text-white font-medium text-sm">{doctorShortName}</p>
-              <p className="text-amber-500/60 text-xs">{doctor?.role === 'department_head' ? 'Dept. Head' : 'Obstetrician'} · UBTH</p>
+              <p className="text-amber-500/60 text-xs">{doctor?.role === 'department_head' ? 'Dept. Head' : 'Obstetrician'}</p>
             </div>
           </div>
           <button
@@ -921,7 +921,7 @@ const ProviderDashboard = () => {
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="w-64 bg-[#1A1A18] h-full flex flex-col p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-8">
-              <h1 className="font-headline-md text-lg text-white">UBTH Care</h1>
+              <h1 className="font-headline-md text-lg text-white">9Care</h1>
               <button onClick={() => setSidebarOpen(false)} className="text-white/60 hover:text-white">
                 <span className="material-symbols-outlined">close</span>
               </button>

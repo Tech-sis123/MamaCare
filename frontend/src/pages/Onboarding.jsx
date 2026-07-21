@@ -1,963 +1,984 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { upsertProfile, addPregnancy, saveIntake, submitIntake } from '../lib/api';
-import { getPatientId, isPatientAuthenticated } from '../lib/auth';
+import { getPatientId } from '../lib/auth';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const calcEDD = (lmpStr) => {
-  if (!lmpStr) return null;
-  const d = new Date(lmpStr);
-  d.setDate(d.getDate() + 280);
-  return d;
+// ── Colours (sky-blue theme) ─────────────────────────────────────────────────
+const C = {
+  primary:       'sky-600',
+  primaryLight:  'sky-50',
+  primaryMid:    'sky-100',
+  primaryText:   'sky-700',
+  primaryBorder: 'sky-400',
+  ring:          'ring-sky-400',
 };
 
-const calcEGA = (lmpStr) => {
-  if (!lmpStr) return null;
-  const lmp = new Date(lmpStr);
-  const today = new Date();
-  const diffDays = Math.floor((today - lmp) / 86400000);
-  if (diffDays < 0 || diffDays > 294) return null;
-  return { weeks: Math.floor(diffDays / 7), days: diffDays % 7 };
-};
-
-const fmtDate = (d) =>
-  d?.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) ?? '—';
-
-// ── Step config ───────────────────────────────────────────────────────────────
-
-const STEPS = [
-  { id: 'biodata',   label: 'Biodata',      icon: 'person' },
-  { id: 'pregnancy', label: 'Pregnancy',    icon: 'pregnant_woman' },
-  { id: 'labs',      label: 'Booking Labs', icon: 'science' },
-  { id: 'obstetric', label: 'Obs Hx',       icon: 'history' },
-  { id: 'gynae',     label: 'Gynae Hx',     icon: 'female' },
-  { id: 'symptoms',  label: 'Symptoms',     icon: 'medical_services' },
-  { id: 'medical',   label: 'Medical Hx',   icon: 'medication' },
-  { id: 'social',    label: 'Social',       icon: 'groups' },
-];
-
-const DANGER_SYMPTOMS = ['bleeding', 'blurred_vision', 'severe_headache', 'epigastric_pain', 'seizures'];
-
-// ── Small shared UI pieces ────────────────────────────────────────────────────
-
-const FieldLabel = ({ children }) => (
-  <p className="font-label-sm text-on-surface-variant uppercase tracking-widest text-xs mb-2">{children}</p>
+// ── Shared UI ────────────────────────────────────────────────────────────────
+const Label = ({ children }) => (
+  <p className="text-xs font-semibold text-sky-700 uppercase tracking-widest mb-2">{children}</p>
 );
 
-const TextInput = ({ label, value, onChange, placeholder, type = 'text', hint, max }) => (
+const RiskBadge = ({ text }) => (
+  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mt-2">
+    <span className="text-red-600 font-bold text-sm mt-0.5">⚠</span>
+    <p className="text-red-600 font-bold text-sm">{text}</p>
+  </div>
+);
+
+const Field = ({ label, value, onChange, placeholder, type = 'text', hint, min, max }) => (
   <div>
-    {label && <FieldLabel>{label}</FieldLabel>}
+    {label && <Label>{label}</Label>}
     <input
       type={type}
-      value={value}
+      value={value || ''}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      max={max}
-      className="w-full px-4 py-3 rounded-xl border-2 border-outline-variant bg-white text-on-surface font-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
+      min={min} max={max}
+      className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 text-base focus:ring-2 focus:ring-sky-400 focus:border-sky-500 outline-none transition-all"
     />
-    {hint && <p className="mt-1.5 font-label-sm text-outline text-xs">{hint}</p>}
+    {hint && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
   </div>
 );
 
-const YesNo = ({ label, value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
-  <div>
-    {label && <FieldLabel>{label}</FieldLabel>}
-    <div className="flex gap-3">
-      {[{ v: true, l: yesLabel }, { v: false, l: noLabel }].map(opt => (
-        <button
-          key={String(opt.v)}
-          onClick={() => onChange(opt.v)}
-          className={`flex-1 py-3 rounded-xl border-2 font-label-sm text-sm transition-all active:scale-95 ${
-            value === opt.v
-              ? 'border-primary bg-tertiary-fixed text-primary shadow-sm'
-              : 'border-outline-variant bg-white text-on-surface hover:border-primary/30'
-          }`}
-        >
-          {opt.l}
-        </button>
-      ))}
-    </div>
+const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
+  <div className="flex gap-3">
+    {[{ v: true, l: yesLabel }, { v: false, l: noLabel }].map(opt => (
+      <button key={String(opt.v)} onClick={() => onChange(opt.v)}
+        className={`flex-1 py-4 rounded-xl border-2 text-base font-semibold transition-all active:scale-95 ${
+          value === opt.v
+            ? 'border-sky-500 bg-sky-600 text-white shadow-md'
+            : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+        }`}
+      >{opt.l}</button>
+    ))}
   </div>
 );
 
-const Chips = ({ label, options, value, onChange }) => (
-  <div>
-    {label && <FieldLabel>{label}</FieldLabel>}
+const Chips = ({ options, value, onChange, multi = false }) => {
+  const vals = multi ? (value || []) : null;
+  return (
     <div className="flex flex-wrap gap-2">
       {options.map(opt => {
-        const optVal = opt.value !== undefined ? opt.value : opt;
-        const optLabel = opt.label !== undefined ? opt.label : opt;
+        const v = opt.value !== undefined ? opt.value : opt;
+        const l = opt.label !== undefined ? opt.label : opt;
+        const active = multi ? vals.includes(v) : value === v;
         return (
-          <button
-            key={String(optVal)}
-            onClick={() => onChange(optVal)}
-            className={`px-4 py-2 rounded-full border-2 font-label-sm text-xs transition-all active:scale-95 ${
-              value === optVal
-                ? 'border-primary bg-primary text-white'
-                : 'border-outline-variant bg-white text-on-surface hover:border-primary/40'
+          <button key={String(v)} onClick={() => {
+            if (multi) {
+              if (vals.includes(v)) onChange(vals.filter(x => x !== v));
+              else onChange([...vals, v]);
+            } else onChange(v);
+          }}
+            className={`px-4 py-2.5 rounded-full border-2 text-sm font-semibold transition-all active:scale-95 ${
+              active
+                ? 'border-sky-500 bg-sky-600 text-white shadow-sm'
+                : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
             }`}
-          >
-            {optLabel}
-          </button>
+          >{l}</button>
         );
       })}
     </div>
-  </div>
-);
+  );
+};
 
-const WarnBanner = ({ text }) => (
-  <div className="bg-secondary/10 border border-secondary/20 rounded-xl p-4 flex items-start gap-3">
-    <span className="material-symbols-outlined text-secondary mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-    <p className="font-body-md text-secondary text-sm">{text}</p>
-  </div>
-);
+// ── Risk computation ──────────────────────────────────────────────────────────
+function computeRisks(data) {
+  const risks = [];
+  const age = parseInt(data.age);
+  if (!isNaN(age) && age > 35) risks.push({ field: 'age', text: 'Advanced maternal age (over 35)' });
+  if (!isNaN(age) && age < 18) risks.push({ field: 'age', text: 'Teenage pregnancy (under 18)' });
 
-// ── Main component ────────────────────────────────────────────────────────────
+  const parity = parseInt(data.parity);
+  if (!isNaN(parity) && parity > 5) risks.push({ field: 'parity', text: 'Grand multiparity — more than 5 deliveries' });
 
-const IntakeQuestionnaire = () => {
-  const navigate = useNavigate();
-  const [step, setStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [showDangerBanner, setShowDangerBanner] = useState(false);
+  const children = data.children || [];
+  const csCount = children.filter(c => c.deliveryMode === 'cs').length;
+  if (csCount >= 2) risks.push({ field: 'children', text: '2 or more previous caesarean sections' });
 
-  const [answers, setAnswers] = useState({
-    // Biodata
-    name: '', age: '', education: '', occupation: '',
-    marital: '', state: '', religion: '', ethnicity: '',
-    // Index Pregnancy / LMP
-    lmp: '', desired: null, conception: null,
-    ultrasound: null, ultrasoundDate: '',
-    bookingWeight: '', bookingHeight: '',
-    // Booking Labs
-    bloodType: null, genotype: null,
-    bpSystolic: '', bpDiastolic: '',
-    urinalysis: null, hiv: null, vdrl: null,
-    pcv: '', hepB: null, tetanus: null,
-    // Obstetric History
-    gravida: null, para: null,
-    lastBirthYear: '', twins: null, miscarriage: null,
-    // Gynae History
-    menarche: '', cycleDays: '', flowDays: '',
-    heavyBleeding: null, dysmenorrhea: null,
-    intermenstrual: null, postcoital: null, discharge: null,
-    contraceptiveAware: null, contraceptiveUsed: null, contraceptiveType: '',
-    papSmearAware: null, papSmearDone: null,
-    // Symptoms
-    symptoms: [],
-    // Medical / Surgical / Allergies
-    conditions: [],
-    otherConditions: '', medications: '',
-    bloodTransfusion: null,
-    surgery: null, surgeryDetails: '',
-    drugAllergies: '', foodAllergies: '',
-    // Family & Social
-    married: null, polygamous: null,
-    patientSmokes: null, patientDrinks: null,
-    husbandOccupation: '',
-    husbandSmokes: null, husbandDrinks: null,
+  children.forEach((c, i) => {
+    const w = parseFloat(c.birthWeight);
+    if (!isNaN(w) && w >= 4) risks.push({ field: 'children', text: `Macrosomic baby — child ${i + 1} weighed ${w} kg` });
+    if (c.stateNow === 'died_at_birth') risks.push({ field: 'children', text: `Bad obstetric history — child ${i + 1} died at birth` });
+    if (c.anomaly) risks.push({ field: 'children', text: `Anomaly noted in child ${i + 1}` });
   });
 
-  const set = (key, val) => setAnswers(prev => ({ ...prev, [key]: val }));
+  if (data.genotype === 'SS') risks.push({ field: 'genotype', text: 'Sickle cell disease (SS genotype)' });
+  if (data.hivStatus === 'reactive') risks.push({ field: 'hivStatus', text: 'HIV reactive — PMTCT pathway required' });
 
-  const toggleMulti = (key, val) => {
-    setAnswers(prev => {
-      const arr = prev[key] || [];
-      if (val === 'none') return { ...prev, [key]: ['none'] };
-      const filtered = arr.filter(v => v !== 'none');
-      const next = filtered.includes(val) ? filtered.filter(v => v !== val) : [...filtered, val];
-      if (key === 'symptoms') {
-        setShowDangerBanner(next.some(v => DANGER_SYMPTOMS.includes(v)));
-      }
-      return { ...prev, [key]: next };
-    });
-  };
+  const bp = parseInt(data.bpSystolic);
+  const bpd = parseInt(data.bpDiastolic);
+  if ((!isNaN(bp) && bp >= 140) || (!isNaN(bpd) && bpd >= 90))
+    risks.push({ field: 'bp', text: 'Elevated blood pressure at booking' });
 
-  const edd = useMemo(() => calcEDD(answers.lmp), [answers.lmp]);
-  const ega = useMemo(() => calcEGA(answers.lmp), [answers.lmp]);
+  const pcv = parseInt(data.pcv);
+  if (!isNaN(pcv) && pcv < 30) risks.push({ field: 'pcv', text: 'Anaemia — PCV below 30%' });
 
-  const aiSummary = useMemo(() => {
-    const name = answers.name || 'Patient';
-    const age = answers.age ? `${answers.age}-year-old` : '';
-    const g = answers.gravida ?? '?';
-    const p = answers.para ?? '?';
-    const egaStr = ega ? `${ega.weeks} weeks ${ega.days} days` : 'unknown gestation';
-    const riskSymptoms = answers.symptoms.filter(s => DANGER_SYMPTOMS.includes(s));
-    const complaints = riskSymptoms.length
-      ? `Presenting complaints include: ${riskSymptoms.map(s => s.replace(/_/g, ' ')).join(', ')}.`
-      : 'No acute presenting complaints reported.';
-    const bpVal = answers.bpSystolic && answers.bpDiastolic
-      ? `Booking BP: ${answers.bpSystolic}/${answers.bpDiastolic} mmHg.` : '';
-    const flags = [];
-    if (answers.hiv === 'reactive') flags.push('HIV reactive — PMTCT pathway flagged');
-    if (answers.genotype === 'SS') flags.push('sickle cell disease');
-    if (answers.conditions.includes('hypertension')) flags.push('known hypertension');
-    if (answers.conditions.includes('diabetes')) flags.push('known diabetes');
-    if (parseInt(answers.pcv) < 30 && answers.pcv) flags.push('anaemia (PCV < 30%)');
-    const flagStr = flags.length ? ` Notable: ${flags.join(', ')}.` : '';
-    return `${name}, ${age} G${g}P${p}, presenting at ${egaStr} gestation. ${complaints} ${bpVal}${flagStr}`.trim();
-  }, [answers, ega]);
+  return risks;
+}
 
-  const canProceed = () => {
-    if (step === 0) return answers.name.trim().length > 0;
-    if (step === 1) return !!answers.lmp;
-    if (step === 2) return !!(answers.bloodType && answers.genotype);
-    if (step === 3) return answers.gravida !== null && answers.para !== null;
-    return true;
-  };
+// ── G/P notation ─────────────────────────────────────────────────────────────
+function computeGP(data) {
+  const G = parseInt(data.gravidity);
+  const P = parseInt(data.parity);
+  const alive = parseInt(data.childrenAlive);
+  if (isNaN(G) || isNaN(P)) return null;
+  const losses = G - P;
+  return `G${G}P${P}${losses > 0 ? `+${losses}` : ''}${!isNaN(alive) ? `(${alive}A)` : ''}`;
+}
 
-  const buildIntakePayload = (s) => {
-    switch (s) {
-      case 3:
-        return {
-          domain: 'obstetric',
-          responses: [
-            { question_key: 'gravidity', answer: String(answers.gravida ?? '') },
-            { question_key: 'parity', answer: String(answers.para ?? '') },
-            { question_key: 'last_birth_year', answer: answers.lastBirthYear || '' },
-            { question_key: 'twins', answer: answers.twins ? 'yes' : 'no' },
-            { question_key: 'miscarriage', answer: answers.miscarriage ? 'yes' : 'no' },
-          ],
-        };
-      case 4:
-        return {
-          domain: 'gynae',
-          responses: [
-            { question_key: 'menarche_age', answer: answers.menarche || '' },
-            { question_key: 'cycle_days', answer: answers.cycleDays || '' },
-            { question_key: 'flow_days', answer: answers.flowDays || '' },
-            { question_key: 'heavy_bleeding', answer: answers.heavyBleeding ? 'yes' : 'no' },
-            { question_key: 'dysmenorrhea', answer: answers.dysmenorrhea ? 'yes' : 'no' },
-            { question_key: 'contraceptive_used', answer: answers.contraceptiveUsed ? 'yes' : 'no' },
-            { question_key: 'contraceptive_type', answer: answers.contraceptiveType || '' },
-          ],
-        };
-      case 5:
-        return {
-          domain: 'symptoms',
-          responses: answers.symptoms
-            .filter(s => s !== 'none')
-            .map(s => ({ question_key: s, answer: 'yes' })),
-        };
-      case 6:
-        return {
-          domain: 'medical',
-          responses: [
-            ...answers.conditions.filter(c => c !== 'none').map(c => ({ question_key: c, answer: 'yes' })),
-            { question_key: 'blood_transfusion', answer: answers.bloodTransfusion ? 'yes' : 'no' },
-            { question_key: 'surgery', answer: answers.surgery ? 'yes' : 'no' },
-            { question_key: 'surgery_details', answer: answers.surgeryDetails || '' },
-            { question_key: 'drug_allergies', answer: answers.drugAllergies || 'none' },
-            { question_key: 'food_allergies', answer: answers.foodAllergies || 'none' },
-            { question_key: 'medications', answer: answers.medications || 'none' },
-          ],
-        };
-      case 7:
-        return {
-          domain: 'social',
-          responses: [
-            { question_key: 'patient_smokes', answer: answers.patientSmokes ? 'yes' : 'no' },
-            { question_key: 'patient_drinks', answer: answers.patientDrinks ? 'yes' : 'no' },
-            { question_key: 'husband_occupation', answer: answers.husbandOccupation || '' },
-            { question_key: 'husband_smokes', answer: answers.husbandSmokes ? 'yes' : 'no' },
-            { question_key: 'husband_drinks', answer: answers.husbandDrinks ? 'yes' : 'no' },
-          ],
-        };
-      default:
-        return null;
+// ── Section definitions ───────────────────────────────────────────────────────
+const SECTION_META = [
+  { id: 'biodata',        label: 'Biodata',                icon: '👤', desc: 'Personal information' },
+  { id: 'index',          label: 'Index Pregnancy',        icon: '🤰', desc: 'About this pregnancy' },
+  { id: 'obstetric',      label: 'Obstetric History',      icon: '👶', desc: 'Previous pregnancies & births' },
+  { id: 'gynae',          label: 'Gynaecological History', icon: '🌸', desc: 'Menstrual & gynaecological' },
+  { id: 'medical',        label: 'Medical History',        icon: '💊', desc: 'Conditions, drugs, allergies' },
+  { id: 'family_social',  label: 'Family & Social',        icon: '👨‍👩‍👧', desc: 'Partner and home life' },
+  { id: 'systems',        label: 'Review of Systems',      icon: '🫁', desc: 'Current symptoms by system' },
+  { id: 'investigations', label: 'Booking Investigations', icon: '🔬', desc: 'Lab results (filled by doctor)' },
+];
+
+// ── Build slides per section (data-driven) ────────────────────────────────────
+function buildSlides(sectionId, data) {
+  switch (sectionId) {
+
+    case 'biodata': return [
+      { id: 'name',          question: 'What is your full name?',                    field: 'name',          type: 'text',    required: true,  placeholder: 'e.g. Blessing Efe Okafor' },
+      { id: 'age',           question: 'How old are you?',                           field: 'age',           type: 'number',  required: true,  placeholder: 'e.g. 27', min: 10, max: 65,
+        riskCheck: v => { const a = parseInt(v); if (a > 35) return 'Advanced maternal age (over 35) — flagged as high risk'; if (a < 18) return 'Teenage pregnancy (under 18) — flagged as high risk'; return null; } },
+      { id: 'occupation',    question: 'What is your occupation?',                   field: 'occupation',    type: 'text',    required: false, placeholder: 'e.g. Trader, Teacher, Nurse' },
+      { id: 'marital',       question: 'What is your marital status?',               field: 'marital',       type: 'chips',   required: false,
+        options: ['Single', 'Married', 'Widowed', 'Divorced'] },
+      { id: 'address',       question: 'What is your home address?',                  field: null,            type: 'address', required: false },
+      { id: 'religion',      question: 'What is your religion?',                     field: 'religion',      type: 'chips',   required: false,
+        options: ['Christian', 'Muslim', 'Traditional', 'Other'] },
+      { id: 'christianDenom', question: 'Which denomination are you?',               field: 'christianDenom', type: 'chips',  required: false,
+        condition: d => d.religion === 'Christian',
+        options: ['Pentecostal', 'Catholic', "Jehovah's Witness", 'Other'] },
+      { id: 'tribe',         question: 'What is your tribe / ethnicity?',            field: 'tribe',         type: 'text',    required: false, placeholder: 'e.g. Edo, Yoruba, Igbo' },
+      { id: 'lmpKnown',     question: 'Do you know the exact date your last period started?', field: 'lmpKnown', type: 'yes_no', required: true },
+      { id: 'lmpDate',      question: 'When did your last period start? (LMP)',      field: 'lmpDate',       type: 'date',    required: false,
+        condition: d => d.lmpKnown === true,
+        hint: 'This helps us calculate your due date and gestational age.' },
+      { id: 'lmpMonthYear', question: 'Which month and year did your last period start?', field: null,      type: 'month_year', required: false,
+        condition: d => d.lmpKnown === false,
+        hint: 'Approximate is fine — just pick the month and year.' },
+      { id: 'gravidity',     question: 'How many times have you been pregnant in total? (including this one, miscarriages and terminations)',
+        field: 'gravidity',     type: 'number',  required: true,  placeholder: 'e.g. 3', min: 1, max: 20,
+        hint: 'Count every pregnancy — include this one, miscarriages, terminations.' },
+      { id: 'parity',        question: 'How many of those pregnancies reached 24 weeks or more?',
+        field: 'parity',        type: 'number',  required: true,  placeholder: 'e.g. 2', min: 0, max: 20,
+        hint: 'This is your parity — babies born alive or stillborn after 24 weeks.',
+        riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
+      { id: 'twins',         question: 'Did any of those pregnancies include twins or multiples?', field: 'twins', type: 'yes_no', required: false },
+      { id: 'childrenAlive', question: 'How many of your children are currently alive?',
+        field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
+        condition: d => parseInt(d.parity) > 0 },
+      { id: 'gp_summary',    question: null, type: 'gp_summary', required: false },
+    ];
+
+    case 'index': return [
+      { id: 'desired',        question: 'Was this pregnancy planned or desired?',        field: 'desired',        type: 'yes_no',  required: false },
+      { id: 'conception',     question: 'How was this pregnancy achieved?',              field: 'conception',     type: 'chips',   required: false,
+        options: [{ value: 'spontaneous', label: 'Spontaneous (natural)' }, { value: 'assisted', label: 'Assisted (IVF / IUI)' }] },
+      { id: 'pregTestDone',   question: 'Did you do a pregnancy test to confirm this pregnancy?', field: 'pregTestDone', type: 'yes_no', required: false },
+      { id: 'pregTestType',   question: 'What type of pregnancy test did you use?',      field: 'pregTestType',   type: 'chips',   required: false,
+        condition: d => d.pregTestDone === true,
+        options: [{ value: 'blood', label: 'Blood test' }, { value: 'strip', label: 'Urine strip' }] },
+      { id: 'scanDone',       question: 'Did you have an ultrasound scan to confirm the pregnancy?', field: 'scanDone', type: 'yes_no', required: false },
+      { id: 'scanDate',       question: 'When was the scan done?',                       field: 'scanDate',       type: 'date',    required: false,
+        condition: d => d.scanDone === true,
+        hint: 'Approximate date is fine.' },
+      { id: 'bloodGroup',     question: 'What is your blood group?',                    field: 'bloodGroup',     type: 'chips',   required: false,
+        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'] },
+      { id: 'genotype',       question: 'What is your genotype?',                       field: 'genotype',       type: 'chips',   required: false,
+        options: ['AA', 'AS', 'SS', 'AC'],
+        riskCheck: v => v === 'SS' ? 'Sickle cell disease — requires close monitoring.' : null },
+    ];
+
+    case 'obstetric': {
+      const p = parseInt(data.parity) || 0;
+      if (p === 0) return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
+      return Array.from({ length: p }, (_, i) => ({
+        id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+      }));
     }
-  };
 
-  const handleNext = async () => {
-    const patientId = getPatientId();
+    case 'gynae': return [
+      { id: 'menarche',      question: 'At what age did you first see your period?',    field: 'menarche',       type: 'number',  required: false, placeholder: 'e.g. 13', min: 7, max: 20, hint: 'This is called your menarche age.' },
+      { id: 'cycleLength',   question: 'How many days is your menstrual cycle?',        field: 'cycleLength',    type: 'number',  required: false, placeholder: 'e.g. 28', min: 14, max: 60, hint: 'Count from the first day of one period to the first day of the next.' },
+      { id: 'flowDays',      question: 'How many days do you bleed for?',               field: 'flowDays',       type: 'number',  required: false, placeholder: 'e.g. 5',  min: 1,  max: 14 },
+      { id: 'dysmenorrhea',  question: 'Do you experience pain during your periods?',   field: 'dysmenorrhea',   type: 'yes_no',  required: false },
+      { id: 'missedPeriod',  question: 'Have you ever missed your period when you were not pregnant?', field: 'missedPeriod', type: 'yes_no', required: false },
+      { id: 'heavyBleeding', question: 'Do you have heavy periods?',                    field: 'heavyBleeding',  type: 'yes_no',  required: false, hint: 'Soaking through a pad or tampon in less than an hour, or passing large clots.' },
+      { id: 'intermenstrual',question: 'Do you bleed between your periods?',            field: 'intermenstrual', type: 'yes_no',  required: false },
+      { id: 'postcoital',    question: 'Do you bleed after sex?',                       field: 'postcoital',     type: 'yes_no',  required: false },
+      { id: 'dyspareunia',   question: 'Do you have pain during sex?',                  field: 'dyspareunia',    type: 'yes_no',  required: false },
+      { id: 'contraAware',   question: 'Do you know about contraceptives?',             field: 'contraAware',    type: 'yes_no',  required: false },
+      { id: 'contraUsed',    question: 'Have you ever used contraceptives?',            field: 'contraUsed',     type: 'yes_no',  required: false, condition: d => d.contraAware === true },
+      { id: 'contraType',    question: 'Which type of contraceptive did you use?',      field: 'contraType',     type: 'chips',   required: false,
+        condition: d => d.contraUsed === true,
+        options: [{ value: 'pill', label: 'Pill' }, { value: 'injection', label: 'Injection' }, { value: 'implant', label: 'Implant' }, { value: 'iud', label: 'IUD / Coil' }, { value: 'condom', label: 'Condom' }, { value: 'other', label: 'Other' }] },
+      { id: 'contraStopped', question: 'Did you stop using it early?',                  field: 'contraStopped',  type: 'yes_no',  required: false, condition: d => d.contraUsed === true },
+      { id: 'contraStopReason', question: 'Why did you stop using contraceptives?',     field: 'contraStopReason', type: 'text', required: false, condition: d => d.contraStopped === true, placeholder: 'e.g. Side effects, wanted a baby, unavailable…' },
+      { id: 'papSmearAware', question: 'Have you heard of a pap smear (cervical smear)?', field: 'papSmearAware', type: 'yes_no', required: false },
+      { id: 'papSmearDone',  question: 'Have you had a pap smear done before?',         field: 'papSmearDone',   type: 'yes_no',  required: false, condition: d => d.papSmearAware === true },
+      { id: 'topDone',       question: 'Have you ever had a termination of pregnancy?', field: 'topDone',        type: 'yes_no',  required: false },
+      { id: 'topCount',      question: 'How many terminations have you had?',           field: 'topCount',       type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 1', min: 1, max: 10 },
+      { id: 'topYear',       question: 'What year was the most recent termination?',    field: 'topYear',        type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 2021', min: 1980, max: 2026 },
+      { id: 'topMethod',     question: 'How was the termination done?',                 field: 'topMethod',      type: 'chips',   required: false,
+        condition: d => d.topDone === true,
+        options: [{ value: 'medical', label: 'Medical (drugs)' }, { value: 'surgical', label: 'Surgical' }, { value: 'unknown', label: 'Not sure' }] },
+      { id: 'topComplications', question: 'Were there any complications after the termination?', field: 'topComplications', type: 'yes_no', required: false, condition: d => d.topDone === true },
+    ];
 
-    if (step < STEPS.length - 1) {
-      // Fire-and-forget saves — don't block the user
-      if (step === 0 && patientId) {
-        upsertProfile({
-          name: answers.name,
-          age: Number(answers.age) || undefined,
-          education_level: answers.education?.toLowerCase() || undefined,
-          occupation: answers.occupation || undefined,
-          marital_status: answers.marital?.toLowerCase() || undefined,
-          address: answers.state || undefined,
-          religion: answers.religion?.toLowerCase() || undefined,
-          ethnicity: answers.ethnicity || undefined,
-        }).catch(() => {});
-      }
+    case 'medical': return [
+      { id: 'conditions',    question: 'Do you have or have you ever had any of these conditions?', field: 'conditions', type: 'multi', required: false,
+        options: ['Hypertension', 'Epilepsy', 'Asthma', 'Diabetes', 'Peptic ulcer disease', 'None of these'] },
+      { id: 'surgeries',     question: 'Have you had any previous surgeries?',           field: 'surgeries',      type: 'yes_no',  required: false },
+      { id: 'surgeryDetails',question: 'Describe your previous surgeries (type and year)', field: 'surgeryDetails', type: 'text', required: false,
+        condition: d => d.surgeries === true, placeholder: 'e.g. Appendectomy 2018, C-section 2021' },
+      { id: 'currentMeds',   question: 'What medications are you currently taking?',     field: 'currentMeds',    type: 'text',    required: false, placeholder: 'e.g. Folic acid, Labetalol, Iron supplements…' },
+      { id: 'drugAllergy',   question: 'Do you have any drug allergies?',                field: 'drugAllergy',    type: 'yes_no',  required: false },
+      { id: 'allergyDetails',question: 'What are you allergic to?',                      field: 'allergyDetails', type: 'text',    required: false, condition: d => d.drugAllergy === true, placeholder: 'e.g. Penicillin, Sulpha drugs…' },
+    ];
 
-      if (step === 2 && patientId) {
-        addPregnancy({
-          lmp_date: answers.lmp ? new Date(answers.lmp).toISOString() : undefined,
-          blood_group: answers.bloodType || undefined,
-          genotype: answers.genotype || undefined,
-          booking_weight: Number(answers.bookingWeight) || undefined,
-          booking_height: Number(answers.bookingHeight) || undefined,
-          booking_bp_systolic: Number(answers.bpSystolic) || undefined,
-          booking_bp_diastolic: Number(answers.bpDiastolic) || undefined,
-          rvd_status: answers.hiv === 'non_reactive' ? 'negative' : answers.hiv === 'reactive' ? 'positive' : 'unknown',
-          vdrl: answers.vdrl === 'non_reactive' ? 'non-reactive' : answers.vdrl === 'reactive' ? 'reactive' : 'unknown',
-          pcv: Number(answers.pcv) || undefined,
-          hep_b: answers.hepB?.toLowerCase() || undefined,
-          tetanus_history: answers.tetanus || undefined,
-          gravidity: typeof answers.gravida === 'number' ? answers.gravida : undefined,
-          parity: typeof answers.para === 'number' ? answers.para : undefined,
-        }).catch(() => {});
-      }
+    case 'family_social': return [
+      { id: 'husbandOccupation', question: "What is your husband or partner's occupation?", field: 'husbandOccupation', type: 'text', required: false, placeholder: 'e.g. Driver, Civil Servant, Farmer' },
+      { id: 'husbandAge',    question: "How old is your husband or partner?",            field: 'husbandAge',     type: 'number',  required: false, placeholder: 'e.g. 34', min: 15, max: 90 },
+      { id: 'husbandGenotype', question: "What is your husband or partner's genotype?", field: 'husbandGenotype', type: 'chips',  required: false,
+        options: ['AA', 'AS', 'SS', 'AC', 'Unknown'] },
+      { id: 'husbandBloodGroup', question: "What is your husband or partner's blood group?", field: 'husbandBloodGroup', type: 'chips', required: false,
+        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Unknown'] },
+      { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
+      { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
+      { id: 'husbandSmokes', question: 'Does your husband or partner smoke?',             field: 'husbandSmokes',  type: 'yes_no',  required: false },
+      { id: 'husbandDrinks', question: 'Does your husband or partner drink alcohol?',     field: 'husbandDrinks',  type: 'yes_no',  required: false },
+      { id: 'supportive',    question: 'Is your husband or partner supportive of this pregnancy?', field: 'supportive', type: 'yes_no', required: false },
+    ];
 
-      if (step >= 3 && patientId) {
-        const payload = buildIntakePayload(step);
-        if (payload) saveIntake(patientId, payload.domain, payload.responses).catch(() => {});
-      }
+    case 'systems': return [
+      { id: 'neuro',         question: 'Do you have any of these neurological symptoms?', field: 'neuroSymptoms', type: 'multi', required: false,
+        options: ['Headaches', 'Seizures / fits', 'Dizziness', 'Fainting episodes', 'None of these'] },
+      { id: 'cardio',        question: 'Do you have any of these chest or heart symptoms?', field: 'cardioSymptoms', type: 'multi', required: false,
+        options: ['Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'None of these'] },
+      { id: 'urinary',       question: 'Have you noticed any changes in how often or how much you urinate?', field: 'urinaryChanges', type: 'yes_no', required: false },
+      { id: 'bowel',         question: 'Have you noticed any changes in your bowel habits?', field: 'bowelChanges', type: 'yes_no', required: false },
+      { id: 'pain',          question: 'Do you have pain anywhere in your body?',         field: 'hasPain',       type: 'yes_no',  required: false },
+      { id: 'painLocation',  question: 'Where is the pain, and how would you describe it?', field: 'painDetails', type: 'text', required: false,
+        condition: d => d.hasPain === true, placeholder: 'e.g. Lower abdomen, sharp, comes and goes' },
+    ];
 
-      setStep(s => s + 1);
-      setShowDangerBanner(false);
-      window.scrollTo(0, 0);
-    } else {
-      setLoading(true);
-      let riskTier = null;
-      if (patientId) {
-        const payload = buildIntakePayload(step);
-        if (payload) await saveIntake(patientId, payload.domain, payload.responses).catch(() => {});
-        try {
-          const { data } = await submitIntake(patientId);
-          riskTier = data?.risk_tier || data?.tier || data?.risk || null;
-        } catch {}
-      }
-      if (riskTier && typeof riskTier === 'string') localStorage.setItem('mc_risk_tier', riskTier.toUpperCase());
-      setTimeout(() => navigate('/risk-result'), 2800);
-    }
-  };
+    case 'investigations': return [
+      { id: 'inv_form', question: null, type: 'investigations_form', required: false },
+    ];
 
-  const handleBack = () => {
-    if (step > 0) {
-      setStep(s => s - 1);
-      setShowDangerBanner(false);
-    } else {
-      navigate(-1);
-    }
-    window.scrollTo(0, 0);
-  };
+    default: return [];
+  }
+}
 
-  // ── Step renderers ─────────────────────────────────────────────────────────
+// ── Completion check ──────────────────────────────────────────────────────────
+function sectionComplete(sectionId, data) {
+  const slides = buildSlides(sectionId, data).filter(s => !s.condition || s.condition(data));
+  const required = slides.filter(s => s.required);
+  if (required.length === 0) {
+    const answered = slides.filter(s => s.field && (data[s.field] !== '' && data[s.field] !== null && data[s.field] !== undefined));
+    return answered.length >= Math.min(3, slides.length);
+  }
+  return required.every(s => s.field && data[s.field] !== '' && data[s.field] !== null && data[s.field] !== undefined);
+}
 
-  const renderBiodata = () => (
-    <div className="space-y-5 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 1 of 8 · Biodata</p>
-        <h2 className="font-headline-lg text-primary text-2xl md:text-3xl leading-snug">
-          Let's start with your basic details.
-        </h2>
-        <p className="font-body-md text-on-surface-variant mt-2">
-          This creates your personal care record.
-        </p>
-      </div>
+// ── Initial data ──────────────────────────────────────────────────────────────
+const INIT = {
+  // Biodata
+  name: '', age: '', occupation: '', marital: null,
+  addrHouse: '', addrStreet: '', addrCity: '', addrState: '',
+  religion: null, christianDenom: null, tribe: '',
+  lmpKnown: null, lmpDate: '', lmpMonth: '', lmpYear: '',
+  gravidity: '', parity: '', twins: null, childrenAlive: '',
+  // Index pregnancy
+  desired: null, conception: null,
+  pregTestDone: null, pregTestType: null,
+  scanDone: null, scanDate: '',
+  bloodGroup: null, genotype: null,
+  // Children (obstetric)
+  children: [],
+  // Gynae
+  menarche: '', cycleLength: '', flowDays: '',
+  dysmenorrhea: null, missedPeriod: null, heavyBleeding: null,
+  intermenstrual: null, postcoital: null, dyspareunia: null,
+  contraAware: null, contraUsed: null, contraType: null, contraStopped: null, contraStopReason: '',
+  papSmearAware: null, papSmearDone: null,
+  topDone: null, topCount: '', topYear: '', topMethod: null, topComplications: null,
+  // Medical
+  conditions: [], surgeries: null, surgeryDetails: '', currentMeds: '', drugAllergy: null, allergyDetails: '',
+  // Family & Social
+  husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
+  patientSmokes: null, patientDrinks: null, husbandSmokes: null, husbandDrinks: null, supportive: null,
+  // Systems
+  neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
+  // Investigations
+  invHBV: null, invVDRL: null, invBloodGroup: null, invRh: null, invGenotype: null,
+  invPCV: '', invRBG: '', invBPSys: '', invBPDia: '', invWeight: '', invHeight: '',
+};
 
-      <div className="sm:col-span-2">
-        <TextInput label="Full Name *" value={answers.name} onChange={v => set('name', v)} placeholder="e.g. Blessing Efe" />
-      </div>
+// ── Child card ────────────────────────────────────────────────────────────────
+const ChildCard = ({ idx, child, onChange }) => {
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+  const label = ordinals[idx] || `${idx + 1}th`;
+  const set = (field, val) => onChange(idx, field, val);
 
-      <div className="grid grid-cols-2 gap-4">
-        <TextInput label="Age" value={answers.age} onChange={v => set('age', v)} placeholder="e.g. 27" type="number" />
-        <TextInput label="Occupation" value={answers.occupation} onChange={v => set('occupation', v)} placeholder="e.g. Trader" />
-      </div>
+  const weight = parseFloat(child.birthWeight);
+  const isMacro = !isNaN(weight) && weight >= 4;
+  const csRisk = child.deliveryMode === 'cs';
 
-      <Chips label="Level of Education"
-        value={answers.education} onChange={v => set('education', v)}
-        options={['Primary', 'Secondary', 'Tertiary', 'None']} />
-
-      <Chips label="Marital Status"
-        value={answers.marital} onChange={v => set('marital', v)}
-        options={['Single', 'Married', 'Widowed', 'Divorced']} />
-
-      <div className="grid grid-cols-2 gap-4">
-        <TextInput label="State / LGA" value={answers.state} onChange={v => set('state', v)} placeholder="e.g. Benin City, Edo" />
-        <TextInput label="Ethnicity" value={answers.ethnicity} onChange={v => set('ethnicity', v)} placeholder="e.g. Yoruba, Edo…" />
-      </div>
-
-      <Chips label="Religion"
-        value={answers.religion} onChange={v => set('religion', v)}
-        options={['Christian', 'Muslim', 'Traditional', 'Other']} />
-    </div>
-  );
-
-  const renderPregnancy = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 2 of 8 · Index Pregnancy</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          Tell us about this pregnancy.
-        </h2>
-      </div>
-
-      <div>
-        <FieldLabel>Last Menstrual Period (LMP) *</FieldLabel>
-        <input
-          type="date"
-          value={answers.lmp}
-          max={new Date().toISOString().split('T')[0]}
-          onChange={e => set('lmp', e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 border-outline-variant bg-white text-on-surface font-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all"
-        />
-        {edd && ega && (
-          <div className="mt-3 bg-primary/5 border border-primary/15 rounded-xl p-4 grid grid-cols-2 gap-4">
-            <div>
-              <p className="font-label-sm text-on-surface-variant text-xs uppercase">Estimated Due Date</p>
-              <p className="font-headline-md text-primary mt-1">{fmtDate(edd)}</p>
-            </div>
-            <div>
-              <p className="font-label-sm text-on-surface-variant text-xs uppercase">Gestational Age</p>
-              <p className="font-headline-md text-primary mt-1">{ega.weeks}w {ega.days}d</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <YesNo label="Was this pregnancy desired?" value={answers.desired} onChange={v => set('desired', v)} />
-
-      <Chips label="How was it conceived?"
-        value={answers.conception} onChange={v => set('conception', v)}
-        options={[{ value: 'natural', label: 'Natural' }, { value: 'assisted', label: 'Assisted (IVF / IUI)' }]} />
-
-      <YesNo label="Confirmed by ultrasound?" value={answers.ultrasound} onChange={v => set('ultrasound', v)} />
-      {answers.ultrasound && (
-        <TextInput label="Date of ultrasound confirmation" value={answers.ultrasoundDate}
-          onChange={v => set('ultrasoundDate', v)} type="date"
-          max={new Date().toISOString().split('T')[0]} />
-      )}
-
-      <div className="grid grid-cols-2 gap-4">
-        <TextInput label="Booking Weight (kg)" value={answers.bookingWeight}
-          onChange={v => set('bookingWeight', v)} placeholder="e.g. 62" type="number" />
-        <TextInput label="Booking Height (cm)" value={answers.bookingHeight}
-          onChange={v => set('bookingHeight', v)} placeholder="e.g. 165" type="number" />
-      </div>
-    </div>
-  );
-
-  const renderLabs = () => {
-    const bpHigh = (parseInt(answers.bpSystolic) >= 140 || parseInt(answers.bpDiastolic) >= 90)
-      && answers.bpSystolic && answers.bpDiastolic;
-    return (
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 3 of 8 · Booking Labs</p>
-          <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-            Booking investigations & vitals.
-          </h2>
-        </div>
-
-        <div>
-          <FieldLabel>Blood Group *</FieldLabel>
-          <div className="grid grid-cols-4 gap-2">
-            {['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'].map(bt => (
-              <button key={bt} onClick={() => set('bloodType', bt)}
-                className={`py-3 rounded-xl border-2 font-headline-md text-base transition-all active:scale-95 ${
-                  answers.bloodType === bt
-                    ? 'border-primary bg-tertiary-fixed text-primary shadow-sm'
-                    : 'border-outline-variant bg-white text-on-surface hover:border-primary/40'
-                }`}
-              >{bt}</button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <FieldLabel>Genotype *</FieldLabel>
-          <div className="grid grid-cols-4 gap-2">
-            {['AA', 'AS', 'SS', 'AC'].map(g => (
-              <button key={g} onClick={() => set('genotype', g)}
-                className={`py-4 rounded-xl border-2 font-headline-md text-xl transition-all active:scale-95 ${
-                  answers.genotype === g
-                    ? 'border-primary bg-tertiary-fixed text-primary shadow-sm'
-                    : 'border-outline-variant bg-white text-on-surface hover:border-primary/40'
-                }`}
-              >{g}</button>
-            ))}
-          </div>
-          {answers.genotype === 'SS' && (
-            <div className="mt-3">
-              <WarnBanner text="Sickle cell disease — will be flagged for closer monitoring." />
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <TextInput label="BP Systolic (mmHg)" value={answers.bpSystolic}
-            onChange={v => set('bpSystolic', v)} placeholder="e.g. 120" type="number" />
-          <TextInput label="BP Diastolic (mmHg)" value={answers.bpDiastolic}
-            onChange={v => set('bpDiastolic', v)} placeholder="e.g. 80" type="number" />
-        </div>
-        {bpHigh && <WarnBanner text="Elevated blood pressure detected. A high-risk flag will be raised." />}
-
-        <Chips label="Urinalysis"
-          value={answers.urinalysis} onChange={v => set('urinalysis', v)}
-          options={[
-            { value: 'normal', label: 'Normal' },
-            { value: 'protein+', label: 'Protein +' },
-            { value: 'protein++', label: 'Protein ++' },
-            { value: 'glucose+', label: 'Glucose +' },
-          ]} />
-
-        <Chips label="HIV Status (RVD)"
-          value={answers.hiv} onChange={v => set('hiv', v)}
-          options={[
-            { value: 'non_reactive', label: 'Non-Reactive' },
-            { value: 'reactive', label: 'Reactive' },
-            { value: 'unknown', label: 'Unknown' },
-            { value: 'declined', label: 'Declined' },
-          ]} />
-        {answers.hiv === 'reactive' && (
-          <WarnBanner text="HIV reactive — PMTCT (Prevention of Mother-to-Child Transmission) pathway flagged." />
-        )}
-
-        <Chips label="VDRL (Syphilis Screen)"
-          value={answers.vdrl} onChange={v => set('vdrl', v)}
-          options={[
-            { value: 'non_reactive', label: 'Non-Reactive' },
-            { value: 'reactive', label: 'Reactive' },
-            { value: 'unknown', label: 'Unknown' },
-          ]} />
-
-        <div className="grid grid-cols-2 gap-4">
-          <TextInput label="PCV (%)" value={answers.pcv}
-            onChange={v => set('pcv', v)} placeholder="e.g. 33" type="number"
-            hint="Anaemia flagged if < 30%" />
-          <div>
-            <FieldLabel>Hepatitis B</FieldLabel>
-            <div className="flex gap-2">
-              {['Negative', 'Positive', 'Unknown'].map(v => (
-                <button key={v} onClick={() => set('hepB', v)}
-                  className={`flex-1 py-3 rounded-xl border-2 font-label-sm text-xs transition-all active:scale-95 ${
-                    answers.hepB === v ? 'border-primary bg-tertiary-fixed text-primary' : 'border-outline-variant bg-white text-on-surface hover:border-primary/30'
-                  }`}
-                >{v}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <Chips label="Tetanus Immunisation"
-          value={answers.tetanus} onChange={v => set('tetanus', v)}
-          options={[
-            { value: 'up_to_date', label: 'Up to date' },
-            { value: 'incomplete', label: 'Incomplete' },
-            { value: 'none', label: 'None' },
-            { value: 'unknown', label: 'Unknown' },
-          ]} />
-      </div>
-    );
-  };
-
-  const renderObstetric = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 4 of 8 · Obstetric History</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          Your pregnancy history.
-        </h2>
-      </div>
-
-      <div>
-        <FieldLabel>Total times pregnant (including now) *</FieldLabel>
-        <div className="grid grid-cols-5 gap-2">
-          {[1, 2, 3, 4, '5+'].map(v => (
-            <button key={v} onClick={() => set('gravida', v)}
-              className={`py-4 rounded-xl border-2 font-headline-md text-xl transition-all active:scale-95 ${
-                answers.gravida === v
-                  ? 'border-primary bg-tertiary-fixed text-primary shadow-sm'
-                  : 'border-outline-variant bg-white text-on-surface hover:border-primary/40'
-              }`}
-            >{v}</button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <FieldLabel>Births after 24 weeks (Para) *</FieldLabel>
-        <div className="grid grid-cols-5 gap-2">
-          {[0, 1, 2, 3, '4+'].map(v => (
-            <button key={v} onClick={() => set('para', v)}
-              className={`py-4 rounded-xl border-2 font-headline-md text-xl transition-all active:scale-95 ${
-                answers.para === v
-                  ? 'border-primary bg-tertiary-fixed text-primary shadow-sm'
-                  : 'border-outline-variant bg-white text-on-surface hover:border-primary/40'
-              }`}
-            >{v}</button>
-          ))}
-        </div>
-      </div>
-
-      {(answers.para !== null && answers.para !== 0) && (
-        <TextInput label="Year of last delivery" value={answers.lastBirthYear}
-          onChange={v => set('lastBirthYear', v)} placeholder="e.g. 2022" type="number" />
-      )}
-
-      <YesNo label="Any twin or multiple delivery?" value={answers.twins} onChange={v => set('twins', v)} />
-      <YesNo label="Any previous miscarriage or termination?" value={answers.miscarriage} onChange={v => set('miscarriage', v)} />
-    </div>
-  );
-
-  const renderGynae = () => (
-    <div className="space-y-5 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 5 of 8 · Gynaecological History</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          Menstrual & gynaecological history.
-        </h2>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <TextInput label="Age at first period" value={answers.menarche}
-          onChange={v => set('menarche', v)} placeholder="e.g. 13" type="number" />
-        <TextInput label="Flow duration (days)" value={answers.flowDays}
-          onChange={v => set('flowDays', v)} placeholder="e.g. 5" type="number" />
-        <TextInput label="Cycle length (days)" value={answers.cycleDays}
-          onChange={v => set('cycleDays', v)} placeholder="e.g. 28" type="number" />
-      </div>
-
-      <div className="space-y-4">
-        <YesNo label="Heavy menstrual bleeding?" value={answers.heavyBleeding} onChange={v => set('heavyBleeding', v)} />
-        <YesNo label="Painful periods (dysmenorrhea)?" value={answers.dysmenorrhea} onChange={v => set('dysmenorrhea', v)} />
-        <YesNo label="Bleeding between periods?" value={answers.intermenstrual} onChange={v => set('intermenstrual', v)} />
-        <YesNo label="Bleeding after sex (postcoital)?" value={answers.postcoital} onChange={v => set('postcoital', v)} />
-        <YesNo label="Abnormal vaginal discharge?" value={answers.discharge} onChange={v => set('discharge', v)} />
-      </div>
-
-      <div className="space-y-4 pt-4 border-t border-outline-variant/20">
-        <YesNo label="Aware of contraceptives?" value={answers.contraceptiveAware} onChange={v => set('contraceptiveAware', v)} />
-        {answers.contraceptiveAware && (
-          <YesNo label="Have you ever used a contraceptive?" value={answers.contraceptiveUsed} onChange={v => set('contraceptiveUsed', v)} />
-        )}
-        {answers.contraceptiveUsed && (
-          <Chips label="Which type?"
-            value={answers.contraceptiveType} onChange={v => set('contraceptiveType', v)}
-            options={[
-              { value: 'pill', label: 'Pill' },
-              { value: 'injection', label: 'Injection' },
-              { value: 'implant', label: 'Implant' },
-              { value: 'iud', label: 'IUD' },
-              { value: 'condom', label: 'Condom' },
-              { value: 'other', label: 'Other' },
-            ]} />
-        )}
-      </div>
-
-      <div className="space-y-4 pt-4 border-t border-outline-variant/20">
-        <YesNo label="Aware of cervical smear (Pap Smear)?" value={answers.papSmearAware} onChange={v => set('papSmearAware', v)} />
-        {answers.papSmearAware && (
-          <YesNo label="Have you had a pap smear done?" value={answers.papSmearDone} onChange={v => set('papSmearDone', v)} />
-        )}
-      </div>
-    </div>
-  );
-
-  const SYMPTOM_LIST = [
-    { id: 'nausea',          emoji: '🤢', label: 'Nausea / Vomiting',      risk: 'low' },
-    { id: 'fatigue',         emoji: '😴', label: 'Fatigue',                 risk: 'low' },
-    { id: 'severe_headache', emoji: '😫', label: 'Severe Headache',         risk: 'high' },
-    { id: 'swelling',        emoji: '🦶', label: 'Swollen Hands / Face',    risk: 'medium' },
-    { id: 'bleeding',        emoji: '🩸', label: 'Spotting / Bleeding',     risk: 'high' },
-    { id: 'blurred_vision',  emoji: '👁️', label: 'Blurred Vision',          risk: 'high' },
-    { id: 'back_pain',       emoji: '⚡', label: 'Back Pain',                risk: 'low' },
-    { id: 'epigastric_pain', emoji: '🔥', label: 'Epigastric Pain',         risk: 'high' },
-    { id: 'reduced_fetal',   emoji: '👶', label: 'Reduced Fetal Movement',  risk: 'medium' },
-    { id: 'seizures',        emoji: '⚠️', label: 'Seizures / Fits',         risk: 'high' },
-    { id: 'none',            emoji: '✅', label: 'None of these',            risk: 'none' },
-  ];
-
-  const renderSymptoms = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 6 of 8 · Presenting Symptoms</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          Are you experiencing any of these right now?
-        </h2>
-        <p className="font-body-md text-on-surface-variant mt-2">Select all that apply.</p>
-      </div>
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-sky-700">{label} child</h2>
       <div className="grid grid-cols-2 gap-3">
-        {SYMPTOM_LIST.map(s => {
-          const selected = answers.symptoms.includes(s.id);
-          return (
-            <button key={s.id} onClick={() => toggleMulti('symptoms', s.id)}
-              className={`flex flex-col items-center justify-center gap-2 p-5 rounded-xl border-2 transition-all active:scale-95 text-center ${
-                selected
-                  ? s.risk === 'high' ? 'border-secondary bg-secondary/10 shadow-sm' : 'border-primary bg-tertiary-fixed shadow-sm'
-                  : 'border-outline-variant bg-white hover:border-primary/30'
-              }`}
-            >
-              <span className="text-3xl">{s.emoji}</span>
-              <span className={`font-label-sm text-xs ${selected && s.risk === 'high' ? 'text-secondary font-bold' : 'text-on-surface'}`}>
-                {s.label}
-              </span>
-              {selected && s.risk === 'high' && (
-                <span className="font-label-sm text-[10px] bg-secondary/20 text-secondary px-2 py-0.5 rounded-full">
-                  HIGH RISK
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const CONDITION_LIST = [
-    { id: 'hypertension', icon: 'blood_pressure', label: 'Hypertension' },
-    { id: 'epilepsy',     icon: 'neurology',       label: 'Epilepsy' },
-    { id: 'asthma',       icon: 'air',             label: 'Asthma' },
-    { id: 'diabetes',     icon: 'glucose',         label: 'Diabetes' },
-    { id: 'sickle_cell',  icon: 'vaccines',        label: 'Sickle Cell Disease' },
-    { id: 'none',         icon: 'check_circle',    label: 'None of these' },
-  ];
-
-  const renderMedical = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 7 of 8 · Medical History</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          Past medical & surgical history.
-        </h2>
+        <div>
+          <Label>Year of birth</Label>
+          <input type="number" value={child.year || ''} onChange={e => set('year', e.target.value)}
+            placeholder="e.g. 2020" min={1980} max={2026}
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        </div>
+        <div>
+          <Label>Gender</Label>
+          <div className="flex gap-2">
+            {['Male', 'Female'].map(g => (
+              <button key={g} onClick={() => set('gender', g.toLowerCase())}
+                className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  child.gender === g.toLowerCase()
+                    ? 'border-sky-500 bg-sky-600 text-white'
+                    : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                }`}>{g}</button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div>
-        <FieldLabel>Past medical conditions (select all that apply)</FieldLabel>
-        <div className="space-y-2">
-          {CONDITION_LIST.map(c => {
-            const selected = answers.conditions.includes(c.id);
+        <Label>Mode of delivery</Label>
+        <div className="flex gap-2">
+          {[{ v: 'vaginal', l: 'Vaginal delivery' }, { v: 'cs', l: 'Caesarean section (CS)' }].map(opt => (
+            <button key={opt.v} onClick={() => set('deliveryMode', opt.v)}
+              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                child.deliveryMode === opt.v
+                  ? 'border-sky-500 bg-sky-600 text-white'
+                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+              }`}>{opt.l}</button>
+          ))}
+        </div>
+        {csRisk && <p className="text-red-600 font-bold text-xs mt-1">⚠ CS delivery noted</p>}
+      </div>
+
+      <div>
+        <Label>Did the baby cry well at birth?</Label>
+        <div className="flex gap-2">
+          {[{ v: true, l: 'Yes' }, { v: false, l: 'No / Delayed' }].map(opt => (
+            <button key={String(opt.v)} onClick={() => set('criedWell', opt.v)}
+              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                child.criedWell === opt.v
+                  ? 'border-sky-500 bg-sky-600 text-white'
+                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+              }`}>{opt.l}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Birth weight (kg)</Label>
+          <input type="number" step="0.1" value={child.birthWeight || ''} onChange={e => set('birthWeight', e.target.value)}
+            placeholder="e.g. 3.2" min={0.5} max={7}
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+          {isMacro && <p className="text-red-600 font-bold text-xs mt-1">⚠ Macrosomic baby (≥ 4 kg) — high risk</p>}
+        </div>
+        <div>
+          <Label>Days in hospital</Label>
+          <input type="number" value={child.daysInHospital || ''} onChange={e => set('daysInHospital', e.target.value)}
+            placeholder="e.g. 3" min={1} max={365}
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        </div>
+      </div>
+
+      <div>
+        <Label>State of child now</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {[{ v: 'alive_well', l: 'Alive and well' }, { v: 'alive_unwell', l: 'Alive, health issues' }, { v: 'died_at_birth', l: 'Died at birth' }, { v: 'died_later', l: 'Died later' }].map(opt => (
+            <button key={opt.v} onClick={() => set('stateNow', opt.v)}
+              className={`py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-center ${
+                child.stateNow === opt.v
+                  ? 'border-sky-500 bg-sky-600 text-white'
+                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+              }`}>{opt.l}</button>
+          ))}
+        </div>
+        {(child.stateNow === 'died_at_birth' || child.stateNow === 'died_later') &&
+          <p className="text-red-600 font-bold text-xs mt-1">⚠ Bad obstetric history — flagged as high risk</p>}
+      </div>
+
+      <div>
+        <Label>Any anomalies in this child?</Label>
+        <div className="flex gap-2">
+          {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => (
+            <button key={String(opt.v)} onClick={() => set('anomaly', opt.v)}
+              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                child.anomaly === opt.v
+                  ? 'border-sky-500 bg-sky-600 text-white'
+                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+              }`}>{opt.l}</button>
+          ))}
+        </div>
+        {child.anomaly && <p className="text-red-600 font-bold text-xs mt-1">⚠ Anomaly noted — flagged as high risk</p>}
+      </div>
+
+      <div>
+        <Label>Events during this pregnancy (select all that apply)</Label>
+        <div className="flex flex-wrap gap-2">
+          {['Diabetes', 'Hypertension', 'Malaria', 'Bleeding', 'Anaemia', 'None'].map(e => {
+            const events = child.events || [];
+            const active = events.includes(e);
             return (
-              <button key={c.id} onClick={() => toggleMulti('conditions', c.id)}
-                className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left active:scale-[0.99] ${
-                  selected ? 'border-primary bg-tertiary-fixed shadow-sm' : 'border-outline-variant bg-white hover:border-primary/30'
-                }`}
-              >
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  selected ? 'bg-primary text-white' : 'bg-surface-container text-on-surface-variant'
-                }`}>
-                  <span className="material-symbols-outlined text-sm" style={selected ? { fontVariationSettings: "'FILL' 1" } : {}}>
-                    {selected ? 'check' : c.icon}
-                  </span>
-                </div>
-                <span className="font-body-md font-medium">{c.label}</span>
-                {selected && (
-                  <span className="ml-auto material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                    check_circle
-                  </span>
-                )}
-              </button>
+              <button key={e} onClick={() => {
+                if (e === 'None') set('events', active ? [] : ['None']);
+                else {
+                  const filtered = events.filter(x => x !== 'None');
+                  set('events', active ? filtered.filter(x => x !== e) : [...filtered, e]);
+                }
+              }}
+                className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
+                  active ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                }`}>{e}</button>
             );
           })}
         </div>
       </div>
 
-      <TextInput label="Other conditions (describe)" value={answers.otherConditions}
-        onChange={v => set('otherConditions', v)} placeholder="Any other condition not listed above…" />
-      <TextInput label="Current medications" value={answers.medications}
-        onChange={v => set('medications', v)} placeholder="e.g. Folic acid, Ferrous sulfate, Labetalol…" />
-      <YesNo label="History of blood transfusion?" value={answers.bloodTransfusion} onChange={v => set('bloodTransfusion', v)} />
-
-      <div className="pt-4 border-t border-outline-variant/20 space-y-4">
-        <YesNo label="Any previous surgeries?" value={answers.surgery} onChange={v => set('surgery', v)} />
-        {answers.surgery && (
-          <TextInput label="Surgery details (type & year)" value={answers.surgeryDetails}
-            onChange={v => set('surgeryDetails', v)} placeholder="e.g. Appendectomy 2019, C-section 2021" />
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-outline-variant/20">
-        <TextInput label="Drug allergies" value={answers.drugAllergies}
-          onChange={v => set('drugAllergies', v)} placeholder="e.g. Penicillin" />
-        <TextInput label="Food allergies" value={answers.foodAllergies}
-          onChange={v => set('foodAllergies', v)} placeholder="e.g. Shellfish" />
-      </div>
-    </div>
-  );
-
-  const renderSocial = () => (
-    <div className="space-y-5 animate-fade-in">
       <div>
-        <p className="font-label-sm text-primary uppercase tracking-[0.2em] mb-3">Step 8 of 8 · Family & Social</p>
-        <h2 className="font-headline-lg text-primary text-2xl leading-snug">
-          A little about your home life.
-        </h2>
-        <p className="font-body-md text-on-surface-variant mt-2">
-          This helps us support your full wellbeing.
-        </p>
-      </div>
-
-      <YesNo label="Are you currently married?" value={answers.married} onChange={v => set('married', v)} />
-      {answers.married && (
-        <Chips label="Marriage type"
-          value={answers.polygamous} onChange={v => set('polygamous', v)}
-          options={[{ value: false, label: 'Monogamous' }, { value: true, label: 'Polygamous' }]} />
-      )}
-
-      <div className="space-y-4 pt-4 border-t border-outline-variant/20">
-        <YesNo label="Do you smoke?" value={answers.patientSmokes} onChange={v => set('patientSmokes', v)} />
-        <YesNo label="Do you drink alcohol?" value={answers.patientDrinks} onChange={v => set('patientDrinks', v)} />
-      </div>
-
-      <div className="space-y-4 pt-4 border-t border-outline-variant/20">
-        <TextInput label="Husband / Partner occupation" value={answers.husbandOccupation}
-          onChange={v => set('husbandOccupation', v)} placeholder="e.g. Trader, Civil Servant…" />
-        <YesNo label="Does your partner smoke?" value={answers.husbandSmokes} onChange={v => set('husbandSmokes', v)} />
-        <YesNo label="Does your partner drink alcohol?" value={answers.husbandDrinks} onChange={v => set('husbandDrinks', v)} />
-      </div>
-
-      {/* AI Pre-Consult Summary Preview */}
-      <div className="mt-2 bg-[#1A1A18] text-white rounded-2xl p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="material-symbols-outlined text-amber-400" style={{ fontVariationSettings: "'FILL' 1" }}>
-            smart_toy
-          </span>
-          <p className="font-label-sm text-amber-400 uppercase tracking-widest text-xs">AI Pre-Consult Summary</p>
-        </div>
-        <p className="font-body-md text-white/85 leading-relaxed text-sm">{aiSummary}</p>
-        <p className="mt-3 font-label-sm text-white/40 text-xs">
-          This summary will be shared with your doctor before your appointment.
-        </p>
+        <Label>Postnatal complications (if any)</Label>
+        <input type="text" value={child.postnatal || ''} onChange={e => set('postnatal', e.target.value)}
+          placeholder="e.g. Postpartum haemorrhage, jaundice…"
+          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
       </div>
     </div>
   );
+};
 
-  const STEP_RENDERERS = [
-    renderBiodata,
-    renderPregnancy,
-    renderLabs,
-    renderObstetric,
-    renderGynae,
-    renderSymptoms,
-    renderMedical,
-    renderSocial,
-  ];
-
-  // ── Loading overlay ────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-surface-container-low z-[100] flex flex-col items-center justify-center p-8">
-        <div className="relative w-24 h-24 mb-8">
-          <div className="absolute inset-0 border-4 border-primary-fixed border-t-primary-container rounded-full animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary-container text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>
-              pregnant_woman
-            </span>
+// ── Booking investigations form ───────────────────────────────────────────────
+const InvestigationsForm = ({ data, set }) => (
+  <div className="space-y-4">
+    <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sm text-sky-700">
+      <strong>For the doctor / nurse to complete</strong> — these results are filled in at the clinic after investigations.
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      {[
+        { label: 'HBV (Hepatitis B)', field: 'invHBV', opts: ['Negative', 'Positive', 'Unknown'] },
+        { label: 'VDRL (Syphilis)', field: 'invVDRL', opts: ['Non-reactive', 'Reactive', 'Unknown'] },
+        { label: 'Blood group', field: 'invBloodGroup', opts: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'] },
+        { label: 'Rhesus group', field: 'invRh', opts: ['Positive', 'Negative'] },
+        { label: 'Genotype', field: 'invGenotype', opts: ['AA', 'AS', 'SS', 'AC'] },
+      ].map(({ label, field, opts }) => (
+        <div key={field} className="col-span-2">
+          <Label>{label}</Label>
+          <div className="flex flex-wrap gap-2">
+            {opts.map(o => (
+              <button key={o} onClick={() => set(field, o)}
+                className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
+                  data[field] === o ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                }`}>{o}</button>
+            ))}
           </div>
         </div>
-        <h3 className="font-headline-md text-primary text-2xl">Calculating your risk…</h3>
-        <p className="font-body-md text-on-surface-variant text-center max-w-xs mt-3">
-          Our clinical AI is reviewing your profile using WHO-validated guidelines.
-        </p>
-        <div className="mt-8 flex gap-2">
-          {[0, 1, 2].map(i => (
-            <div key={i} className="w-2 h-2 bg-primary rounded-full animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }} />
+      ))}
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+      {[
+        { label: 'PCV (%)', field: 'invPCV', placeholder: 'e.g. 33' },
+        { label: 'Random blood glucose (mmol/L)', field: 'invRBG', placeholder: 'e.g. 5.4' },
+        { label: 'BP Systolic (mmHg)', field: 'invBPSys', placeholder: 'e.g. 120' },
+        { label: 'BP Diastolic (mmHg)', field: 'invBPDia', placeholder: 'e.g. 80' },
+        { label: 'Weight (kg)', field: 'invWeight', placeholder: 'e.g. 67' },
+        { label: 'Height (cm)', field: 'invHeight', placeholder: 'e.g. 163' },
+      ].map(({ label, field, placeholder }) => (
+        <div key={field}>
+          <Label>{label}</Label>
+          <input type="number" value={data[field] || ''} onChange={e => set(field, e.target.value)}
+            placeholder={placeholder}
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ── Slide renderer ────────────────────────────────────────────────────────────
+const SlideContent = ({ slide, data, set, setChild }) => {
+  if (!slide) return null;
+  const val = slide.field ? data[slide.field] : null;
+  const risk = slide.riskCheck ? slide.riskCheck(val, data) : null;
+
+  if (slide.type === 'text') return (
+    <div className="space-y-3">
+      <Field value={val} onChange={v => set(slide.field, v)} placeholder={slide.placeholder} hint={slide.hint} />
+      {risk && <RiskBadge text={risk} />}
+    </div>
+  );
+
+  if (slide.type === 'number') return (
+    <div className="space-y-3">
+      <Field value={val} onChange={v => set(slide.field, v)} type="number" placeholder={slide.placeholder} hint={slide.hint} min={slide.min} max={slide.max} />
+      {risk && <RiskBadge text={risk} />}
+    </div>
+  );
+
+  if (slide.type === 'date') return (
+    <div className="space-y-3">
+      <input type="date" value={val || ''} max={new Date().toISOString().split('T')[0]}
+        onChange={e => set(slide.field, e.target.value)}
+        className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 text-base focus:ring-2 focus:ring-sky-400 outline-none" />
+      {slide.hint && <p className="text-xs text-slate-400">{slide.hint}</p>}
+    </div>
+  );
+
+  if (slide.type === 'month_year') return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <Label>Month</Label>
+        <select value={data.lmpMonth || ''} onChange={e => set('lmpMonth', e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none">
+          <option value="">Select month</option>
+          {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+            <option key={m} value={String(i + 1)}>{m}</option>
           ))}
+        </select>
+      </div>
+      <div>
+        <Label>Year</Label>
+        <input type="number" value={data.lmpYear || ''} onChange={e => set('lmpYear', e.target.value)}
+          placeholder="e.g. 2026" min={2020} max={2026}
+          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+      </div>
+    </div>
+  );
+
+  if (slide.type === 'chips') return (
+    <div className="space-y-3">
+      <Chips options={slide.options} value={val} onChange={v => set(slide.field, v)} />
+      {risk && <RiskBadge text={risk} />}
+    </div>
+  );
+
+  if (slide.type === 'multi') return (
+    <Chips options={slide.options} value={val || []} onChange={v => set(slide.field, v)} multi />
+  );
+
+  if (slide.type === 'yes_no') return (
+    <div className="space-y-3">
+      <YesNo value={val} onChange={v => set(slide.field, v)} />
+      {risk && <RiskBadge text={risk} />}
+    </div>
+  );
+
+  if (slide.type === 'address') return (
+    <div className="space-y-3">
+      <Field label="House / Flat number" value={data.addrHouse} onChange={v => set('addrHouse', v)} placeholder="e.g. 12B" />
+      <Field label="Street name" value={data.addrStreet} onChange={v => set('addrStreet', v)} placeholder="e.g. Mission Road" />
+      <Field label="City / Town" value={data.addrCity} onChange={v => set('addrCity', v)} placeholder="e.g. Benin City" />
+      <Field label="State" value={data.addrState} onChange={v => set('addrState', v)} placeholder="e.g. Edo State" />
+    </div>
+  );
+
+  if (slide.type === 'gp_summary') {
+    const gp = computeGP(data);
+    if (!gp) return <p className="text-slate-400 text-center py-8">Fill in gravidity and parity above to see your G/P summary.</p>;
+    return (
+      <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl p-8 text-center space-y-4">
+        <p className="text-5xl font-bold text-sky-700 tracking-wide">{gp}</p>
+        <div className="text-sm text-slate-500 space-y-1">
+          <p>G = Gravidity (total pregnancies)</p>
+          <p>P = Parity (births after 24 weeks)</p>
+          {(parseInt(data.gravidity) - parseInt(data.parity)) > 0 && <p>+{parseInt(data.gravidity) - parseInt(data.parity)} = pregnancy losses</p>}
+          {data.childrenAlive !== '' && <p>({data.childrenAlive}A) = children alive</p>}
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col font-body-md text-on-surface">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-stone-50/90 backdrop-blur-md border-b border-primary/5">
-        <div className="max-w-[640px] mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <button onClick={handleBack} className="p-2 -ml-2 hover:bg-surface-container-high rounded-full transition-colors">
-              <span className="material-symbols-outlined text-primary">arrow_back</span>
+  if (slide.type === 'obs_none') return (
+    <div className="bg-sky-50 border border-sky-200 rounded-2xl p-8 text-center">
+      <p className="text-4xl mb-4">🌱</p>
+      <p className="text-sky-700 font-semibold">This is your first delivery — no previous obstetric history to record.</p>
+    </div>
+  );
+
+  if (slide.type === 'child_card') {
+    const children = data.children || [];
+    const child = children[slide.childIdx] || {};
+    return <ChildCard idx={slide.childIdx} child={child} onChange={setChild} />;
+  }
+
+  if (slide.type === 'investigations_form') return <InvestigationsForm data={data} set={set} />;
+
+  return null;
+};
+
+// ── Main component ────────────────────────────────────────────────────────────
+const IntakeQuestionnaire = () => {
+  const navigate = useNavigate();
+  const [view, setView] = useState('overview');
+  const [secIdx, setSecIdx] = useState(0);
+  const [slideIdx, setSlideIdx] = useState(0);
+  const [data, setData] = useState(INIT);
+  const [loading, setLoading] = useState(false);
+
+  const set = (key, val) => setData(prev => ({ ...prev, [key]: val }));
+
+  const setChild = (idx, field, val) => {
+    setData(prev => {
+      const parity = parseInt(prev.parity) || 0;
+      const children = Array.from({ length: parity }, (_, i) => prev.children?.[i] || {});
+      children[idx] = { ...(children[idx] || {}), [field]: val };
+      return { ...prev, children };
+    });
+  };
+
+  const risks = useMemo(() => computeRisks(data), [data]);
+  const gp    = useMemo(() => computeGP(data), [data]);
+
+  // Sync children array length when parity changes
+  const parity = parseInt(data.parity) || 0;
+  const ensuredChildren = Array.from({ length: parity }, (_, i) => data.children?.[i] || {});
+
+  const getSlides = (sId) => {
+    const all = buildSlides(sId, { ...data, children: ensuredChildren });
+    return all.filter(s => !s.condition || s.condition(data));
+  };
+
+  const enterSection = (idx) => {
+    setSecIdx(idx);
+    setSlideIdx(0);
+    setView('section');
+  };
+
+  const goNext = async () => {
+    const slides = getSlides(SECTION_META[secIdx].id);
+    if (slideIdx < slides.length - 1) {
+      setSlideIdx(s => s + 1);
+      window.scrollTo(0, 0);
+    } else {
+      // Section complete — save & return to overview
+      await autoSave(secIdx);
+      setView('overview');
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const goBack = () => {
+    if (slideIdx > 0) { setSlideIdx(s => s - 1); window.scrollTo(0, 0); }
+    else { setView('overview'); window.scrollTo(0, 0); }
+  };
+
+  const autoSave = async (sIdx) => {
+    const patientId = getPatientId();
+    if (!patientId) return;
+    const sId = SECTION_META[sIdx].id;
+    try {
+      if (sId === 'biodata') {
+        await upsertProfile({
+          name: data.name || undefined,
+          age: Number(data.age) || undefined,
+          occupation: data.occupation || undefined,
+          marital_status: data.marital?.toLowerCase() || undefined,
+          address: [data.addrHouse, data.addrStreet, data.addrCity, data.addrState].filter(Boolean).join(', ') || undefined,
+          religion: data.religion?.toLowerCase() || undefined,
+          ethnicity: data.tribe || undefined,
+        }).catch(() => {});
+      }
+      if (sId === 'index') {
+        const lmp = data.lmpKnown ? data.lmpDate : (data.lmpYear && data.lmpMonth ? `${data.lmpYear}-${String(data.lmpMonth).padStart(2, '0')}-01` : undefined);
+        await addPregnancy({
+          lmp_date: lmp ? new Date(lmp).toISOString() : undefined,
+          blood_group: data.bloodGroup || undefined,
+          genotype: data.genotype || undefined,
+          gravidity: Number(data.gravidity) || undefined,
+          parity: Number(data.parity) || undefined,
+        }).catch(() => {});
+      }
+      const domainMap = {
+        obstetric: 'obstetric', gynae: 'gynae', medical: 'medical',
+        family_social: 'social', systems: 'symptoms', investigations: 'medical',
+      };
+      if (domainMap[sId]) {
+        const responses = buildDomainResponses(sId, data, ensuredChildren);
+        if (responses.length) await saveIntake(patientId, domainMap[sId], responses).catch(() => {});
+      }
+    } catch (_) {}
+  };
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    const patientId = getPatientId();
+    if (patientId) {
+      try {
+        for (let i = 0; i < SECTION_META.length; i++) await autoSave(i);
+        const { data: res } = await submitIntake(patientId);
+        const tier = res?.risk_tier || res?.tier || res?.risk;
+        if (tier) localStorage.setItem('mc_risk_tier', tier.toUpperCase());
+      } catch (_) {}
+    }
+    setTimeout(() => navigate('/risk-result'), 2800);
+  };
+
+  const allDone = SECTION_META.every(s => sectionComplete(s.id, { ...data, children: ensuredChildren }));
+
+  // ── Overview page ──────────────────────────────────────────────────────────
+  if (view === 'overview') {
+    return (
+      <div className="min-h-screen bg-sky-50 font-body-md">
+        <header className="bg-sky-600 px-6 pt-10 pb-16">
+          <div className="max-w-[640px] mx-auto">
+            <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-sky-100 text-sm">
+              ← Back
             </button>
-            <div>
-              <h1 className="font-headline-md text-primary text-lg">Health Profile</h1>
-              <span className="flex items-center gap-1 font-label-sm text-primary/50 text-xs">
-                <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                Auto-saved
-              </span>
-            </div>
-          </div>
-          <button className="px-3 py-1.5 rounded-full border border-primary/20 font-label-sm text-xs text-primary hover:bg-primary/5 transition-all">
-            EN | Pidgin
-          </button>
-        </div>
-
-        {/* Progress bar + step pills */}
-        <div className="w-full bg-surface-container-low">
-          <div className="h-0.5 bg-surface-container-highest">
-            <div
-              className="h-full bg-primary transition-all duration-500 ease-out"
-              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
-            />
-          </div>
-          <div className="max-w-[640px] mx-auto px-4 py-3 overflow-x-auto whitespace-nowrap scrollbar-hide flex gap-2">
-            {STEPS.map((s, idx) => (
-              <div key={s.id}
-                className={`inline-flex items-center px-3 py-1 rounded-full font-label-sm border text-xs transition-all ${
-                  idx === step
-                    ? 'bg-primary text-white shadow-sm border-transparent'
-                    : idx < step
-                    ? 'bg-primary/10 text-primary border-primary/20'
-                    : 'bg-white text-on-surface-variant border-outline-variant'
-                }`}
-              >
-                <span
-                  className="material-symbols-outlined text-[14px] mr-1"
-                  style={idx <= step ? { fontVariationSettings: "'FILL' 1" } : {}}
-                >
-                  {idx < step ? 'check_circle' : s.icon}
-                </span>
-                {s.label}
+            <h1 className="text-white text-3xl font-bold">Health Profile</h1>
+            <p className="text-sky-100 mt-1 text-sm">Fill in each section — tap any card to begin.</p>
+            {gp && (
+              <div className="mt-4 inline-block bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-semibold">
+                {gp}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <main className="flex-grow flex flex-col items-center px-6 py-10 md:py-16">
-        <div className="w-full max-w-[520px]">
-          {STEP_RENDERERS[step]()}
-        </div>
-      </main>
-
-      {/* Sticky footer */}
-      <footer className="sticky bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-primary/5 p-4 md:p-6">
-        <div className="max-w-[520px] mx-auto w-full space-y-3">
-          {showDangerBanner && (
-            <div className="bg-secondary text-white px-5 py-4 rounded-xl flex items-center gap-4 animate-slide-up">
-              <span className="material-symbols-outlined flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-              <div className="flex-grow">
-                <p className="font-bold font-body-md text-sm">Urgent symptom detected</p>
-                <p className="font-label-sm text-xs opacity-90 mt-0.5">We will flag this for your nurse immediately.</p>
-              </div>
-              <button onClick={() => setShowDangerBanner(false)} className="p-1 hover:bg-white/10 rounded-full">
-                <span className="material-symbols-outlined text-sm">close</span>
-              </button>
+        <main className="max-w-[640px] mx-auto px-4 -mt-8 pb-32">
+          {/* Risk summary */}
+          {risks.length > 0 && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4">
+              <p className="text-red-700 font-bold text-sm mb-2">⚠ High-risk flags detected</p>
+              <ul className="space-y-1">
+                {risks.map((r, i) => (
+                  <li key={i} className="text-red-600 font-bold text-xs">• {r.text}</li>
+                ))}
+              </ul>
             </div>
           )}
 
-          <div className="flex gap-3">
-            <button
-              onClick={handleBack}
-              className="flex-1 py-4 font-bold text-primary border-2 border-primary/15 rounded-xl hover:bg-primary/5 transition-all active:scale-95"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleNext}
-              disabled={!canProceed()}
-              className={`flex-[2] py-4 font-bold text-white rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
-                canProceed()
-                  ? 'bg-primary shadow-lg shadow-primary/20 hover:opacity-90'
-                  : 'bg-outline-variant cursor-not-allowed'
-              }`}
-            >
-              {step === STEPS.length - 1 ? 'Submit & Get Assessment' : 'Continue'}
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </button>
+          {/* Section cards */}
+          <div className="space-y-3">
+            {SECTION_META.map((s, i) => {
+              const done = sectionComplete(s.id, { ...data, children: ensuredChildren });
+              const slides = getSlides(s.id);
+              const answered = slides.filter(sl => sl.field && data[sl.field] !== '' && data[sl.field] !== null && data[sl.field] !== undefined).length;
+              const total = slides.filter(sl => sl.field).length;
+              return (
+                <button key={s.id} onClick={() => enterSection(i)}
+                  className="w-full bg-white rounded-2xl p-5 flex items-center gap-4 shadow-sm border border-sky-100 hover:border-sky-300 hover:shadow-md transition-all text-left active:scale-[0.99]">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0 ${done ? 'bg-emerald-100' : 'bg-sky-100'}`}>
+                    {s.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-slate-800">{s.label}</p>
+                      {!done && (
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">INCOMPLETE</span>
+                      )}
+                    </div>
+                    <p className="text-slate-400 text-xs mt-0.5">{s.desc}</p>
+                    {total > 0 && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-sky-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-sky-500 rounded-full transition-all" style={{ width: `${Math.min(100, (answered / total) * 100)}%` }} />
+                        </div>
+                        <span className="text-[10px] text-slate-400">{answered}/{total}</span>
+                      </div>
+                    )}
+                  </div>
+                  {done ? (
+                    <span className="text-emerald-500 text-xl flex-shrink-0">✓</span>
+                  ) : (
+                    <span className="text-sky-300 text-xl flex-shrink-0">›</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Submit */}
+          <div className="mt-6">
+            {allDone ? (
+              <button onClick={handleSubmit}
+                className="w-full py-5 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg hover:bg-sky-700 active:scale-95 transition-all">
+                Submit & Get Risk Assessment
+              </button>
+            ) : (
+              <div className="text-center">
+                <p className="text-slate-400 text-sm mb-3">Complete all sections to submit</p>
+                <button onClick={handleSubmit}
+                  className="w-full py-4 bg-sky-200 text-sky-600 font-bold rounded-2xl transition-all hover:bg-sky-300">
+                  Submit anyway (partial)
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
+
+        {loading && <LoadingOverlay />}
+      </div>
+    );
+  }
+
+  // ── Carousel section view ──────────────────────────────────────────────────
+  const sec = SECTION_META[secIdx];
+  const slides = getSlides(sec.id);
+  const slide = slides[slideIdx];
+  const progress = ((slideIdx + 1) / slides.length) * 100;
+  const isLast = slideIdx === slides.length - 1;
+
+  return (
+    <div className="min-h-screen flex flex-col bg-white font-body-md">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white border-b border-sky-100">
+        <div className="max-w-[640px] mx-auto px-6 py-4 flex items-center gap-4">
+          <button onClick={goBack} className="p-2 -ml-2 rounded-full hover:bg-sky-50 transition-colors">
+            <span className="text-sky-600 font-bold text-lg">←</span>
+          </button>
+          <div className="flex-1">
+            <p className="text-sky-600 font-bold text-sm">{sec.label}</p>
+            <p className="text-slate-400 text-xs">{slideIdx + 1} of {slides.length}</p>
+          </div>
+          <span className="text-2xl">{sec.icon}</span>
+        </div>
+        <div className="h-1 bg-sky-100">
+          <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+        </div>
+      </header>
+
+      {/* Slide */}
+      <main className="flex-1 flex flex-col px-6 py-10 max-w-[640px] mx-auto w-full">
+        {slide?.question && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-slate-800 leading-snug">{slide.question}</h2>
+            {slide.hint && <p className="text-slate-400 text-sm mt-2">{slide.hint}</p>}
+          </div>
+        )}
+        {slide?.type === 'gp_summary' && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Your obstetric summary</h2>
+          </div>
+        )}
+        {slide?.type === 'obs_none' && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Obstetric history</h2>
+          </div>
+        )}
+        {slide?.type === 'child_card' && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Tell us about each of your previous children</h2>
+          </div>
+        )}
+        {slide?.type === 'investigations_form' && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Booking investigations</h2>
+          </div>
+        )}
+
+        <SlideContent slide={slide} data={{ ...data, children: ensuredChildren }} set={set} setChild={setChild} />
+      </main>
+
+      {/* Footer nav */}
+      <footer className="sticky bottom-0 bg-white border-t border-sky-100 px-6 py-4">
+        <div className="max-w-[640px] mx-auto flex gap-3">
+          <button onClick={goBack}
+            className="flex-1 py-4 font-bold text-sky-600 border-2 border-sky-200 rounded-2xl hover:bg-sky-50 transition-all active:scale-95">
+            Back
+          </button>
+          <button onClick={goNext}
+            className="flex-[2] py-4 font-bold text-white bg-sky-600 rounded-2xl shadow-lg hover:bg-sky-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+            {isLast ? `Finish ${sec.label}` : 'Next'}
+            <span>→</span>
+          </button>
         </div>
       </footer>
+
+      {loading && <LoadingOverlay />}
     </div>
   );
 };
+
+// ── Domain response builder ───────────────────────────────────────────────────
+function buildDomainResponses(sId, data, children) {
+  switch (sId) {
+    case 'obstetric': return (children || []).flatMap((c, i) => [
+      { question_key: `child_${i}_year`,          answer: String(c.year || '') },
+      { question_key: `child_${i}_gender`,         answer: c.gender || '' },
+      { question_key: `child_${i}_delivery_mode`,  answer: c.deliveryMode || '' },
+      { question_key: `child_${i}_cried_well`,     answer: c.criedWell ? 'yes' : 'no' },
+      { question_key: `child_${i}_birth_weight`,   answer: String(c.birthWeight || '') },
+      { question_key: `child_${i}_state_now`,      answer: c.stateNow || '' },
+      { question_key: `child_${i}_anomaly`,        answer: c.anomaly ? 'yes' : 'no' },
+      { question_key: `child_${i}_events`,         answer: (c.events || []).join(',') },
+    ]);
+    case 'gynae': return [
+      { question_key: 'menarche_age',    answer: data.menarche || '' },
+      { question_key: 'cycle_days',      answer: data.cycleLength || '' },
+      { question_key: 'flow_days',       answer: data.flowDays || '' },
+      { question_key: 'dysmenorrhea',    answer: data.dysmenorrhea ? 'yes' : 'no' },
+      { question_key: 'heavy_bleeding',  answer: data.heavyBleeding ? 'yes' : 'no' },
+      { question_key: 'intermenstrual',  answer: data.intermenstrual ? 'yes' : 'no' },
+      { question_key: 'postcoital',      answer: data.postcoital ? 'yes' : 'no' },
+      { question_key: 'contraceptive',   answer: data.contraUsed ? 'yes' : 'no' },
+      { question_key: 'contraceptive_type', answer: data.contraType || '' },
+      { question_key: 'pap_smear',       answer: data.papSmearDone ? 'yes' : 'no' },
+      { question_key: 'top',             answer: data.topDone ? 'yes' : 'no' },
+      { question_key: 'top_count',       answer: String(data.topCount || '') },
+    ];
+    case 'medical': return [
+      ...(data.conditions || []).filter(c => c !== 'None of these').map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
+      { question_key: 'surgery',          answer: data.surgeries ? 'yes' : 'no' },
+      { question_key: 'surgery_details',  answer: data.surgeryDetails || '' },
+      { question_key: 'medications',      answer: data.currentMeds || '' },
+      { question_key: 'drug_allergy',     answer: data.drugAllergy ? 'yes' : 'no' },
+      { question_key: 'allergy_details',  answer: data.allergyDetails || '' },
+    ];
+    case 'family_social': return [
+      { question_key: 'husband_occupation',   answer: data.husbandOccupation || '' },
+      { question_key: 'husband_age',          answer: String(data.husbandAge || '') },
+      { question_key: 'husband_genotype',     answer: data.husbandGenotype || '' },
+      { question_key: 'husband_blood_group',  answer: data.husbandBloodGroup || '' },
+      { question_key: 'patient_smokes',       answer: data.patientSmokes ? 'yes' : 'no' },
+      { question_key: 'patient_drinks',       answer: data.patientDrinks ? 'yes' : 'no' },
+      { question_key: 'husband_smokes',       answer: data.husbandSmokes ? 'yes' : 'no' },
+      { question_key: 'husband_drinks',       answer: data.husbandDrinks ? 'yes' : 'no' },
+      { question_key: 'supportive',           answer: data.supportive ? 'yes' : 'no' },
+    ];
+    case 'systems': return [
+      ...(data.neuroSymptoms || []).map(s => ({ question_key: s.toLowerCase().replace(/ \/ /g, '_').replace(/ /g, '_'), answer: 'yes' })),
+      ...(data.cardioSymptoms || []).map(s => ({ question_key: s.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
+      { question_key: 'urinary_changes',  answer: data.urinaryChanges ? 'yes' : 'no' },
+      { question_key: 'bowel_changes',    answer: data.bowelChanges ? 'yes' : 'no' },
+      { question_key: 'pain',             answer: data.hasPain ? 'yes' : 'no' },
+      { question_key: 'pain_details',     answer: data.painDetails || '' },
+    ];
+    default: return [];
+  }
+}
+
+// ── Loading overlay ───────────────────────────────────────────────────────────
+const LoadingOverlay = () => (
+  <div className="fixed inset-0 bg-sky-50/95 z-[100] flex flex-col items-center justify-center p-8">
+    <div className="relative w-24 h-24 mb-8">
+      <div className="absolute inset-0 border-4 border-sky-100 border-t-sky-600 rounded-full animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center text-4xl">🤰</div>
+    </div>
+    <h3 className="font-bold text-sky-700 text-2xl">Calculating your risk…</h3>
+    <p className="text-slate-500 text-center max-w-xs mt-3">Our clinical AI is reviewing your profile using WHO-validated guidelines.</p>
+    <div className="mt-8 flex gap-2">
+      {[0, 1, 2].map(i => (
+        <div key={i} className="w-2 h-2 bg-sky-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+      ))}
+    </div>
+  </div>
+);
 
 export default IntakeQuestionnaire;

@@ -242,7 +242,7 @@ const EmergencyReporting = () => {
                 Institutional Trust
               </span>
               <h2 className="font-headline-lg text-headline-lg text-primary mb-6">
-                Partnered with University of Benin Teaching Hospital
+                Partnered with Partner Hospitals
               </h2>
               <p className="font-body-lg text-on-surface-variant mb-8">
                 Every alert sent through 9Care AI is routed directly to the obstetrics triage team.

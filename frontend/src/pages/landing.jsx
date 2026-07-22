@@ -67,7 +67,7 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center py-20">
           <div className="z-10">
             <span className="inline-block py-1 px-4 bg-tertiary-fixed text-primary font-label-sm rounded-full mb-6">
-              BENIN CITY
+              NATIONWIDE
             </span>
             <h1 className="font-display-xl text-primary mb-6 leading-tight">
               Smart care for you <br />
@@ -94,7 +94,7 @@ const Landing = () => {
                 verified
               </span>
               <p className="font-body-md">
-                Trusted and used at University of Benin Teaching Hospital
+                Trusted and used at Partner Hospitals
               </p>
             </div>
           </div>
@@ -403,7 +403,7 @@ const Landing = () => {
           <blockquote className="font-display-xl italic text-primary mb-10 leading-snug">
             "9Care AI has bridged the gap between home and hospital. We are
             catching potential issues weeks earlier than we used to, saving
-            lives in Benin City."
+            lives in NATIONWIDE."
           </blockquote>
           <div>
             <img

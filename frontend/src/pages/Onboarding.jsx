@@ -584,8 +584,8 @@ const SlideContent = ({ slide, data, set, setChild }) => {
     <div className="space-y-3">
       <Field label="House / Flat number" value={data.addrHouse} onChange={v => set('addrHouse', v)} placeholder="e.g. 12B" />
       <Field label="Street name" value={data.addrStreet} onChange={v => set('addrStreet', v)} placeholder="e.g. Mission Road" />
-      <Field label="City / Town" value={data.addrCity} onChange={v => set('addrCity', v)} placeholder="e.g. Benin City" />
-      <Field label="State" value={data.addrState} onChange={v => set('addrState', v)} placeholder="e.g. Edo State" />
+      <Field label="City / Town" value={data.addrCity} onChange={v => set('addrCity', v)} placeholder="e.g. NATIONWIDE" />
+      <Field label="State" value={data.addrState} onChange={v => set('addrState', v)} placeholder="e.g. Nationwide" />
     </div>
   );
 

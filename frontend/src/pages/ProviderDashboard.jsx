@@ -559,7 +559,7 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
         </div>
         <div className="p-6 space-y-3">
           {[
-            { label: 'Hospital',    value: 'University of Benin Teaching Hospital' },
+            { label: 'Hospital',    value: 'Partner Hospitals' },
             { label: 'Department',  value: 'Obstetrics & Gynaecology' },
             { label: 'Pilot Group', value: 'Cohort 1' },
           ].map(d => (

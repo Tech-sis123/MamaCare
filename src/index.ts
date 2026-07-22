@@ -26,15 +26,7 @@ import adminRoutes from './modules/admin/routes';
 const app = express();
 
 // ─── Global Middleware ──────────────────────────────────────
-const allowedOrigins = env.CORS_ORIGIN.split(',').map(o => o.trim());
-app.use(cors({
-  origin: (origin, cb) => {
-    // allow server-to-server / curl (no origin header) and any listed origin
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error(`CORS: ${origin} not allowed`));
-  },
-  credentials: true,
-}));
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(requestId);
 app.use(pinoHttp({ logger }));

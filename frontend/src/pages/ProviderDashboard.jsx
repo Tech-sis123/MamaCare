@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   doctorLogin as apiDoctorLogin,
+  registerDoctor as apiRegisterDoctor,
+  recoverDoctorPassword as apiRecoverDoctorPassword,
   getDoctorQueue,
   searchPatients,
   acknowledgeAlert,
@@ -579,17 +581,20 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
   );
 };
 
-// ── Doctor Login ─────────────────────────────────────────────────
-const DoctorLoginScreen = ({ onLogin }) => {
+// ── Doctor Auth Flow ─────────────────────────────────────────────────
+const DoctorAuthScreen = ({ onLogin }) => {
+  const [view, setView] = useState('login'); // 'login', 'register', 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [hospital, setHospital] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [msg, setMsg] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setLoading(true); setError(''); setMsg('');
     try {
       const { data } = await apiDoctorLogin(email, password);
       setDoctorAuth(data.access_token, data.refresh_token, data.doctor);
@@ -601,43 +606,113 @@ const DoctorLoginScreen = ({ onLogin }) => {
     }
   };
 
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setMsg('');
+    try {
+      await apiRegisterDoctor({ email, password, name, hospital });
+      setMsg('Registration successful! Please log in.');
+      setView('login');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgot = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setMsg('');
+    try {
+      await apiRecoverDoctorPassword(email);
+      setMsg('Password recovery email sent (if account exists).');
+      setView('login');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Recovery failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#1A1A18] flex items-center justify-center p-6">
       <div className="w-full max-w-md bg-white rounded-2xl p-8 shadow-2xl">
         <div className="mb-8">
           <h1 className="font-headline-lg text-amber-900 text-2xl mb-1">Provider Portal</h1>
-          <p className="font-body-md text-on-surface-variant text-sm">Sign in to access patient care dashboard</p>
+          <p className="font-body-md text-on-surface-variant text-sm">
+            {view === 'login' ? 'Sign in to access patient care dashboard' :
+             view === 'register' ? 'Create a provider account' : 'Recover your password'}
+          </p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
-              required
-            />
-          </div>
-          <div>
-            <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
-              required
-            />
-          </div>
-          {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60"
-          >
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
+        
+        {msg && <p className="text-primary font-label-sm mb-4 p-3 bg-primary/10 rounded-lg">{msg}</p>}
+
+        {view === 'login' && (
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div className="flex justify-end">
+              <button type="button" onClick={() => { setView('forgot'); setError(''); setMsg(''); }} className="text-primary font-label-sm text-xs hover:underline">Forgot password?</button>
+            </div>
+            {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60">
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+            <p className="text-center font-body-md text-sm mt-4">
+              Don't have an account? <button type="button" onClick={() => { setView('register'); setError(''); setMsg(''); }} className="text-primary font-bold hover:underline">Register here</button>
+            </p>
+          </form>
+        )}
+
+        {view === 'register' && (
+          <form onSubmit={handleRegister} className="space-y-5">
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Full Name</label>
+              <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Hospital / Clinic</label>
+              <input type="text" value={hospital} onChange={e => setHospital(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60">
+              {loading ? 'Registering…' : 'Create Account'}
+            </button>
+            <p className="text-center font-body-md text-sm mt-4">
+              Already have an account? <button type="button" onClick={() => { setView('login'); setError(''); setMsg(''); }} className="text-primary font-bold hover:underline">Sign in</button>
+            </p>
+          </form>
+        )}
+
+        {view === 'forgot' && (
+          <form onSubmit={handleForgot} className="space-y-5">
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
+            <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60">
+              {loading ? 'Sending…' : 'Send Recovery Email'}
+            </button>
+            <p className="text-center font-body-md text-sm mt-4">
+              Remember your password? <button type="button" onClick={() => { setView('login'); setError(''); setMsg(''); }} className="text-primary font-bold hover:underline">Sign in</button>
+            </p>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -841,7 +916,7 @@ const ProviderDashboard = () => {
   };
 
   if (!loggedIn) {
-    return <DoctorLoginScreen onLogin={handleDoctorLogin} />;
+    return <DoctorAuthScreen onLogin={handleDoctorLogin} />;
   }
 
   const doctorInitials = (doctor?.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();

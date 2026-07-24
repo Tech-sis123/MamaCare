@@ -11,6 +11,7 @@ import EducationDetail from "./pages/EducationDetail"
 import ProviderDashboard from "./pages/ProviderDashboard"
 import PatientDetailPanel from "./pages/PatientDetails"
 import PatientProfile from "./pages/PatientProfile"
+import ResetPassword from "./pages/ResetPassword"
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
         <Route path='/provider' element={<ProviderDashboard />} />
         <Route path='/provider/patient' element={<PatientDetailPanel />} />
         <Route path='/profile' element={<PatientProfile />} />
+        <Route path='/reset-password' element={<ResetPassword />} />
       </Routes>
     </BrowserRouter>
   )

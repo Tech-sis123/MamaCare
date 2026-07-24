@@ -43,14 +43,23 @@ doctorApi.interceptors.response.use(
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-export const requestOtp = phone_number =>
-  axios.post(`${BASE}/auth/patient/otp/request`, { phone_number });
+export const requestOtp = (phone_number, channel = 'sms') =>
+  axios.post(`${BASE}/auth/patient/otp/request`, { phone_number, channel });
 
 export const verifyOtp = (pin_id, code) =>
   axios.post(`${BASE}/auth/patient/otp/verify`, { pin_id, code });
 
 export const doctorLogin = (email, password) =>
   axios.post(`${BASE}/auth/doctor/login`, { email, password });
+
+export const registerDoctor = (data) =>
+  axios.post(`${BASE}/auth/doctor/register`, data);
+
+export const recoverDoctorPassword = (email) =>
+  axios.post(`${BASE}/auth/doctor/forgot-password`, { email });
+
+export const resetDoctorPassword = (token, new_password) =>
+  axios.post(`${BASE}/auth/doctor/reset-password`, { token, new_password });
 
 // ── Patient ───────────────────────────────────────────────────────────────────
 

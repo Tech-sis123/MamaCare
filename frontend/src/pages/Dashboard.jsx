@@ -308,7 +308,7 @@ const PatientDashboard = () => {
             <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-secondary" />
             </div>
-            <span className="font-label-sm text-xs text-secondary">Danger sign</span>
+            <span className="font-label-sm text-xs text-secondary">Report symptoms</span>
           </button>
           <button className="bg-surface-container-lowest p-4 rounded-xl card-shadow border border-surface-container flex flex-col items-center gap-3 text-center transition-transform active:scale-95 hover:border-primary/20 hover:shadow-md">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">

@@ -13,6 +13,7 @@ const RegistrationFlow = () => {
   const [otpError, setOtpError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [authChannel, setAuthChannel] = useState('sms');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -38,13 +39,14 @@ const RegistrationFlow = () => {
     return '+234' + digits.replace(/^0/, '');
   };
 
-  const handlePhoneSubmit = async (e) => {
-    e.preventDefault();
+  const handlePhoneSubmit = async (e, channel = 'sms') => {
+    if (e && e.preventDefault) e.preventDefault();
     if (phoneNumber.trim().length < 8) return;
+    setAuthChannel(channel);
     setLoading(true);
     setApiError('');
     try {
-      const { data } = await requestOtp(formatPhone(phoneNumber));
+      const { data } = await requestOtp(formatPhone(phoneNumber), channel);
       setPinId(data.pin_id);
       setStep('otp');
       setResendTimer(45);
@@ -128,7 +130,7 @@ const RegistrationFlow = () => {
     setLoading(true);
     setApiError('');
     try {
-      const { data } = await requestOtp(formatPhone(phoneNumber));
+      const { data } = await requestOtp(formatPhone(phoneNumber), authChannel);
       setPinId(data.pin_id);
       setResendTimer(45);
     } catch (err) {
@@ -216,10 +218,14 @@ const RegistrationFlow = () => {
                   {!loading && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
                 </button>
                 <div className="text-center">
-                  <a href="#" className="font-label-sm text-secondary hover:underline underline-offset-4 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => handlePhoneSubmit(e, 'whatsapp')}
+                    className="font-label-sm text-secondary hover:underline underline-offset-4 flex items-center justify-center gap-2 bg-transparent border-none cursor-pointer w-full"
+                  >
                     <span className="material-symbols-outlined text-sm">chat</span>
                     Didn't get SMS? Use WhatsApp instead
-                  </a>
+                  </button>
                 </div>
               </form>
             </section>

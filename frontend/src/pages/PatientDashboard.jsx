@@ -4,7 +4,7 @@ import { askPatientAI } from '../lib/api';
 
 const AIChatPanel = ({ onClose }) => {
   const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Hi! I'm your 9Care AI assistant. Ask me anything about your pregnancy, symptoms, or health.' },
+    { role: 'ai', text: "Hi! I'm your 9Care AI assistant. Ask me anything about your pregnancy, symptoms, or health." },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ const AIChatPanel = ({ onClose }) => {
     } catch (err) {
       const msg = err.response?.status === 404
         ? 'Please complete your profile first so I can give personalised advice.'
-        : 'Sorry, I couldn't reach the AI right now. Please try again.';
+        : "Sorry, I couldn't reach the AI right now. Please try again.";
       setMessages(prev => [...prev, { role: 'ai', text: msg }]);
     } finally {
       setLoading(false);
@@ -122,6 +122,7 @@ const AIChatPanel = ({ onClose }) => {
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const [showAI, setShowAI] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(true);
 
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
@@ -145,8 +146,26 @@ const PatientDashboard = () => {
         </div>
       </header>
 
+      {/* Password Setup Banner */}
+      {needsPassword && (
+        <div className="max-w-[640px] mx-auto px-4 -mt-6 relative z-50 mb-6">
+          <div className="bg-amber-100 border border-amber-300 rounded-xl p-4 flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-amber-600">security</span>
+              <div>
+                <p className="font-bold text-amber-900 text-sm">Secure your account</p>
+                <p className="text-amber-800 text-xs">Set up a password to log in easily without OTP.</p>
+              </div>
+            </div>
+            <button className="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm">
+              Set Password
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
-      <main className="max-w-[640px] mx-auto px-4 -mt-6 pb-32 space-y-6">
+      <main className="max-w-[640px] mx-auto px-4 pb-32 space-y-6">
         {/* Risk Level Card */}
         <section className="bg-[#D4E6D8] rounded-xl p-6 flex justify-between items-center card-shadow">
           <div className="space-y-3">
@@ -273,7 +292,7 @@ const PatientDashboard = () => {
             <div className="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
               <span className="material-symbols-outlined text-secondary">report_problem</span>
             </div>
-            <span className="font-label-sm text-xs text-secondary">Danger sign</span>
+            <span className="font-label-sm text-xs text-secondary">Report symptoms</span>
           </button>
           <button onClick={() => setShowAI(true)} className="bg-primary/5 p-4 rounded-xl card-shadow border border-primary/20 flex flex-col items-center gap-3 text-center transition-transform active:scale-95">
             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">

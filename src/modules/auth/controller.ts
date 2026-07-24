@@ -7,6 +7,9 @@ import { termiiService } from '../../services/termii';
 import { redis } from '../../config/redis';
 import { AppError, NotFoundError, UnauthorizedError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+import { whatsappService } from '../../services/whatsapp';
+import crypto from 'crypto';
+import { brevoService } from '../../services/brevo';
 
 function generateTokens(payload: { id: string; role: string; type: string }) {
   const access_token = jwt.sign(payload, env.JWT_SECRET, {
@@ -25,7 +28,21 @@ export const authController = {
    */
   async patientOtpRequest(req: Request, res: Response, next: NextFunction) {
     try {
-      const { phone_number } = req.body;
+      const { phone_number, channel } = req.body;
+
+      if (channel === 'whatsapp') {
+        const pin_id = `wa-${Date.now()}`;
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        await redis.set(`otp:${pin_id}`, phone_number, 'EX', 900);
+        await redis.set(`otp:code:${pin_id}`, code, 'EX', 900);
+
+        await whatsappService.sendMessage({
+          to: phone_number,
+          message: `Your Mama Care verification code is ${code}. Valid for 15 minutes.`
+        });
+
+        return res.status(200).json({ pin_id });
+      }
 
       // Dev mode: skip Termii when API key is not set
       if (!env.TERMII_API_KEY) {
@@ -130,6 +147,113 @@ export const authController = {
           role: doctor.role,
         },
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/doctor/register
+   * Register a new doctor
+   */
+  async doctorRegister(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password, name } = req.body;
+
+      const existing = await prisma.doctor.findUnique({ where: { email } });
+      if (existing) {
+        throw new AppError('Email already registered', 400);
+      }
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const doctor = await prisma.doctor.create({
+        data: {
+          email,
+          password_hash,
+          name,
+          role: 'doctor', // default role
+        },
+      });
+
+      res.status(201).json({ message: 'Doctor registered successfully' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/doctor/forgot-password
+   * Doctor password recovery
+   */
+  async doctorForgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      
+      const doctor = await prisma.doctor.findUnique({ where: { email } });
+      if (!doctor) {
+        // Return 200 anyway to prevent email enumeration
+        return res.status(200).json({ message: 'Password recovery email sent (if account exists)' });
+      }
+
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Store token in Redis mapped to email, valid for 15 minutes (900 seconds)
+      await redis.set(`pwd_reset:${token}`, email, 'EX', 900);
+
+      const resetLink = `${env.CORS_ORIGIN}/reset-password?token=${token}`;
+      
+      const htmlContent = `
+        <p>Hello ${doctor.name},</p>
+        <p>You requested a password reset for your Mama Care Provider Portal.</p>
+        <p>Please click the link below to reset your password. This link is valid for 15 minutes.</p>
+        <p><a href="${resetLink}">Reset Password</a></p>
+        <p>If you did not request this, please ignore this email.</p>
+      `;
+
+      await brevoService.sendEmail({
+        to: email,
+        subject: 'Mama Care Provider Portal - Password Reset',
+        htmlContent,
+      });
+
+      logger.info(`Password recovery email sent to doctor: ${email}`);
+
+      res.status(200).json({ message: 'Password recovery email sent (if account exists)' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/doctor/reset-password
+   * Verify token and reset password
+   */
+  async doctorResetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { token, new_password } = req.body;
+
+      const email = await redis.get(`pwd_reset:${token}`);
+      if (!email) {
+        throw new AppError('Invalid or expired reset token', 400);
+      }
+
+      const doctor = await prisma.doctor.findUnique({ where: { email } });
+      if (!doctor) {
+        throw new AppError('Doctor not found', 404);
+      }
+
+      const password_hash = await bcrypt.hash(new_password, 10);
+      await prisma.doctor.update({
+        where: { email },
+        data: { password_hash },
+      });
+
+      // Delete the token so it cannot be used again
+      await redis.del(`pwd_reset:${token}`);
+
+      logger.info(`Password successfully reset for doctor: ${email}`);
+
+      res.status(200).json({ message: 'Password reset successfully' });
     } catch (err) {
       next(err);
     }

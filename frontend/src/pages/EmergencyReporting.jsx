@@ -6,6 +6,7 @@ const EmergencyReporting = () => {
   const navigate = useNavigate();
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [timer, setTimer] = useState(54); // seconds
 
   const symptomsList = [
@@ -43,6 +44,11 @@ const EmergencyReporting = () => {
 
     logSymptoms(symptoms).catch(() => {});
 
+    setShowAnalysis(true);
+  };
+
+  const handleProceedToCall = () => {
+    setShowAnalysis(false);
     setIsEmergencyActive(true);
     const interval = setInterval(() => {
       setTimer((prev) => {
@@ -102,10 +108,10 @@ const EmergencyReporting = () => {
 
       <main className="max-w-7xl mx-auto px-6 py-12 md:py-16">
         {/* State A: Symptom Selection */}
-        {!isEmergencyActive && (
+        {!isEmergencyActive && !showAnalysis && (
           <section>
             <div className="mb-12">
-              <h1 className="font-headline-lg text-display-xl text-primary mb-4">Danger Sign Reporting</h1>
+              <h1 className="font-headline-lg text-display-xl text-primary mb-4">Report Symptoms</h1>
               <p className="font-body-lg text-on-surface-variant max-w-2xl">
                 If you feel unwell, please select any symptoms you are experiencing. This alert goes directly to medical staff.
               </p>
@@ -176,6 +182,30 @@ const EmergencyReporting = () => {
                 </button>
               </div>
             </div>
+          </section>
+        )}
+
+        {/* State A.5: Brief Analysis Window */}
+        {showAnalysis && !isEmergencyActive && (
+          <section className="bg-white p-8 rounded-2xl shadow-xl max-w-2xl mx-auto border-t-4 border-secondary text-center mt-12">
+             <span className="material-symbols-outlined text-secondary text-6xl mb-4" style={{ fontVariationSettings: "'FILL' 1" }}>medical_information</span>
+             <h2 className="font-headline-lg text-headline-lg text-primary mb-4">Please see a health professional immediately</h2>
+             <p className="font-body-lg text-on-surface-variant mb-6">
+                {new Intl.ListFormat('en', { style: 'long', type: 'conjunction' }).format(selectedSymptoms.map(id => symptomsList.find(s => s.id === id)?.title.toLowerCase()))} could be possible danger signs to watch out for and it is important that you see a Doctor as soon as possible. 
+                Even if you start to feel better, there are risks of complications that need conservative care or monitoring. 
+                Do not wait.
+             </p>
+             <div className="flex flex-col gap-4 justify-center mt-8">
+               <button onClick={handleProceedToCall} className="bg-secondary text-white w-full py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-secondary/90 transition-all">
+                 Continue to Emergency Call
+               </button>
+               <button onClick={() => {
+                 setShowAnalysis(false);
+                 setSelectedSymptoms([]);
+               }} className="bg-surface-container text-on-surface w-full py-4 rounded-xl font-medium hover:bg-surface-container-high transition-all border border-outline/20">
+                 I understand, I will go to the clinic
+               </button>
+             </div>
           </section>
         )}
 

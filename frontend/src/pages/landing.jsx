@@ -56,7 +56,7 @@ const Landing = () => {
               onClick={() => navigate('/register')}
               className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-body-md font-bold hover:opacity-90 transition-all scale-95 active:scale-90"
             >
-              Get Started
+              Register/sign in
             </button>
           </div>
         </div>
@@ -83,7 +83,7 @@ const Landing = () => {
                 onClick={() => navigate('/register')}
                 className="bg-primary text-on-primary px-8 py-4 rounded-lg font-body-md font-bold hover:opacity-95 transition-all"
               >
-                Register with your phone
+                Register/sign in
               </button>
               <button onClick={() => navigate('/provider')} className="border-2 border-primary text-primary px-8 py-4 rounded-lg font-body-md font-bold hover:bg-primary/5 transition-all">
                 I'm a healthcare provider

@@ -135,7 +135,6 @@ const SECTION_META = [
   { id: 'medical',        label: 'Medical History',        icon: '💊', desc: 'Conditions, drugs, allergies' },
   { id: 'family_social',  label: 'Family & Social',        icon: '👨‍👩‍👧', desc: 'Partner and home life' },
   { id: 'systems',        label: 'Review of Systems',      icon: '🫁', desc: 'Current symptoms by system' },
-  { id: 'investigations', label: 'Booking Investigations', icon: '🔬', desc: 'Lab results (filled by doctor)' },
 ];
 
 // ── Build slides per section (data-driven) ────────────────────────────────────
@@ -143,9 +142,6 @@ function buildSlides(sectionId, data) {
   switch (sectionId) {
 
     case 'biodata': return [
-      { id: 'name',          question: 'What is your full name?',                    field: 'name',          type: 'text',    required: true,  placeholder: 'e.g. Blessing Efe Okafor' },
-      { id: 'age',           question: 'How old are you?',                           field: 'age',           type: 'number',  required: true,  placeholder: 'e.g. 27', min: 10, max: 65,
-        riskCheck: v => { const a = parseInt(v); if (a > 35) return 'Advanced maternal age (over 35) — flagged as high risk'; if (a < 18) return 'Teenage pregnancy (under 18) — flagged as high risk'; return null; } },
       { id: 'occupation',    question: 'What is your occupation?',                   field: 'occupation',    type: 'text',    required: false, placeholder: 'e.g. Trader, Teacher, Nurse' },
       { id: 'marital',       question: 'What is your marital status?',               field: 'marital',       type: 'chips',   required: false,
         options: ['Single', 'Married', 'Widowed', 'Divorced'] },
@@ -166,15 +162,14 @@ function buildSlides(sectionId, data) {
       { id: 'gravidity',     question: 'How many times have you been pregnant in total? (including this one, miscarriages and terminations)',
         field: 'gravidity',     type: 'number',  required: true,  placeholder: 'e.g. 3', min: 1, max: 20,
         hint: 'Count every pregnancy — include this one, miscarriages, terminations.' },
-      { id: 'parity',        question: 'How many of those pregnancies reached 24 weeks or more?',
+      { id: 'parity',        question: 'How many of those pregnancies reached 24 weeks (6 months) or more?',
         field: 'parity',        type: 'number',  required: true,  placeholder: 'e.g. 2', min: 0, max: 20,
         hint: 'This is your parity — babies born alive or stillborn after 24 weeks.',
         riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
-      { id: 'twins',         question: 'Did any of those pregnancies include twins or multiples?', field: 'twins', type: 'yes_no', required: false },
-      { id: 'childrenAlive', question: 'How many of your children are currently alive?',
+      { id: 'multiGestation', question: 'Did any of those pregnancies include multiple gestation?', field: 'multiGestation', type: 'yes_no', required: false },
+      { id: 'childrenAlive', question: 'Of the children you have given birth to, how many are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
-      { id: 'gp_summary',    question: null, type: 'gp_summary', required: false },
     ];
 
     case 'index': return [
@@ -210,38 +205,47 @@ function buildSlides(sectionId, data) {
       { id: 'flowDays',      question: 'How many days do you bleed for?',               field: 'flowDays',       type: 'number',  required: false, placeholder: 'e.g. 5',  min: 1,  max: 14 },
       { id: 'dysmenorrhea',  question: 'Do you experience pain during your periods?',   field: 'dysmenorrhea',   type: 'yes_no',  required: false },
       { id: 'missedPeriod',  question: 'Have you ever missed your period when you were not pregnant?', field: 'missedPeriod', type: 'yes_no', required: false },
-      { id: 'heavyBleeding', question: 'Do you have heavy periods?',                    field: 'heavyBleeding',  type: 'yes_no',  required: false, hint: 'Soaking through a pad or tampon in less than an hour, or passing large clots.' },
+      { id: 'heavyBleeding', question: 'Do you usually have heavy periods?',                    field: 'heavyBleeding',  type: 'yes_no',  required: false, hint: 'Heavy bleeding during periods' },
       { id: 'intermenstrual',question: 'Do you bleed between your periods?',            field: 'intermenstrual', type: 'yes_no',  required: false },
       { id: 'postcoital',    question: 'Do you bleed after sex?',                       field: 'postcoital',     type: 'yes_no',  required: false },
       { id: 'dyspareunia',   question: 'Do you have pain during sex?',                  field: 'dyspareunia',    type: 'yes_no',  required: false },
-      { id: 'contraAware',   question: 'Do you know about contraceptives?',             field: 'contraAware',    type: 'yes_no',  required: false },
+      { id: 'contraAware',   question: 'Do you know about contraceptives (family planning)?',             field: 'contraAware',    type: 'yes_no',  required: false },
       { id: 'contraUsed',    question: 'Have you ever used contraceptives?',            field: 'contraUsed',     type: 'yes_no',  required: false, condition: d => d.contraAware === true },
       { id: 'contraType',    question: 'Which type of contraceptive did you use?',      field: 'contraType',     type: 'chips',   required: false,
         condition: d => d.contraUsed === true,
         options: [{ value: 'pill', label: 'Pill' }, { value: 'injection', label: 'Injection' }, { value: 'implant', label: 'Implant' }, { value: 'iud', label: 'IUD / Coil' }, { value: 'condom', label: 'Condom' }, { value: 'other', label: 'Other' }] },
-      { id: 'contraStopped', question: 'Did you stop using it early?',                  field: 'contraStopped',  type: 'yes_no',  required: false, condition: d => d.contraUsed === true },
-      { id: 'contraStopReason', question: 'Why did you stop using contraceptives?',     field: 'contraStopReason', type: 'text', required: false, condition: d => d.contraStopped === true, placeholder: 'e.g. Side effects, wanted a baby, unavailable…' },
+      { id: 'contraStartDate', question: 'When did you start using it?',                field: 'contraStartDate', type: 'text', required: false, condition: d => d.contraUsed === true && d.contraType && d.contraType !== 'condom', placeholder: 'e.g. Year (2020) is okay as a response' },
+      { id: 'contraRemoved',   question: 'Did you stop taking it/have it removed before you got pregnant?',field: 'contraRemoved',  type: 'yes_no', required: false, condition: d => d.contraUsed === true && d.contraType && d.contraType !== 'condom' },
       { id: 'papSmearAware', question: 'Have you heard of a pap smear (cervical smear)?', field: 'papSmearAware', type: 'yes_no', required: false },
       { id: 'papSmearDone',  question: 'Have you had a pap smear done before?',         field: 'papSmearDone',   type: 'yes_no',  required: false, condition: d => d.papSmearAware === true },
-      { id: 'topDone',       question: 'Have you ever had a termination of pregnancy?', field: 'topDone',        type: 'yes_no',  required: false },
+      { id: 'topDone',       question: 'Have you ever had a termination of pregnancy (abortion)?', field: 'topDone',        type: 'yes_no',  required: false, hint: 'Any pregnancy you had to remove.' },
       { id: 'topCount',      question: 'How many terminations have you had?',           field: 'topCount',       type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 1', min: 1, max: 10 },
       { id: 'topYear',       question: 'What year was the most recent termination?',    field: 'topYear',        type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 2021', min: 1980, max: 2026 },
       { id: 'topMethod',     question: 'How was the termination done?',                 field: 'topMethod',      type: 'chips',   required: false,
         condition: d => d.topDone === true,
-        options: [{ value: 'medical', label: 'Medical (drugs)' }, { value: 'surgical', label: 'Surgical' }, { value: 'unknown', label: 'Not sure' }] },
+        options: [{ value: 'medical', label: 'Medical (drugs & injection)' }, { value: 'surgical', label: 'Surgical [ Manual Vacuum Aspiration (MVA), Dilatation & Curettage (D&C) ]' }, { value: 'unknown', label: 'Not sure' }] },
       { id: 'topComplications', question: 'Were there any complications after the termination?', field: 'topComplications', type: 'yes_no', required: false, condition: d => d.topDone === true },
     ];
 
-    case 'medical': return [
-      { id: 'conditions',    question: 'Do you have or have you ever had any of these conditions?', field: 'conditions', type: 'multi', required: false,
-        options: ['Hypertension', 'Epilepsy', 'Asthma', 'Diabetes', 'Peptic ulcer disease', 'None of these'] },
-      { id: 'surgeries',     question: 'Have you had any previous surgeries?',           field: 'surgeries',      type: 'yes_no',  required: false },
-      { id: 'surgeryDetails',question: 'Describe your previous surgeries (type and year)', field: 'surgeryDetails', type: 'text', required: false,
-        condition: d => d.surgeries === true, placeholder: 'e.g. Appendectomy 2018, C-section 2021' },
-      { id: 'currentMeds',   question: 'What medications are you currently taking?',     field: 'currentMeds',    type: 'text',    required: false, placeholder: 'e.g. Folic acid, Labetalol, Iron supplements…' },
-      { id: 'drugAllergy',   question: 'Do you have any drug allergies?',                field: 'drugAllergy',    type: 'yes_no',  required: false },
-      { id: 'allergyDetails',question: 'What are you allergic to?',                      field: 'allergyDetails', type: 'text',    required: false, condition: d => d.drugAllergy === true, placeholder: 'e.g. Penicillin, Sulpha drugs…' },
-    ];
+    case 'medical': {
+      const sCount = parseInt(data.surgeryCount) || 0;
+      const surgeryFields = Array.from({ length: sCount }, (_, i) => ({
+        id: `surgery_${i}`, question: null, type: 'surgery_card', surgeryIdx: i, required: false, condition: d => d.surgeries === true
+      }));
+
+      return [
+        { id: 'conditions',    question: 'Do you have or have you ever had any of these conditions?', field: 'conditions', type: 'multi', required: false,
+          options: ['Hypertension', 'Epilepsy', 'Asthma', 'Diabetes', 'Peptic ulcer disease', 'None of these'] },
+        { id: 'surgeries',     question: 'Have you had any past surgeries?',               field: 'surgeries',      type: 'yes_no',  required: false },
+        { id: 'surgeryCount',  question: 'How many surgeries have you had in the past?',   field: 'surgeryCount',   type: 'number',  required: false, condition: d => d.surgeries === true, placeholder: 'e.g. 1', min: 1, max: 20 },
+        ...surgeryFields,
+        { id: 'pregMeds',      question: 'Which pregnancy medications are you taking?',    field: 'pregMeds',       type: 'multi',   required: false, options: ['Folic acid', 'Iron', 'Calcium', 'Routine antenatal drugs', 'None'] },
+        { id: 'routineMedsCheck', question: 'Are you routinely taking any drugs aside your pregnancy medications?', field: 'routineMedsCheck', type: 'yes_no', required: false, hint: 'including medications for blood pressure' },
+        { id: 'currentMeds',   question: 'Other routine medications',                      field: 'currentMeds',    type: 'text',    required: false, condition: d => d.routineMedsCheck === true, placeholder: 'e.g. Labetalol…' },
+        { id: 'drugAllergy',   question: 'Do you have any drug allergies?',                field: 'drugAllergy',    type: 'yes_no',  required: false },
+        { id: 'allergyDetails',question: 'What are you allergic to?',                      field: 'allergyDetails', type: 'text',    required: false, condition: d => d.drugAllergy === true, placeholder: 'e.g. Penicillin, Sulpha drugs…' },
+      ];
+    }
 
     case 'family_social': return [
       { id: 'husbandOccupation', question: "What is your husband or partner's occupation?", field: 'husbandOccupation', type: 'text', required: false, placeholder: 'e.g. Driver, Civil Servant, Farmer' },
@@ -258,19 +262,15 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'systems': return [
-      { id: 'neuro',         question: 'Do you have any of these neurological symptoms?', field: 'neuroSymptoms', type: 'multi', required: false,
-        options: ['Headaches', 'Seizures / fits', 'Dizziness', 'Fainting episodes', 'None of these'] },
-      { id: 'cardio',        question: 'Do you have any of these chest or heart symptoms?', field: 'cardioSymptoms', type: 'multi', required: false,
+      { id: 'neuro',         question: 'Do you have any of these symptoms?',              field: 'neuroSymptoms', type: 'multi', required: false,
+        options: ['Headaches', 'Seizures / convulsions', 'Dizziness', 'Fainting episodes', 'None of these'] },
+      { id: 'cardio',        question: 'Do you have any of these chest symptoms?',        field: 'cardioSymptoms', type: 'multi', required: false,
         options: ['Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'None of these'] },
       { id: 'urinary',       question: 'Have you noticed any changes in how often or how much you urinate?', field: 'urinaryChanges', type: 'yes_no', required: false },
-      { id: 'bowel',         question: 'Have you noticed any changes in your bowel habits?', field: 'bowelChanges', type: 'yes_no', required: false },
+      { id: 'bowel',         question: 'Have you noticed any changes in how frequently you use the toilet?', field: 'bowelChanges', type: 'yes_no', required: false },
       { id: 'pain',          question: 'Do you have pain anywhere in your body?',         field: 'hasPain',       type: 'yes_no',  required: false },
       { id: 'painLocation',  question: 'Where is the pain, and how would you describe it?', field: 'painDetails', type: 'text', required: false,
         condition: d => d.hasPain === true, placeholder: 'e.g. Lower abdomen, sharp, comes and goes' },
-    ];
-
-    case 'investigations': return [
-      { id: 'inv_form', question: null, type: 'investigations_form', required: false },
     ];
 
     default: return [];
@@ -307,19 +307,43 @@ const INIT = {
   menarche: '', cycleLength: '', flowDays: '',
   dysmenorrhea: null, missedPeriod: null, heavyBleeding: null,
   intermenstrual: null, postcoital: null, dyspareunia: null,
-  contraAware: null, contraUsed: null, contraType: null, contraStopped: null, contraStopReason: '',
+  contraAware: null, contraUsed: null, contraType: null, contraStartDate: '', contraRemoved: null,
   papSmearAware: null, papSmearDone: null,
   topDone: null, topCount: '', topYear: '', topMethod: null, topComplications: null,
   // Medical
-  conditions: [], surgeries: null, surgeryDetails: '', currentMeds: '', drugAllergy: null, allergyDetails: '',
+  conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: [], routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Family & Social
   husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
   patientSmokes: null, patientDrinks: null, husbandSmokes: null, husbandDrinks: null, supportive: null,
   // Systems
   neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
-  // Investigations
-  invHBV: null, invVDRL: null, invBloodGroup: null, invRh: null, invGenotype: null,
-  invPCV: '', invRBG: '', invBPSys: '', invBPDia: '', invWeight: '', invHeight: '',
+};
+
+// ── Surgery card ──────────────────────────────────────────────────────────────
+const SurgeryCard = ({ idx, surgery, onChange }) => {
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+  const label = ordinals[idx] || `${idx + 1}th`;
+  const set = (field, val) => onChange(idx, field, val);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-sky-700">{label} surgery</h2>
+      <div className="grid grid-cols-1 gap-3">
+        <div>
+          <Label>What surgery was done?</Label>
+          <input type="text" value={surgery.type || ''} onChange={e => set('type', e.target.value)}
+            placeholder="e.g. Appendectomy, C-section"
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        </div>
+        <div>
+          <Label>When was it done?</Label>
+          <input type="text" value={surgery.year || ''} onChange={e => set('year', e.target.value)}
+            placeholder="e.g. 2021"
+            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // ── Child card ────────────────────────────────────────────────────────────────
@@ -395,7 +419,7 @@ const ChildCard = ({ idx, child, onChange }) => {
           {isMacro && <p className="text-red-600 font-bold text-xs mt-1">⚠ Macrosomic baby (≥ 4 kg) — high risk</p>}
         </div>
         <div>
-          <Label>Days in hospital</Label>
+          <Label>How many days did you spend in the hospital after your delivery?</Label>
           <input type="number" value={child.daysInHospital || ''} onChange={e => set('daysInHospital', e.target.value)}
             placeholder="e.g. 3" min={1} max={365}
             className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
@@ -419,7 +443,7 @@ const ChildCard = ({ idx, child, onChange }) => {
       </div>
 
       <div>
-        <Label>Any anomalies in this child?</Label>
+        <Label>Any abnormalities in this child?</Label>
         <div className="flex gap-2">
           {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => (
             <button key={String(opt.v)} onClick={() => set('anomaly', opt.v)}
@@ -434,83 +458,73 @@ const ChildCard = ({ idx, child, onChange }) => {
       </div>
 
       <div>
-        <Label>Events during this pregnancy (select all that apply)</Label>
+        <Label>Did any of these happen during this pregnancy?</Label>
         <div className="flex flex-wrap gap-2">
-          {['Diabetes', 'Hypertension', 'Malaria', 'Bleeding', 'Anaemia', 'None'].map(e => {
+          {[{id:'Diabetes', l:'High blood sugar'}, {id:'Hypertension', l:'High blood pressure (BP)'}, {id:'Malaria', l:'Malaria'}, {id:'Bleeding', l:'Bleeding'}, {id:'Anaemia', l:'Low blood levels (Anaemia)'}, {id:'None', l:'None'}].map(e => {
             const events = child.events || [];
-            const active = events.includes(e);
+            const active = events.includes(e.id);
             return (
-              <button key={e} onClick={() => {
-                if (e === 'None') set('events', active ? [] : ['None']);
+              <button key={e.id} onClick={() => {
+                if (e.id === 'None') set('events', active ? [] : ['None']);
                 else {
                   const filtered = events.filter(x => x !== 'None');
-                  set('events', active ? filtered.filter(x => x !== e) : [...filtered, e]);
+                  set('events', active ? filtered.filter(x => x !== e.id) : [...filtered, e.id]);
                 }
               }}
                 className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
                   active ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
-                }`}>{e}</button>
+                }`}>{e.l}</button>
             );
           })}
         </div>
       </div>
 
       <div>
-        <Label>Postnatal complications (if any)</Label>
-        <input type="text" value={child.postnatal || ''} onChange={e => set('postnatal', e.target.value)}
-          placeholder="e.g. Postpartum haemorrhage, jaundice…"
-          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+        <Label>Did any issue arise immediately after delivery or within 6 months after delivery?</Label>
+        <div className="flex gap-2 mb-4">
+          {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => (
+            <button key={String(opt.v)} onClick={() => {
+              set('hasPostnatalComplication', opt.v);
+              if (!opt.v) {
+                set('postnatalIssues', []);
+                set('postnatalOther', '');
+              }
+            }}
+              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                child.hasPostnatalComplication === opt.v
+                  ? 'border-sky-500 bg-sky-600 text-white'
+                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+              }`}>{opt.l}</button>
+          ))}
+        </div>
+        
+        {child.hasPostnatalComplication && (
+          <>
+            <Label>What were the issues? (select all that apply)</Label>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {['Excessive bleeding', 'Infection', 'High blood pressure', 'Depression / severe mood swings', 'Breast issues (mastitis)'].map(issue => {
+                const issues = child.postnatalIssues || [];
+                const active = issues.includes(issue);
+                return (
+                  <button key={issue} onClick={() => {
+                    set('postnatalIssues', active ? issues.filter(x => x !== issue) : [...issues, issue]);
+                  }}
+                    className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
+                      active ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                    }`}>{issue}</button>
+                );
+              })}
+            </div>
+            <Label>Other issues (if any)</Label>
+            <input type="text" value={child.postnatalOther || ''} onChange={e => set('postnatalOther', e.target.value)}
+              placeholder="e.g. Jaundice…"
+              className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+          </>
+        )}
       </div>
     </div>
   );
 };
-
-// ── Booking investigations form ───────────────────────────────────────────────
-const InvestigationsForm = ({ data, set }) => (
-  <div className="space-y-4">
-    <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sm text-sky-700">
-      <strong>For the doctor / nurse to complete</strong> — these results are filled in at the clinic after investigations.
-    </div>
-    <div className="grid grid-cols-2 gap-3">
-      {[
-        { label: 'HBV (Hepatitis B)', field: 'invHBV', opts: ['Negative', 'Positive', 'Unknown'] },
-        { label: 'VDRL (Syphilis)', field: 'invVDRL', opts: ['Non-reactive', 'Reactive', 'Unknown'] },
-        { label: 'Blood group', field: 'invBloodGroup', opts: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'] },
-        { label: 'Rhesus group', field: 'invRh', opts: ['Positive', 'Negative'] },
-        { label: 'Genotype', field: 'invGenotype', opts: ['AA', 'AS', 'SS', 'AC'] },
-      ].map(({ label, field, opts }) => (
-        <div key={field} className="col-span-2">
-          <Label>{label}</Label>
-          <div className="flex flex-wrap gap-2">
-            {opts.map(o => (
-              <button key={o} onClick={() => set(field, o)}
-                className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
-                  data[field] === o ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
-                }`}>{o}</button>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-    <div className="grid grid-cols-2 gap-3">
-      {[
-        { label: 'PCV (%)', field: 'invPCV', placeholder: 'e.g. 33' },
-        { label: 'Random blood glucose (mmol/L)', field: 'invRBG', placeholder: 'e.g. 5.4' },
-        { label: 'BP Systolic (mmHg)', field: 'invBPSys', placeholder: 'e.g. 120' },
-        { label: 'BP Diastolic (mmHg)', field: 'invBPDia', placeholder: 'e.g. 80' },
-        { label: 'Weight (kg)', field: 'invWeight', placeholder: 'e.g. 67' },
-        { label: 'Height (cm)', field: 'invHeight', placeholder: 'e.g. 163' },
-      ].map(({ label, field, placeholder }) => (
-        <div key={field}>
-          <Label>{label}</Label>
-          <input type="number" value={data[field] || ''} onChange={e => set(field, e.target.value)}
-            placeholder={placeholder}
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
-        </div>
-      ))}
-    </div>
-  </div>
-);
 
 // ── Slide renderer ────────────────────────────────────────────────────────────
 const SlideContent = ({ slide, data, set, setChild }) => {
@@ -618,7 +632,11 @@ const SlideContent = ({ slide, data, set, setChild }) => {
     return <ChildCard idx={slide.childIdx} child={child} onChange={setChild} />;
   }
 
-  if (slide.type === 'investigations_form') return <InvestigationsForm data={data} set={set} />;
+  if (slide.type === 'surgery_card') {
+    const surgeries = data.surgeryDetails || [];
+    const surgery = surgeries[slide.surgeryIdx] || {};
+    return <SurgeryCard idx={slide.surgeryIdx} surgery={surgery} onChange={setSurgery} />;
+  }
 
   return null;
 };
@@ -643,15 +661,26 @@ const IntakeQuestionnaire = () => {
     });
   };
 
+  const setSurgery = (idx, field, val) => {
+    setData(prev => {
+      const count = parseInt(prev.surgeryCount) || 0;
+      const surgeries = Array.from({ length: count }, (_, i) => prev.surgeryDetails?.[i] || {});
+      surgeries[idx] = { ...(surgeries[idx] || {}), [field]: val };
+      return { ...prev, surgeryDetails: surgeries };
+    });
+  };
+
   const risks = useMemo(() => computeRisks(data), [data]);
   const gp    = useMemo(() => computeGP(data), [data]);
 
   // Sync children array length when parity changes
   const parity = parseInt(data.parity) || 0;
   const ensuredChildren = Array.from({ length: parity }, (_, i) => data.children?.[i] || {});
+  
+  const ensuredSurgeries = Array.from({ length: parseInt(data.surgeryCount) || 0 }, (_, i) => data.surgeryDetails?.[i] || {});
 
   const getSlides = (sId) => {
-    const all = buildSlides(sId, { ...data, children: ensuredChildren });
+    const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries });
     return all.filter(s => !s.condition || s.condition(data));
   };
 
@@ -707,7 +736,7 @@ const IntakeQuestionnaire = () => {
       }
       const domainMap = {
         obstetric: 'obstetric', gynae: 'gynae', medical: 'medical',
-        family_social: 'social', systems: 'symptoms', investigations: 'medical',
+        family_social: 'social', systems: 'symptoms',
       };
       if (domainMap[sId]) {
         const responses = buildDomainResponses(sId, data, ensuredChildren);
@@ -877,11 +906,6 @@ const IntakeQuestionnaire = () => {
             <h2 className="text-2xl font-bold text-slate-800">Tell us about each of your previous children</h2>
           </div>
         )}
-        {slide?.type === 'investigations_form' && (
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Booking investigations</h2>
-          </div>
-        )}
 
         <SlideContent slide={slide} data={{ ...data, children: ensuredChildren }} set={set} setChild={setChild} />
       </main>
@@ -918,6 +942,7 @@ function buildDomainResponses(sId, data, children) {
       { question_key: `child_${i}_state_now`,      answer: c.stateNow || '' },
       { question_key: `child_${i}_anomaly`,        answer: c.anomaly ? 'yes' : 'no' },
       { question_key: `child_${i}_events`,         answer: (c.events || []).join(',') },
+      { question_key: `child_${i}_postnatal_issues`, answer: c.hasPostnatalComplication ? [...(c.postnatalIssues || []), c.postnatalOther].filter(Boolean).join(', ') : 'no' },
     ]);
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },
@@ -929,6 +954,8 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'postcoital',      answer: data.postcoital ? 'yes' : 'no' },
       { question_key: 'contraceptive',   answer: data.contraUsed ? 'yes' : 'no' },
       { question_key: 'contraceptive_type', answer: data.contraType || '' },
+      { question_key: 'contraceptive_start_date', answer: data.contraStartDate || '' },
+      { question_key: 'contraceptive_removed_before_pregnancy', answer: data.contraRemoved === true ? 'yes' : data.contraRemoved === false ? 'no' : '' },
       { question_key: 'pap_smear',       answer: data.papSmearDone ? 'yes' : 'no' },
       { question_key: 'top',             answer: data.topDone ? 'yes' : 'no' },
       { question_key: 'top_count',       answer: String(data.topCount || '') },
@@ -936,8 +963,14 @@ function buildDomainResponses(sId, data, children) {
     case 'medical': return [
       ...(data.conditions || []).filter(c => c !== 'None of these').map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
       { question_key: 'surgery',          answer: data.surgeries ? 'yes' : 'no' },
-      { question_key: 'surgery_details',  answer: data.surgeryDetails || '' },
-      { question_key: 'medications',      answer: data.currentMeds || '' },
+      { question_key: 'surgery_count',    answer: String(data.surgeryCount || '') },
+      ...(data.surgeryDetails || []).flatMap((s, i) => [
+        { question_key: `surgery_${i}_type`, answer: s.type || '' },
+        { question_key: `surgery_${i}_year`, answer: String(s.year || '') },
+      ]),
+      { question_key: 'pregnancy_medications', answer: (data.pregMeds || []).join(', ') },
+      { question_key: 'routine_medications',   answer: data.routineMedsCheck ? 'yes' : 'no' },
+      { question_key: 'other_medications',     answer: data.currentMeds || '' },
       { question_key: 'drug_allergy',     answer: data.drugAllergy ? 'yes' : 'no' },
       { question_key: 'allergy_details',  answer: data.allergyDetails || '' },
     ];

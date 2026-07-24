@@ -7,6 +7,9 @@ import {
   otpVerifySchema,
   doctorLoginSchema,
   refreshTokenSchema,
+  doctorRegisterSchema,
+  doctorForgotPasswordSchema,
+  resetPasswordSchema,
 } from './schemas';
 
 const router = Router();
@@ -32,6 +35,30 @@ router.post(
   authRateLimiter,
   validate(doctorLoginSchema),
   authController.doctorLogin
+);
+
+// Doctor register
+router.post(
+  '/doctor/register',
+  authRateLimiter,
+  validate(doctorRegisterSchema),
+  authController.doctorRegister
+);
+
+// Doctor forgot password
+router.post(
+  '/doctor/forgot-password',
+  authRateLimiter,
+  validate(doctorForgotPasswordSchema),
+  authController.doctorForgotPassword
+);
+
+// Doctor reset password
+router.post(
+  '/doctor/reset-password',
+  authRateLimiter,
+  validate(resetPasswordSchema),
+  authController.doctorResetPassword
 );
 
 // Token refresh

@@ -8,6 +8,7 @@ const PatientProfile = () => {
   const [editing, setEditing] = useState(false);
   const [lang, setLang] = useState('EN');
   const [patient, setPatient] = useState(getPatientData());
+  const [needsPassword, setNeedsPassword] = useState(true);
 
   useEffect(() => {
     getPatientMe()
@@ -108,6 +109,27 @@ const PatientProfile = () => {
           </div>
         </section>
 
+        {/* Account Security */}
+        <section className="bg-white rounded-xl card-shadow overflow-hidden border border-amber-500/20">
+          <div className="px-6 py-4 border-b border-outline-variant/20">
+            <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">Account Security</p>
+          </div>
+          <div className="px-6 py-4 flex flex-col gap-4">
+            <div className="flex items-start gap-4">
+              <span className="material-symbols-outlined text-amber-600 mt-1">security</span>
+              <div>
+                <p className="font-body-md font-bold text-on-surface">Password</p>
+                <p className="font-body-md text-on-surface-variant text-sm mt-0.5">
+                  {needsPassword ? 'No password set. Login via OTP only.' : 'Password is set.'}
+                </p>
+              </div>
+            </div>
+            <button className={`w-full py-3 rounded-xl font-label-sm text-sm border-2 transition-colors ${needsPassword ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' : 'bg-surface-container border-outline text-on-surface hover:bg-surface-container-high'}`}>
+              {needsPassword ? 'Set Password' : 'Change Password'}
+            </button>
+          </div>
+        </section>
+
         {/* Health Info */}
         <section className="bg-white rounded-xl card-shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-outline-variant/20">
@@ -115,7 +137,10 @@ const PatientProfile = () => {
           </div>
           <div className="px-6">
             <InfoRow label="Blood Group"   value={pregnancy?.blood_group || patient?.blood_group || '—'}  icon="bloodtype" />
+            <InfoRow label="Rhesus"        value={pregnancy?.rhesus || patient?.rhesus || '—'}            icon="bloodtype" />
             <InfoRow label="Genotype"      value={pregnancy?.genotype || patient?.genotype || '—'}         icon="genetics" />
+            <InfoRow label="PCV"           value={pregnancy?.pcv || patient?.pcv || '—'}                   icon="science" />
+            <InfoRow label="Malaria Parasite (MP)" value={pregnancy?.mp || patient?.mp || '—'}             icon="bug_report" />
             <InfoRow label="Risk Level"    value={riskTier}                                                icon="analytics" />
           </div>
         </section>

@@ -24,3 +24,19 @@ export const doctorLoginSchema = z.object({
 export const refreshTokenSchema = z.object({
   refresh_token: z.string().min(1, 'refresh_token is required'),
 });
+
+export const doctorRegisterSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  name: z.string().min(2, 'Name is required'),
+  hospital: z.string().optional(),
+});
+
+export const doctorForgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+  new_password: z.string().min(6, 'Password must be at least 6 characters'),
+});

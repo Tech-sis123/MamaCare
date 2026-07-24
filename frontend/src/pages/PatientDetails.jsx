@@ -278,22 +278,31 @@ const PatientDetailPanel = () => {
             <SectionAccordion title="Booking Investigations" defaultOpen>
               <div className="mt-3 space-y-0">
                 <Row label="Blood Group"   value={p.bloodType || p.blood_group || MOCK.bloodType} />
+                <Row label="Rhesus"        value={p.rhesus || '—'} />
                 <Row label="Genotype"      value={p.genotype || '—'} />
                 <Row label="Blood Pressure" value={p.bookingBP || MOCK.bookingBP} highlight />
                 <Row label="Urinalysis"    value={p.urinalysis || MOCK.urinalysis} highlight />
                 <Row label="HIV (RVD)"     value={p.hiv || '—'} />
                 <Row label="VDRL"          value={p.vdrl || '—'} />
-                <Row label="PCV"           value={p.pcv || MOCK.pcv} highlight />
                 <Row label="Hepatitis B"   value={p.hepB || p.hep_b || '—'} />
+                <Row label="PCV"           value={p.pcv || MOCK.pcv} highlight />
+                <Row label="Malaria Parasite" value={p.mp || '—'} highlight />
                 <Row label="Tetanus"       value={p.tetanus || '—'} />
               </div>
             </SectionAccordion>
 
             <SectionAccordion title="Obstetric History">
               <div className="mt-3 space-y-0">
+                <Row label="Obstetric Summary" value={`G${p.gravida ?? MOCK.gravida} P${p.para ?? MOCK.para}`} highlight />
                 <Row label="Gravida"    value={p.gravida != null ? `G${p.gravida}` : '—'} />
                 <Row label="Para"       value={p.para != null ? `P${p.para}` : '—'} />
                 <Row label="Miscarriage / TOP" value={p.miscarriage != null ? (p.miscarriage ? 'Yes' : 'No') : '—'} />
+                {p.miscarriage && (
+                  <div className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/15 last:border-0">
+                    <span className="font-label-sm text-on-surface-variant text-xs uppercase shrink-0">Who performed the termination?</span>
+                    <input type="text" placeholder="Doctor to fill..." className="bg-surface-container-low text-sm px-3 py-1.5 rounded-lg w-1/2 text-right text-on-surface border border-outline/20 focus:border-primary outline-none" />
+                  </div>
+                )}
               </div>
             </SectionAccordion>
 

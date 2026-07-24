@@ -90,7 +90,7 @@ Keep the total output under 250 words. Format with standard paragraphs.`;
     }
 
     try {
-      const prompt = `You are a helpful, compassionate medical AI assistant for MamaCare at UBTH.
+      const prompt = `You are a helpful, compassionate medical AI assistant for 9Care at UBTH.
 The patient asking the question is ${patientData.name || 'a patient'}.
 Context:
 - Age: ${patientData.age || 'Unknown'}

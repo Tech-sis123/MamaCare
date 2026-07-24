@@ -7,7 +7,7 @@ async function main() {
   console.log('🌱 Seeding database...');
 
   // ─── Seed Doctors ───────────────────────────────────────────
-  const doctorPassword = await bcrypt.hash('mamacare123', 10);
+  const doctorPassword = await bcrypt.hash('9care123', 10);
 
   const doctor1 = await prisma.doctor.upsert({
     where: { email: 'dr.adaeze@ubth.ng' },

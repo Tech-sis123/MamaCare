@@ -1,5 +1,5 @@
 A I W O M E N R I S I N G — C O N F I D E N T I A L
-Mama Care AI
+9Care AI
 Project Scope
 MVP Sprint → Hackathon → Full Product Build
 P H A S E 1 D U R A T I O N

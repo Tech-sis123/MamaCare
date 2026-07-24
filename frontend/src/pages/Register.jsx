@@ -158,9 +158,9 @@ const RegistrationFlow = () => {
               <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
                 How it works
               </a>
-              <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
+              <button onClick={() => navigate('/provider')} className="text-stone-600 hover:text-amber-800 font-label-sm uppercase transition-all">
                 For Providers
-              </a>
+              </button>
               <a href="#" className="text-stone-600 hover:text-amber-800 font-label-sm uppercase">
                 About
               </a>
@@ -358,9 +358,9 @@ const RegistrationFlow = () => {
             <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
+            <button onClick={() => navigate('/provider')} className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               For Providers
-            </a>
+            </button>
             <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               Privacy Policy
             </a>

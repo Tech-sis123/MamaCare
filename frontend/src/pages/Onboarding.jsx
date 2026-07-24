@@ -15,7 +15,7 @@ const C = {
 
 // ── Shared UI ────────────────────────────────────────────────────────────────
 const Label = ({ children }) => (
-  <p className="text-xs font-semibold text-sky-700 uppercase tracking-widest mb-2">{children}</p>
+  <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-2">{children}</p>
 );
 
 const RiskBadge = ({ text }) => (
@@ -34,7 +34,7 @@ const Field = ({ label, value, onChange, placeholder, type = 'text', hint, min, 
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       min={min} max={max}
-      className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 text-base focus:ring-2 focus:ring-sky-400 focus:border-sky-500 outline-none transition-all"
+      className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 text-base focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
     />
     {hint && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
   </div>
@@ -46,8 +46,8 @@ const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
       <button key={String(opt.v)} onClick={() => onChange(opt.v)}
         className={`flex-1 py-4 rounded-xl border-2 text-base font-semibold transition-all active:scale-95 ${
           value === opt.v
-            ? 'border-sky-500 bg-sky-600 text-white shadow-md'
-            : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+            ? 'border-primary bg-primary text-white shadow-md'
+            : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
         }`}
       >{opt.l}</button>
     ))}
@@ -71,8 +71,8 @@ const Chips = ({ options, value, onChange, multi = false }) => {
           }}
             className={`px-4 py-2.5 rounded-full border-2 text-sm font-semibold transition-all active:scale-95 ${
               active
-                ? 'border-sky-500 bg-sky-600 text-white shadow-sm'
-                : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                ? 'border-primary bg-primary text-white shadow-sm'
+                : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
             }`}
           >{l}</button>
         );
@@ -128,13 +128,13 @@ function computeGP(data) {
 
 // ── Section definitions ───────────────────────────────────────────────────────
 const SECTION_META = [
-  { id: 'biodata',        label: 'Biodata',                icon: '👤', desc: 'Personal information' },
-  { id: 'index',          label: 'Index Pregnancy',        icon: '🤰', desc: 'About this pregnancy' },
-  { id: 'obstetric',      label: 'Obstetric History',      icon: '👶', desc: 'Previous pregnancies & births' },
-  { id: 'gynae',          label: 'Gynaecological History', icon: '🌸', desc: 'Menstrual & gynaecological' },
-  { id: 'medical',        label: 'Medical History',        icon: '💊', desc: 'Conditions, drugs, allergies' },
-  { id: 'family_social',  label: 'Family & Social',        icon: '👨‍👩‍👧', desc: 'Partner and home life' },
-  { id: 'systems',        label: 'Review of Systems',      icon: '🫁', desc: 'Current symptoms by system' },
+  { id: 'biodata',        label: 'Biodata',                icon: 'person', desc: 'Personal information' },
+  { id: 'index',          label: 'Index Pregnancy',        icon: 'pregnant_woman', desc: 'About this pregnancy' },
+  { id: 'obstetric',      label: 'Obstetric History',      icon: 'child_care', desc: 'Previous pregnancies & births' },
+  { id: 'gynae',          label: 'Gynaecological History', icon: 'water_drop', desc: 'Menstrual & gynaecological' },
+  { id: 'medical',        label: 'Medical History',        icon: 'medication', desc: 'Conditions, drugs, allergies' },
+  { id: 'family_social',  label: 'Family & Social',        icon: 'family_restroom', desc: 'Partner and home life' },
+  { id: 'systems',        label: 'Review of Systems',      icon: 'stethoscope', desc: 'Current symptoms by system' },
 ];
 
 // ── Build slides per section (data-driven) ────────────────────────────────────
@@ -327,19 +327,19 @@ const SurgeryCard = ({ idx, surgery, onChange }) => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-sky-700">{label} surgery</h2>
+      <h2 className="text-2xl font-bold text-primary">{label} surgery</h2>
       <div className="grid grid-cols-1 gap-3">
         <div>
           <Label>What surgery was done?</Label>
           <input type="text" value={surgery.type || ''} onChange={e => set('type', e.target.value)}
             placeholder="e.g. Appendectomy, C-section"
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
         </div>
         <div>
           <Label>When was it done?</Label>
           <input type="text" value={surgery.year || ''} onChange={e => set('year', e.target.value)}
             placeholder="e.g. 2021"
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
         </div>
       </div>
     </div>
@@ -358,13 +358,13 @@ const ChildCard = ({ idx, child, onChange }) => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-sky-700">{label} child</h2>
+      <h2 className="text-2xl font-bold text-primary">{label} child</h2>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Year of birth</Label>
           <input type="number" value={child.year || ''} onChange={e => set('year', e.target.value)}
             placeholder="e.g. 2020" min={1980} max={2026}
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
         </div>
         <div>
           <Label>Gender</Label>
@@ -373,8 +373,8 @@ const ChildCard = ({ idx, child, onChange }) => {
               <button key={g} onClick={() => set('gender', g.toLowerCase())}
                 className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                   child.gender === g.toLowerCase()
-                    ? 'border-sky-500 bg-sky-600 text-white'
-                    : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
                 }`}>{g}</button>
             ))}
           </div>
@@ -388,8 +388,8 @@ const ChildCard = ({ idx, child, onChange }) => {
             <button key={opt.v} onClick={() => set('deliveryMode', opt.v)}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                 child.deliveryMode === opt.v
-                  ? 'border-sky-500 bg-sky-600 text-white'
-                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
@@ -403,8 +403,8 @@ const ChildCard = ({ idx, child, onChange }) => {
             <button key={String(opt.v)} onClick={() => set('criedWell', opt.v)}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                 child.criedWell === opt.v
-                  ? 'border-sky-500 bg-sky-600 text-white'
-                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
@@ -415,14 +415,14 @@ const ChildCard = ({ idx, child, onChange }) => {
           <Label>Birth weight (kg)</Label>
           <input type="number" step="0.1" value={child.birthWeight || ''} onChange={e => set('birthWeight', e.target.value)}
             placeholder="e.g. 3.2" min={0.5} max={7}
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
           {isMacro && <p className="text-red-600 font-bold text-xs mt-1">⚠ Macrosomic baby (≥ 4 kg) — high risk</p>}
         </div>
         <div>
           <Label>How many days did you spend in the hospital after your delivery?</Label>
           <input type="number" value={child.daysInHospital || ''} onChange={e => set('daysInHospital', e.target.value)}
             placeholder="e.g. 3" min={1} max={365}
-            className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
         </div>
       </div>
 
@@ -433,8 +433,8 @@ const ChildCard = ({ idx, child, onChange }) => {
             <button key={opt.v} onClick={() => set('stateNow', opt.v)}
               className={`py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-center ${
                 child.stateNow === opt.v
-                  ? 'border-sky-500 bg-sky-600 text-white'
-                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
@@ -449,8 +449,8 @@ const ChildCard = ({ idx, child, onChange }) => {
             <button key={String(opt.v)} onClick={() => set('anomaly', opt.v)}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                 child.anomaly === opt.v
-                  ? 'border-sky-500 bg-sky-600 text-white'
-                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
@@ -472,7 +472,7 @@ const ChildCard = ({ idx, child, onChange }) => {
                 }
               }}
                 className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
-                  active ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  active ? 'border-primary bg-primary text-white' : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
                 }`}>{e.l}</button>
             );
           })}
@@ -492,8 +492,8 @@ const ChildCard = ({ idx, child, onChange }) => {
             }}
               className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                 child.hasPostnatalComplication === opt.v
-                  ? 'border-sky-500 bg-sky-600 text-white'
-                  : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
@@ -510,7 +510,7 @@ const ChildCard = ({ idx, child, onChange }) => {
                     set('postnatalIssues', active ? issues.filter(x => x !== issue) : [...issues, issue]);
                   }}
                     className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
-                      active ? 'border-sky-500 bg-sky-600 text-white' : 'border-sky-200 bg-white text-slate-700 hover:border-sky-400'
+                      active ? 'border-primary bg-primary text-white' : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
                     }`}>{issue}</button>
                 );
               })}
@@ -518,7 +518,7 @@ const ChildCard = ({ idx, child, onChange }) => {
             <Label>Other issues (if any)</Label>
             <input type="text" value={child.postnatalOther || ''} onChange={e => set('postnatalOther', e.target.value)}
               placeholder="e.g. Jaundice…"
-              className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+              className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
           </>
         )}
       </div>
@@ -550,7 +550,7 @@ const SlideContent = ({ slide, data, set, setChild }) => {
     <div className="space-y-3">
       <input type="date" value={val || ''} max={new Date().toISOString().split('T')[0]}
         onChange={e => set(slide.field, e.target.value)}
-        className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 text-base focus:ring-2 focus:ring-sky-400 outline-none" />
+        className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 text-base focus:ring-2 focus:ring-primary/50 outline-none" />
       {slide.hint && <p className="text-xs text-slate-400">{slide.hint}</p>}
     </div>
   );
@@ -560,7 +560,7 @@ const SlideContent = ({ slide, data, set, setChild }) => {
       <div>
         <Label>Month</Label>
         <select value={data.lmpMonth || ''} onChange={e => set('lmpMonth', e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none">
+          className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none">
           <option value="">Select month</option>
           {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
             <option key={m} value={String(i + 1)}>{m}</option>
@@ -571,7 +571,7 @@ const SlideContent = ({ slide, data, set, setChild }) => {
         <Label>Year</Label>
         <input type="number" value={data.lmpYear || ''} onChange={e => set('lmpYear', e.target.value)}
           placeholder="e.g. 2026" min={2020} max={2026}
-          className="w-full px-4 py-3 rounded-xl border-2 border-sky-200 bg-white text-slate-800 focus:ring-2 focus:ring-sky-400 outline-none" />
+          className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
       </div>
     </div>
   );
@@ -607,8 +607,8 @@ const SlideContent = ({ slide, data, set, setChild }) => {
     const gp = computeGP(data);
     if (!gp) return <p className="text-slate-400 text-center py-8">Fill in gravidity and parity above to see your G/P summary.</p>;
     return (
-      <div className="bg-sky-50 border-2 border-sky-200 rounded-2xl p-8 text-center space-y-4">
-        <p className="text-5xl font-bold text-sky-700 tracking-wide">{gp}</p>
+      <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-8 text-center space-y-4">
+        <p className="text-5xl font-bold text-primary tracking-wide">{gp}</p>
         <div className="text-sm text-slate-500 space-y-1">
           <p>G = Gravidity (total pregnancies)</p>
           <p>P = Parity (births after 24 weeks)</p>
@@ -620,9 +620,9 @@ const SlideContent = ({ slide, data, set, setChild }) => {
   }
 
   if (slide.type === 'obs_none') return (
-    <div className="bg-sky-50 border border-sky-200 rounded-2xl p-8 text-center">
+    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 text-center">
       <p className="text-4xl mb-4">🌱</p>
-      <p className="text-sky-700 font-semibold">This is your first delivery — no previous obstetric history to record.</p>
+      <p className="text-primary font-semibold">This is your first delivery — no previous obstetric history to record.</p>
     </div>
   );
 
@@ -764,14 +764,14 @@ const IntakeQuestionnaire = () => {
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {
     return (
-      <div className="min-h-screen bg-sky-50 font-body-md">
-        <header className="bg-sky-600 px-6 pt-10 pb-16">
+      <div className="min-h-screen bg-primary/5 font-body-md">
+        <header className="bg-primary px-6 pt-10 pb-16">
           <div className="max-w-[640px] mx-auto">
-            <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-sky-100 text-sm">
+            <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-primary-fixed/80 text-sm">
               ← Back
             </button>
             <h1 className="text-white text-3xl font-bold">Health Profile</h1>
-            <p className="text-sky-100 mt-1 text-sm">Fill in each section — tap any card to begin.</p>
+            <p className="text-primary-fixed mt-1 text-sm">Fill in each section — tap any card to begin.</p>
             {gp && (
               <div className="mt-4 inline-block bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-semibold">
                 {gp}
@@ -802,9 +802,9 @@ const IntakeQuestionnaire = () => {
               const total = slides.filter(sl => sl.field).length;
               return (
                 <button key={s.id} onClick={() => enterSection(i)}
-                  className="w-full bg-white rounded-2xl p-5 flex items-center gap-4 shadow-sm border border-sky-100 hover:border-sky-300 hover:shadow-md transition-all text-left active:scale-[0.99]">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0 ${done ? 'bg-emerald-100' : 'bg-sky-100'}`}>
-                    {s.icon}
+                  className="w-full bg-white rounded-2xl p-5 flex items-center gap-4 shadow-sm border border-primary/10 hover:border-primary/30 hover:shadow-md transition-all text-left active:scale-[0.99]">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0 ${done ? 'bg-emerald-100' : 'bg-primary/10'}`}>
+                    <span className="material-symbols-outlined text-2xl">{s.icon}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -816,8 +816,8 @@ const IntakeQuestionnaire = () => {
                     <p className="text-slate-400 text-xs mt-0.5">{s.desc}</p>
                     {total > 0 && (
                       <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-sky-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-sky-500 rounded-full transition-all" style={{ width: `${Math.min(100, (answered / total) * 100)}%` }} />
+                        <div className="flex-1 h-1.5 bg-primary/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary/50 rounded-full transition-all" style={{ width: `${Math.min(100, (answered / total) * 100)}%` }} />
                         </div>
                         <span className="text-[10px] text-slate-400">{answered}/{total}</span>
                       </div>
@@ -826,7 +826,7 @@ const IntakeQuestionnaire = () => {
                   {done ? (
                     <span className="text-emerald-500 text-xl flex-shrink-0">✓</span>
                   ) : (
-                    <span className="text-sky-300 text-xl flex-shrink-0">›</span>
+                    <span className="text-primary/50 text-xl flex-shrink-0">›</span>
                   )}
                 </button>
               );
@@ -837,14 +837,14 @@ const IntakeQuestionnaire = () => {
           <div className="mt-6">
             {allDone ? (
               <button onClick={handleSubmit}
-                className="w-full py-5 bg-sky-600 text-white font-bold text-lg rounded-2xl shadow-lg hover:bg-sky-700 active:scale-95 transition-all">
+                className="w-full py-5 bg-primary text-white font-bold text-lg rounded-2xl shadow-lg hover:bg-primary active:scale-95 transition-all">
                 Submit & Get Risk Assessment
               </button>
             ) : (
               <div className="text-center">
                 <p className="text-slate-400 text-sm mb-3">Complete all sections to submit</p>
                 <button onClick={handleSubmit}
-                  className="w-full py-4 bg-sky-200 text-sky-600 font-bold rounded-2xl transition-all hover:bg-sky-300">
+                  className="w-full py-4 bg-primary/20 text-primary font-bold rounded-2xl transition-all hover:bg-primary/30">
                   Submit anyway (partial)
                 </button>
               </div>
@@ -867,19 +867,19 @@ const IntakeQuestionnaire = () => {
   return (
     <div className="min-h-screen flex flex-col bg-white font-body-md">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-sky-100">
+      <header className="sticky top-0 z-50 bg-white border-b border-primary/10">
         <div className="max-w-[640px] mx-auto px-6 py-4 flex items-center gap-4">
-          <button onClick={goBack} className="p-2 -ml-2 rounded-full hover:bg-sky-50 transition-colors">
-            <span className="text-sky-600 font-bold text-lg">←</span>
+          <button onClick={goBack} className="p-2 -ml-2 rounded-full hover:bg-primary/5 transition-colors">
+            <span className="text-primary font-bold text-lg">←</span>
           </button>
           <div className="flex-1">
-            <p className="text-sky-600 font-bold text-sm">{sec.label}</p>
+            <p className="text-primary font-bold text-sm">{sec.label}</p>
             <p className="text-slate-400 text-xs">{slideIdx + 1} of {slides.length}</p>
           </div>
-          <span className="text-2xl">{sec.icon}</span>
+          <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>{sec.icon}</span>
         </div>
-        <div className="h-1 bg-sky-100">
-          <div className="h-full bg-sky-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+        <div className="h-1 bg-primary/10">
+          <div className="h-full bg-primary/50 transition-all duration-300" style={{ width: `${progress}%` }} />
         </div>
       </header>
 
@@ -911,14 +911,14 @@ const IntakeQuestionnaire = () => {
       </main>
 
       {/* Footer nav */}
-      <footer className="sticky bottom-0 bg-white border-t border-sky-100 px-6 py-4">
+      <footer className="sticky bottom-0 bg-white border-t border-primary/10 px-6 py-4">
         <div className="max-w-[640px] mx-auto flex gap-3">
           <button onClick={goBack}
-            className="flex-1 py-4 font-bold text-sky-600 border-2 border-sky-200 rounded-2xl hover:bg-sky-50 transition-all active:scale-95">
+            className="flex-1 py-4 font-bold text-primary border-2 border-primary/20 rounded-2xl hover:bg-primary/5 transition-all active:scale-95">
             Back
           </button>
           <button onClick={goNext}
-            className="flex-[2] py-4 font-bold text-white bg-sky-600 rounded-2xl shadow-lg hover:bg-sky-700 transition-all active:scale-95 flex items-center justify-center gap-2">
+            className="flex-[2] py-4 font-bold text-white bg-primary rounded-2xl shadow-lg hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-2">
             {isLast ? `Finish ${sec.label}` : 'Next'}
             <span>→</span>
           </button>
@@ -999,16 +999,18 @@ function buildDomainResponses(sId, data, children) {
 
 // ── Loading overlay ───────────────────────────────────────────────────────────
 const LoadingOverlay = () => (
-  <div className="fixed inset-0 bg-sky-50/95 z-[100] flex flex-col items-center justify-center p-8">
+  <div className="fixed inset-0 bg-primary/5/95 z-[100] flex flex-col items-center justify-center p-8">
     <div className="relative w-24 h-24 mb-8">
-      <div className="absolute inset-0 border-4 border-sky-100 border-t-sky-600 rounded-full animate-spin" />
-      <div className="absolute inset-0 flex items-center justify-center text-4xl">🤰</div>
+      <div className="absolute inset-0 border-4 border-primary/10 border-t-primary rounded-full animate-spin" />
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="material-symbols-outlined text-4xl text-primary">pregnant_woman</span>
+      </div>
     </div>
-    <h3 className="font-bold text-sky-700 text-2xl">Calculating your risk…</h3>
+    <h3 className="font-bold text-primary text-2xl">Calculating your risk…</h3>
     <p className="text-slate-500 text-center max-w-xs mt-3">Our clinical AI is reviewing your profile using WHO-validated guidelines.</p>
     <div className="mt-8 flex gap-2">
       {[0, 1, 2].map(i => (
-        <div key={i} className="w-2 h-2 bg-sky-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+        <div key={i} className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
       ))}
     </div>
   </div>

@@ -129,7 +129,7 @@ export const adminController = {
       // Send SMS notification
       await termiiService.sendSMS({
         to: patient.phone_number,
-        sms: `Hello Mama! Dr. ${doctor.name} has been assigned to you on MamaCare. They will be reviewing your updates. Have a safe delivery!`,
+        sms: `Hello Mama! Dr. ${doctor.name} has been assigned to you on 9Care. They will be reviewing your updates. Have a safe delivery!`,
       });
 
       logger.info({ patientId, doctor_id }, 'Assigned doctor to patient');

@@ -90,9 +90,9 @@ const EmergencyReporting = () => {
             <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               How it works
             </a>
-            <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
+            <button onClick={() => navigate('/provider')} className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               For Providers
-            </a>
+            </button>
             <a href="#" className="font-serif text-lg font-medium text-stone-600 hover:text-amber-800 transition-all duration-300">
               About
             </a>
@@ -315,9 +315,9 @@ const EmergencyReporting = () => {
             <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               How it works
             </a>
-            <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
+            <button onClick={() => navigate('/provider')} className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               For Providers
-            </a>
+            </button>
             <a href="#" className="font-serif text-sm tracking-wide text-stone-500 hover:text-amber-700 underline underline-offset-4">
               About
             </a>

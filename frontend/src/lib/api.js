@@ -70,6 +70,9 @@ export const addPregnancy = data => patientApi.post('/patients/pregnancy', data)
 
 // ── Intake ────────────────────────────────────────────────────────────────────
 
+export const getIntake = patientId =>
+  patientApi.get(`/intake/${patientId}`);
+
 export const saveIntake = (patientId, domain, responses) =>
   patientApi.patch(`/intake/${patientId}`, { domain, responses });
 
@@ -93,6 +96,9 @@ export const getProviders = () => patientApi.get('/providers');
 
 export const getDoctorQueue = (date) =>
   doctorApi.get('/providers/queue', date ? { params: { date } } : {});
+
+export const getDoctorPatientDetail = (patientId) =>
+  doctorApi.get(`/providers/patients/${patientId}`);
 
 export const getPatientSummary = (patientId) =>
   doctorApi.get(`/providers/patients/${patientId}/summary`);

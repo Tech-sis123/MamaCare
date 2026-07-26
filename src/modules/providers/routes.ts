@@ -33,6 +33,15 @@ router.get(
   providersController.searchPatients
 );
 
+// Full patient detail for doctor
+router.get(
+  '/patients/:id',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(patientIdParamSchema, 'params'),
+  providersController.getPatientDetail
+);
+
 // Patient summary (mounted here but uses patient ID)
 router.get(
   '/patients/:id/summary',

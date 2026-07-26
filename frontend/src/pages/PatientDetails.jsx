@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getPatientSymptoms, getPatientSummary, saveVisitNotes } from '../lib/api';
+import { getPatientSymptoms, getPatientSummary, saveVisitNotes, getDoctorPatientDetail } from '../lib/api';
 
 const MOCK = {
   name: 'Ngozi Okonkwo', age: 29, initials: 'NO', risk: 'HIGH',
@@ -48,9 +48,64 @@ const PatientDetailPanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { patient: passedPatient, appointment_id } = location.state || {};
-
-  const p = passedPatient || MOCK;
+  const [fullPatient, setFullPatient] = useState(null);
   const isReal = !!passedPatient?.id && typeof passedPatient.id === 'string' && passedPatient.id.length > 8;
+
+  useEffect(() => {
+    if (!isReal) return;
+    getDoctorPatientDetail(passedPatient.id)
+      .then(r => setFullPatient(r.data?.patient || null))
+      .catch(() => {});
+  }, [isReal, passedPatient?.id]);
+
+  const preg = fullPatient?.pregnancies?.[0] || {};
+  const intakeMap = {};
+  (fullPatient?.intake_responses || []).forEach(r => {
+    if (r && r.question_key) intakeMap[r.question_key] = r.answer;
+  });
+
+  const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
+  const conditionsMap = {
+    'hypertension': 'Hypertension',
+    'epilepsy': 'Epilepsy',
+    'asthma': 'Asthma',
+    'diabetes': 'Diabetes',
+    'peptic_ulcer_disease': 'Peptic ulcer disease'
+  };
+  const activeConditions = conditionOpts.filter(c => intakeMap[c] === 'yes').map(c => conditionsMap[c]);
+
+  const p = {
+    ...MOCK,
+    ...passedPatient,
+    ...fullPatient,
+    age: fullPatient?.age || passedPatient?.age || MOCK.age,
+    occupation: fullPatient?.occupation || passedPatient?.occupation || '—',
+    marital: fullPatient?.marital_status || passedPatient?.marital_status || '—',
+    state: fullPatient?.address || passedPatient?.address || '—',
+    lmp: preg.lmp_date ? (preg.lmp_date.includes('-') ? new Date(preg.lmp_date).toLocaleDateString('en-GB') : preg.lmp_date) : passedPatient?.lmp || MOCK.lmp,
+    edd: preg.edd_computed ? (preg.edd_computed.includes('-') ? new Date(preg.edd_computed).toLocaleDateString('en-GB') : preg.edd_computed) : passedPatient?.edd || MOCK.edd,
+    weeks: preg.current_ega_weeks || passedPatient?.ega_weeks || passedPatient?.weeks || null,
+    bookingWeight: preg.booking_weight ? `${preg.booking_weight} kg` : passedPatient?.bookingWeight || '—',
+    bookingHeight: preg.booking_height ? `${preg.booking_height} cm` : passedPatient?.bookingHeight || '—',
+    bloodType: preg.blood_group || passedPatient?.bloodType || passedPatient?.blood_group || MOCK.bloodType,
+    rhesus: preg.rhesus || passedPatient?.rhesus || '—',
+    genotype: preg.genotype || passedPatient?.genotype || '—',
+    bookingBP: (preg.booking_bp_systolic && preg.booking_bp_diastolic) ? `${preg.booking_bp_systolic}/${preg.booking_bp_diastolic} mmHg` : passedPatient?.bookingBP || MOCK.bookingBP,
+    urinalysis: preg.urinalysis || passedPatient?.urinalysis || MOCK.urinalysis,
+    hiv: preg.rvd_status || passedPatient?.hiv || '—',
+    vdrl: preg.vdrl || passedPatient?.vdrl || '—',
+    hepB: preg.hep_b || passedPatient?.hepB || '—',
+    pcv: preg.pcv ? `${preg.pcv}%` : passedPatient?.pcv || MOCK.pcv,
+    mp: preg.mp || passedPatient?.mp || '—',
+    tetanus: preg.tetanus_history || passedPatient?.tetanus || '—',
+    gravida: preg.gravidity ?? passedPatient?.gravida ?? MOCK.gravida,
+    para: preg.parity ?? passedPatient?.para ?? MOCK.para,
+    miscarriage: intakeMap['top'] === 'yes' ? true : intakeMap['top'] === 'no' ? false : passedPatient?.miscarriage,
+    conditions: activeConditions.length > 0 ? activeConditions : (fullPatient?.conditions || passedPatient?.conditions || MOCK.conditions),
+    medications: intakeMap['pregnancy_medications'] || intakeMap['other_medications'] || passedPatient?.medications || MOCK.medications,
+    drugAllergies: intakeMap['drug_allergy'] === 'yes' ? (intakeMap['allergy_details'] || 'Yes') : intakeMap['drug_allergy'] === 'no' ? 'None' : (passedPatient?.drugAllergies || MOCK.drugAllergies),
+    risk: passedPatient?.risk_tier || fullPatient?.risk_assessments?.[0]?.tier || passedPatient?.risk || 'HIGH'
+  };
 
   const name = p.name || MOCK.name;
   const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();

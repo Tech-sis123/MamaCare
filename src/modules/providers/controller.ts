@@ -261,4 +261,31 @@ export const providersController = {
       next(err);
     }
   },
+
+  /**
+   * GET /providers/patients/:id
+   * Full patient detail (biodata, pregnancies, intake responses, risk assessments) for doctor view.
+   */
+  async getPatientDetail(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const patient = await prisma.patient.findUnique({
+        where: { id },
+        include: {
+          pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+          risk_assessments: { orderBy: { created_at: 'desc' }, take: 5 },
+          symptoms: { orderBy: { reported_at: 'desc' }, take: 10 },
+          intake_responses: true,
+        },
+      });
+
+      if (!patient) {
+        throw new NotFoundError('Patient not found');
+      }
+
+      res.status(200).json({ patient });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

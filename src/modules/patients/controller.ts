@@ -115,6 +115,7 @@ export const patientsController = {
         where: { id: patientId },
         include: {
           pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
         },
       });
 
@@ -132,6 +133,7 @@ export const patientsController = {
       res.status(200).json({
         ...patient,
         current_ega: ega,
+        risk_tier: patient.risk_assessments?.[0]?.tier || 'Low Risk',
       });
     } catch (err) {
       next(err);

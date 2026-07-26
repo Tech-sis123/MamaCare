@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { upsertProfile, addPregnancy, saveIntake, submitIntake } from '../lib/api';
+import { upsertProfile, addPregnancy, saveIntake, submitIntake, getPatientMe, getIntake } from '../lib/api';
 import { getPatientId } from '../lib/auth';
 
 // ── Colours (sky-blue theme) ─────────────────────────────────────────────────
@@ -649,6 +649,126 @@ const IntakeQuestionnaire = () => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [data, setData] = useState(INIT);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const patientId = getPatientId();
+    if (!patientId) return;
+    Promise.all([
+      getPatientMe().catch(() => ({ data: null })),
+      getIntake(patientId).catch(() => ({ data: null }))
+    ]).then(([profileRes, intakeRes]) => {
+      const prof = profileRes?.data;
+      const intk = intakeRes?.data?.domains;
+      if (!prof && !intk) return;
+
+      const map = {};
+      Object.values(intk || {}).flat().forEach(r => {
+        if (r && r.question_key) map[r.question_key] = r.answer;
+      });
+
+      const preg = prof?.pregnancies?.[0] || {};
+      const addrParts = prof?.address ? prof.address.split(', ') : [];
+
+      setData(prev => {
+        const parityVal = preg.parity ?? prev.parity;
+        const surgeryCountVal = map['surgery_count'] ?? prev.surgeryCount;
+
+        const children = Array.from({ length: parseInt(parityVal) || 0 }, (_, i) => ({
+          year: map[`child_${i}_year`] || '',
+          gender: map[`child_${i}_gender`] || '',
+          deliveryMode: map[`child_${i}_delivery_mode`] || '',
+          criedWell: map[`child_${i}_cried_well`] === 'yes' ? true : map[`child_${i}_cried_well`] === 'no' ? false : null,
+          birthWeight: map[`child_${i}_birth_weight`] || '',
+          stateNow: map[`child_${i}_state_now`] || '',
+          anomaly: map[`child_${i}_anomaly`] === 'yes' ? true : map[`child_${i}_anomaly`] === 'no' ? false : null,
+          events: map[`child_${i}_events`] ? String(map[`child_${i}_events`]).split(',').filter(Boolean) : [],
+          hasPostnatalComplication: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no' ? true : false,
+          postnatalIssues: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no'
+            ? String(map[`child_${i}_postnatal_issues`]).split(', ').filter(x => ['Excessive bleeding', 'Infection', 'High blood pressure', 'Depression / severe mood swings', 'Breast issues (mastitis)'].includes(x))
+            : [],
+          postnatalOther: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no'
+            ? String(map[`child_${i}_postnatal_issues`]).split(', ').filter(x => !['Excessive bleeding', 'Infection', 'High blood pressure', 'Depression / severe mood swings', 'Breast issues (mastitis)'].includes(x)).join(', ')
+            : ''
+        }));
+
+        const surgeryDetails = Array.from({ length: parseInt(surgeryCountVal) || 0 }, (_, i) => ({
+          type: map[`surgery_${i}_type`] || '',
+          year: map[`surgery_${i}_year`] || ''
+        }));
+
+        const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
+        const conditionsMap = {
+          'hypertension': 'Hypertension',
+          'epilepsy': 'Epilepsy',
+          'asthma': 'Asthma',
+          'diabetes': 'Diabetes',
+          'peptic_ulcer_disease': 'Peptic ulcer disease'
+        };
+        const loadedConditions = conditionOpts.filter(c => map[c] === 'yes').map(c => conditionsMap[c]);
+
+        return {
+          ...prev,
+          name: prof?.name || prev.name,
+          age: prof?.age || prev.age,
+          occupation: prof?.occupation || prev.occupation,
+          marital: prof?.marital_status ? prof.marital_status.charAt(0).toUpperCase() + prof.marital_status.slice(1) : prev.marital,
+          addrHouse: addrParts[0] || prev.addrHouse,
+          addrStreet: addrParts[1] || prev.addrStreet,
+          addrCity: addrParts[2] || prev.addrCity,
+          addrState: addrParts[3] || prev.addrState,
+          religion: prof?.religion ? prof.religion.charAt(0).toUpperCase() + prof.religion.slice(1) : prev.religion,
+          tribe: prof?.ethnicity || prev.tribe,
+          lmpKnown: preg.lmp_date ? true : prev.lmpKnown,
+          lmpDate: preg.lmp_date ? new Date(preg.lmp_date).toISOString().split('T')[0] : prev.lmpDate,
+          gravidity: preg.gravidity ?? prev.gravidity,
+          parity: parityVal,
+          bloodGroup: preg.blood_group || prev.bloodGroup,
+          genotype: preg.genotype || prev.genotype,
+          children,
+          menarche: map['menarche_age'] || prev.menarche,
+          cycleLength: map['cycle_days'] || prev.cycleLength,
+          flowDays: map['flow_days'] || prev.flowDays,
+          dysmenorrhea: map['dysmenorrhea'] === 'yes' ? true : map['dysmenorrhea'] === 'no' ? false : prev.dysmenorrhea,
+          heavyBleeding: map['heavy_bleeding'] === 'yes' ? true : map['heavy_bleeding'] === 'no' ? false : prev.heavyBleeding,
+          intermenstrual: map['intermenstrual'] === 'yes' ? true : map['intermenstrual'] === 'no' ? false : prev.intermenstrual,
+          postcoital: map['postcoital'] === 'yes' ? true : map['postcoital'] === 'no' ? false : prev.postcoital,
+          contraUsed: map['contraceptive'] === 'yes' ? true : map['contraceptive'] === 'no' ? false : prev.contraUsed,
+          contraAware: map['contraceptive'] ? true : prev.contraAware,
+          contraType: map['contraceptive_type'] || prev.contraType,
+          contraStartDate: map['contraceptive_start_date'] || prev.contraStartDate,
+          contraRemoved: map['contraceptive_removed_before_pregnancy'] === 'yes' ? true : map['contraceptive_removed_before_pregnancy'] === 'no' ? false : prev.contraRemoved,
+          papSmearDone: map['pap_smear'] === 'yes' ? true : map['pap_smear'] === 'no' ? false : prev.papSmearDone,
+          papSmearAware: map['pap_smear'] ? true : prev.papSmearAware,
+          topDone: map['top'] === 'yes' ? true : map['top'] === 'no' ? false : prev.topDone,
+          topCount: map['top_count'] || prev.topCount,
+          conditions: loadedConditions.length > 0 ? loadedConditions : prev.conditions,
+          surgeries: map['surgery'] === 'yes' ? true : map['surgery'] === 'no' ? false : prev.surgeries,
+          surgeryCount: surgeryCountVal,
+          surgeryDetails,
+          pregMeds: map['pregnancy_medications'] ? String(map['pregnancy_medications']).split(', ').filter(Boolean) : prev.pregMeds,
+          routineMedsCheck: map['routine_medications'] === 'yes' ? true : map['routine_medications'] === 'no' ? false : prev.routineMedsCheck,
+          currentMeds: map['other_medications'] || prev.currentMeds,
+          drugAllergy: map['drug_allergy'] === 'yes' ? true : map['drug_allergy'] === 'no' ? false : prev.drugAllergy,
+          allergyDetails: map['allergy_details'] || prev.allergyDetails,
+          husbandOccupation: map['husband_occupation'] || prev.husbandOccupation,
+          husbandAge: map['husband_age'] || prev.husbandAge,
+          husbandGenotype: map['husband_genotype'] || prev.husbandGenotype,
+          husbandBloodGroup: map['husband_blood_group'] || prev.husbandBloodGroup,
+          patientSmokes: map['patient_smokes'] === 'yes' ? true : map['patient_smokes'] === 'no' ? false : prev.patientSmokes,
+          patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
+          husbandSmokes: map['husband_smokes'] === 'yes' ? true : map['husband_smokes'] === 'no' ? false : prev.husbandSmokes,
+          husbandDrinks: map['husband_drinks'] === 'yes' ? true : map['husband_drinks'] === 'no' ? false : prev.husbandDrinks,
+          supportive: map['supportive'] === 'yes' ? true : map['supportive'] === 'no' ? false : prev.supportive,
+          neuroSymptoms: ['headaches', 'seizures_/_convulsions', 'dizziness', 'fainting_episodes'].filter(s => map[s] === 'yes').map(s => s === 'headaches' ? 'Headaches' : s === 'seizures_/_convulsions' ? 'Seizures / convulsions' : s === 'dizziness' ? 'Dizziness' : 'Fainting episodes'),
+          cardioSymptoms: ['chest_pain', 'cough', 'palpitations', 'difficulty_breathing'].filter(s => map[s] === 'yes').map(s => s === 'chest_pain' ? 'Chest pain' : s === 'cough' ? 'Cough' : s === 'palpitations' ? 'Palpitations' : 'Difficulty breathing'),
+          urinaryChanges: map['urinary_changes'] === 'yes' ? true : map['urinary_changes'] === 'no' ? false : prev.urinaryChanges,
+          bowelChanges: map['bowel_changes'] === 'yes' ? true : map['bowel_changes'] === 'no' ? false : prev.bowelChanges,
+          hasPain: map['pain'] === 'yes' ? true : map['pain'] === 'no' ? false : prev.hasPain,
+          painDetails: map['pain_details'] || prev.painDetails
+        };
+      });
+    });
+  }, []);
 
   const set = (key, val) => setData(prev => ({ ...prev, [key]: val }));
 

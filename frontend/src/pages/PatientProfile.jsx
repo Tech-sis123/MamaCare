@@ -21,9 +21,10 @@ const PatientProfile = () => {
     navigate('/');
   };
 
-  const pregnancy = patient?.pregnancy_record || patient?.latest_pregnancy;
-  const weeks = pregnancy?.gestational_age?.weeks ?? 12;
-  const edd = pregnancy?.edd ? new Date(pregnancy.edd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nov 12, 2025';
+  const pregnancy = patient?.pregnancies?.[0] || patient?.pregnancy_record || patient?.latest_pregnancy;
+  const weeks = patient?.current_ega?.weeks ?? pregnancy?.current_ega_weeks ?? pregnancy?.gestational_age?.weeks ?? 12;
+  const eddVal = pregnancy?.edd_computed || pregnancy?.edd;
+  const edd = eddVal ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nov 12, 2025';
   const riskTier = patient?.risk_tier || 'Low Risk';
   const progress = Math.round((weeks / 40) * 100);
 
@@ -139,7 +140,7 @@ const PatientProfile = () => {
             <InfoRow label="Blood Group"   value={pregnancy?.blood_group || patient?.blood_group || '—'}  icon="bloodtype" />
             <InfoRow label="Rhesus"        value={pregnancy?.rhesus || patient?.rhesus || '—'}            icon="bloodtype" />
             <InfoRow label="Genotype"      value={pregnancy?.genotype || patient?.genotype || '—'}         icon="genetics" />
-            <InfoRow label="PCV"           value={pregnancy?.pcv || patient?.pcv || '—'}                   icon="science" />
+            <InfoRow label="PCV"           value={pregnancy?.pcv ? `${pregnancy.pcv}%` : patient?.pcv || '—'} icon="science" />
             <InfoRow label="Malaria Parasite (MP)" value={pregnancy?.mp || patient?.mp || '—'}             icon="bug_report" />
             <InfoRow label="Risk Level"    value={riskTier}                                                icon="analytics" />
           </div>

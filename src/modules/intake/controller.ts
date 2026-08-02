@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import prisma from '../../config/prisma';
 import { NotFoundError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+import { normalizeIntakeDomain } from './schemas';
 
 export const intakeController = {
   /**
@@ -13,6 +14,7 @@ export const intakeController = {
     try {
       const patientId = req.params.patientId as string;
       const { domain, responses } = req.body;
+      const normalizedDomain = normalizeIntakeDomain(domain);
 
       // Verify patient exists
       const patient = await prisma.patient.findUnique({ where: { id: patientId } });
@@ -25,7 +27,7 @@ export const intakeController = {
         const existing = await prisma.intakeResponse.findFirst({
           where: {
             patient_id: patientId,
-            domain,
+            domain: normalizedDomain,
             question_key: resp.question_key,
           },
         });
@@ -58,11 +60,11 @@ export const intakeController = {
           resource_type: 'intake_response',
           resource_id: patientId,
           before: null,
-          after: { domain, question_count: responses.length },
+          after: { domain: normalizedDomain, question_count: responses.length },
         },
       });
 
-      res.status(200).json({ saved: upserted.length, domain });
+      res.status(200).json({ saved: upserted.length, domain: normalizedDomain });
     } catch (err) {
       next(err);
     }

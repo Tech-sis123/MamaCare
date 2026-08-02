@@ -855,8 +855,11 @@ const IntakeQuestionnaire = () => {
         }).catch(() => {});
       }
       const domainMap = {
-        obstetric: 'obstetric', gynae: 'gynae', medical: 'medical',
-        family_social: 'social', systems: 'symptoms',
+        obstetric: 'obstetric',
+        gynae: 'gynae',
+        medical: 'medical',
+        family_social: 'family_social',
+        systems: 'systems',
       };
       if (domainMap[sId]) {
         const responses = buildDomainResponses(sId, data, ensuredChildren);

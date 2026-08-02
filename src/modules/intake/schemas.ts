@@ -8,7 +8,21 @@ const intakeDomainEnum = z.enum([
   'surgical',
   'allergies',
   'family_social',
+  'social',
+  'systems',
+  'symptoms',
 ]);
+
+export function normalizeIntakeDomain(domain: string): string {
+  switch (domain) {
+    case 'social':
+      return 'family_social';
+    case 'symptoms':
+      return 'systems';
+    default:
+      return domain;
+  }
+}
 
 export const patchIntakeSchema = z.object({
   domain: intakeDomainEnum,

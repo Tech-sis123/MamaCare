@@ -96,8 +96,7 @@ function computeRisks(data) {
   if (csCount >= 2) risks.push({ field: 'children', text: '2 or more previous caesarean sections' });
 
   children.forEach((c, i) => {
-    const w = parseFloat(c.birthWeight);
-    if (!isNaN(w) && w >= 4) risks.push({ field: 'children', text: `Macrosomic baby — child ${i + 1} weighed ${w} kg` });
+    // Birth weight is still saved for clinicians; macrosomia is not shown to the mother.
     if (c.stateNow === 'died_at_birth') risks.push({ field: 'children', text: `Bad obstetric history — child ${i + 1} died at birth` });
     if (c.anomaly) risks.push({ field: 'children', text: `Anomaly noted in child ${i + 1}` });
   });
@@ -166,7 +165,7 @@ function buildSlides(sectionId, data) {
         field: 'parity',        type: 'number',  required: true,  placeholder: 'e.g. 2', min: 0, max: 20,
         hint: 'This is your parity — babies born alive or stillborn after 24 weeks.',
         riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
-      { id: 'multiGestation', question: 'Did any of those pregnancies include multiple gestation?', field: 'multiGestation', type: 'yes_no', required: false },
+      { id: 'multiGestation', question: 'Did any of those pregnancies include Twin or multiple gestations?', field: 'multiGestation', type: 'yes_no', required: false },
       { id: 'childrenAlive', question: 'Of the children you have given birth to, how many are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
@@ -185,9 +184,9 @@ function buildSlides(sectionId, data) {
         condition: d => d.scanDone === true,
         hint: 'Approximate date is fine.' },
       { id: 'bloodGroup',     question: 'What is your blood group?',                    field: 'bloodGroup',     type: 'chips',   required: false,
-        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−'] },
+        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
       { id: 'genotype',       question: 'What is your genotype?',                       field: 'genotype',       type: 'chips',   required: false,
-        options: ['AA', 'AS', 'SS', 'AC'],
+        options: ['AA', 'AS', 'SS', 'AC', 'Not sure'],
         riskCheck: v => v === 'SS' ? 'Sickle cell disease — requires close monitoring.' : null },
     ];
 
@@ -239,8 +238,8 @@ function buildSlides(sectionId, data) {
         { id: 'surgeries',     question: 'Have you had any past surgeries?',               field: 'surgeries',      type: 'yes_no',  required: false },
         { id: 'surgeryCount',  question: 'How many surgeries have you had in the past?',   field: 'surgeryCount',   type: 'number',  required: false, condition: d => d.surgeries === true, placeholder: 'e.g. 1', min: 1, max: 20 },
         ...surgeryFields,
-        { id: 'pregMeds',      question: 'Which pregnancy medications are you taking?',    field: 'pregMeds',       type: 'multi',   required: false, options: ['Folic acid', 'Iron', 'Calcium', 'Routine antenatal drugs', 'None'] },
-        { id: 'routineMedsCheck', question: 'Are you routinely taking any drugs aside your pregnancy medications?', field: 'routineMedsCheck', type: 'yes_no', required: false, hint: 'including medications for blood pressure' },
+        { id: 'pregMeds',      question: 'Which pregnancy medications are you taking?',    field: 'pregMeds',       type: 'text',    required: false, placeholder: 'e.g. Folic acid, Iron, Calcium…' },
+        { id: 'routineMedsCheck', question: 'Are you routinely taking any drugs aside your pregnancy medications?', field: 'routineMedsCheck', type: 'yes_no', required: false, hint: 'including medications for blood pressure and diabetes' },
         { id: 'currentMeds',   question: 'Other routine medications',                      field: 'currentMeds',    type: 'text',    required: false, condition: d => d.routineMedsCheck === true, placeholder: 'e.g. Labetalol…' },
         { id: 'drugAllergy',   question: 'Do you have any drug allergies?',                field: 'drugAllergy',    type: 'yes_no',  required: false },
         { id: 'allergyDetails',question: 'What are you allergic to?',                      field: 'allergyDetails', type: 'text',    required: false, condition: d => d.drugAllergy === true, placeholder: 'e.g. Penicillin, Sulpha drugs…' },
@@ -251,9 +250,9 @@ function buildSlides(sectionId, data) {
       { id: 'husbandOccupation', question: "What is your husband or partner's occupation?", field: 'husbandOccupation', type: 'text', required: false, placeholder: 'e.g. Driver, Civil Servant, Farmer' },
       { id: 'husbandAge',    question: "How old is your husband or partner?",            field: 'husbandAge',     type: 'number',  required: false, placeholder: 'e.g. 34', min: 15, max: 90 },
       { id: 'husbandGenotype', question: "What is your husband or partner's genotype?", field: 'husbandGenotype', type: 'chips',  required: false,
-        options: ['AA', 'AS', 'SS', 'AC', 'Unknown'] },
+        options: ['AA', 'AS', 'SS', 'AC', 'Not sure'] },
       { id: 'husbandBloodGroup', question: "What is your husband or partner's blood group?", field: 'husbandBloodGroup', type: 'chips', required: false,
-        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Unknown'] },
+        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
       { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
       { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
       { id: 'husbandSmokes', question: 'Does your husband or partner smoke?',             field: 'husbandSmokes',  type: 'yes_no',  required: false },
@@ -295,7 +294,7 @@ const INIT = {
   addrHouse: '', addrStreet: '', addrCity: '', addrState: '',
   religion: null, christianDenom: null, tribe: '',
   lmpKnown: null, lmpDate: '', lmpMonth: '', lmpYear: '',
-  gravidity: '', parity: '', twins: null, childrenAlive: '',
+  gravidity: '', parity: '', multiGestation: null, childrenAlive: '',
   // Index pregnancy
   desired: null, conception: null,
   pregTestDone: null, pregTestType: null,
@@ -311,7 +310,7 @@ const INIT = {
   papSmearAware: null, papSmearDone: null,
   topDone: null, topCount: '', topYear: '', topMethod: null, topComplications: null,
   // Medical
-  conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: [], routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
+  conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Family & Social
   husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
   patientSmokes: null, patientDrinks: null, husbandSmokes: null, husbandDrinks: null, supportive: null,
@@ -352,9 +351,16 @@ const ChildCard = ({ idx, child, onChange }) => {
   const label = ordinals[idx] || `${idx + 1}th`;
   const set = (field, val) => onChange(idx, field, val);
 
-  const weight = parseFloat(child.birthWeight);
-  const isMacro = !isNaN(weight) && weight >= 4;
   const csRisk = child.deliveryMode === 'cs';
+  const pregnancyEventOptions = [
+    { id: 'Diabetes', l: 'High blood sugar' },
+    { id: 'Hypertension', l: 'High blood pressure (BP)' },
+    { id: 'Malaria', l: 'Malaria' },
+    { id: 'Bleeding', l: 'Bleeding' },
+    { id: 'Anaemia', l: 'Low blood levels (Anaemia)' },
+    { id: 'Other', l: 'Others' },
+    { id: 'None', l: 'None' },
+  ];
 
   return (
     <div className="space-y-4">
@@ -416,7 +422,6 @@ const ChildCard = ({ idx, child, onChange }) => {
           <input type="number" step="0.1" value={child.birthWeight || ''} onChange={e => set('birthWeight', e.target.value)}
             placeholder="e.g. 3.2" min={0.5} max={7}
             className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
-          {isMacro && <p className="text-red-600 font-bold text-xs mt-1">⚠ Macrosomic baby (≥ 4 kg) — high risk</p>}
         </div>
         <div>
           <Label>How many days did you spend in the hospital after your delivery?</Label>
@@ -460,15 +465,19 @@ const ChildCard = ({ idx, child, onChange }) => {
       <div>
         <Label>Did any of these happen during this pregnancy?</Label>
         <div className="flex flex-wrap gap-2">
-          {[{id:'Diabetes', l:'High blood sugar'}, {id:'Hypertension', l:'High blood pressure (BP)'}, {id:'Malaria', l:'Malaria'}, {id:'Bleeding', l:'Bleeding'}, {id:'Anaemia', l:'Low blood levels (Anaemia)'}, {id:'None', l:'None'}].map(e => {
+          {pregnancyEventOptions.map(e => {
             const events = child.events || [];
             const active = events.includes(e.id);
             return (
               <button key={e.id} onClick={() => {
-                if (e.id === 'None') set('events', active ? [] : ['None']);
-                else {
+                if (e.id === 'None') {
+                  set('events', active ? [] : ['None']);
+                  set('eventsOther', '');
+                } else {
                   const filtered = events.filter(x => x !== 'None');
-                  set('events', active ? filtered.filter(x => x !== e.id) : [...filtered, e.id]);
+                  const next = active ? filtered.filter(x => x !== e.id) : [...filtered, e.id];
+                  set('events', next);
+                  if (e.id === 'Other' && active) set('eventsOther', '');
                 }
               }}
                 className={`px-3 py-2 rounded-full border-2 text-xs font-semibold transition-all ${
@@ -477,10 +486,22 @@ const ChildCard = ({ idx, child, onChange }) => {
             );
           })}
         </div>
+        {(child.events || []).includes('Other') && (
+          <div className="mt-3">
+            <Label>Please specify</Label>
+            <input
+              type="text"
+              value={child.eventsOther || ''}
+              onChange={e => set('eventsOther', e.target.value)}
+              placeholder="Type any other pregnancy issue…"
+              className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none"
+            />
+          </div>
+        )}
       </div>
 
       <div>
-        <Label>Did any issue arise immediately after delivery or within 6 months after delivery?</Label>
+        <Label>Did any issue arise immediately after delivery or within 6 weeks after delivery?</Label>
         <div className="flex gap-2 mb-4">
           {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => (
             <button key={String(opt.v)} onClick={() => {
@@ -679,9 +700,11 @@ const IntakeQuestionnaire = () => {
           deliveryMode: map[`child_${i}_delivery_mode`] || '',
           criedWell: map[`child_${i}_cried_well`] === 'yes' ? true : map[`child_${i}_cried_well`] === 'no' ? false : null,
           birthWeight: map[`child_${i}_birth_weight`] || '',
+          daysInHospital: map[`child_${i}_days_in_hospital`] || '',
           stateNow: map[`child_${i}_state_now`] || '',
           anomaly: map[`child_${i}_anomaly`] === 'yes' ? true : map[`child_${i}_anomaly`] === 'no' ? false : null,
           events: map[`child_${i}_events`] ? String(map[`child_${i}_events`]).split(',').filter(Boolean) : [],
+          eventsOther: map[`child_${i}_events_other`] || '',
           hasPostnatalComplication: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no' ? true : false,
           postnatalIssues: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no'
             ? String(map[`child_${i}_postnatal_issues`]).split(', ').filter(x => ['Excessive bleeding', 'Infection', 'High blood pressure', 'Depression / severe mood swings', 'Breast issues (mastitis)'].includes(x))
@@ -724,6 +747,11 @@ const IntakeQuestionnaire = () => {
           parity: parityVal,
           bloodGroup: preg.blood_group || prev.bloodGroup,
           genotype: preg.genotype || prev.genotype,
+          multiGestation: map['is_twin_pregnancy'] === true || map['is_twin_pregnancy'] === 'true' || map['is_twin_pregnancy'] === 'yes'
+            ? true
+            : map['is_twin_pregnancy'] === false || map['is_twin_pregnancy'] === 'false' || map['is_twin_pregnancy'] === 'no'
+              ? false
+              : prev.multiGestation,
           children,
           menarche: map['menarche_age'] || prev.menarche,
           cycleLength: map['cycle_days'] || prev.cycleLength,
@@ -745,7 +773,7 @@ const IntakeQuestionnaire = () => {
           surgeries: map['surgery'] === 'yes' ? true : map['surgery'] === 'no' ? false : prev.surgeries,
           surgeryCount: surgeryCountVal,
           surgeryDetails,
-          pregMeds: map['pregnancy_medications'] ? String(map['pregnancy_medications']).split(', ').filter(Boolean) : prev.pregMeds,
+          pregMeds: map['pregnancy_medications'] != null ? String(map['pregnancy_medications']) : prev.pregMeds,
           routineMedsCheck: map['routine_medications'] === 'yes' ? true : map['routine_medications'] === 'no' ? false : prev.routineMedsCheck,
           currentMeds: map['other_medications'] || prev.currentMeds,
           drugAllergy: map['drug_allergy'] === 'yes' ? true : map['drug_allergy'] === 'no' ? false : prev.drugAllergy,
@@ -843,9 +871,16 @@ const IntakeQuestionnaire = () => {
           religion: data.religion?.toLowerCase() || undefined,
           ethnicity: data.tribe || undefined,
         }).catch(() => {});
+        // Persist twin/multiple gestation for risk engine (is_twin_pregnancy)
+        if (data.multiGestation !== null && data.multiGestation !== undefined) {
+          await saveIntake(patientId, 'biodata', [
+            { question_key: 'is_twin_pregnancy', answer: data.multiGestation === true },
+          ]).catch(() => {});
+        }
       }
       if (sId === 'index') {
         const lmp = data.lmpKnown ? data.lmpDate : (data.lmpYear && data.lmpMonth ? `${data.lmpYear}-${String(data.lmpMonth).padStart(2, '0')}-01` : undefined);
+        // Persist "Not sure" so the chip reloads; risk engine treats unknown genotype as missing
         await addPregnancy({
           lmp_date: lmp ? new Date(lmp).toISOString() : undefined,
           blood_group: data.bloodGroup || undefined,
@@ -875,8 +910,20 @@ const IntakeQuestionnaire = () => {
       try {
         for (let i = 0; i < SECTION_META.length; i++) await autoSave(i);
         const { data: res } = await submitIntake(patientId);
-        const tier = res?.risk_tier || res?.tier || res?.risk;
-        if (tier) localStorage.setItem('mc_risk_tier', tier.toUpperCase());
+        // API shape: { risk: { tier, reasons, engine_version, id } }
+        const risk = res?.risk && typeof res.risk === 'object' ? res.risk : null;
+        const tier = risk?.tier || res?.risk_tier || res?.tier;
+        if (tier && typeof tier === 'string') {
+          localStorage.setItem('mc_risk_tier', tier.toUpperCase());
+        }
+        if (Array.isArray(risk?.reasons)) {
+          localStorage.setItem('mc_risk_reasons', JSON.stringify(risk.reasons));
+        } else {
+          localStorage.removeItem('mc_risk_reasons');
+        }
+        if (risk?.engine_version) {
+          localStorage.setItem('mc_risk_engine', String(risk.engine_version));
+        }
       } catch (_) {}
     }
     setTimeout(() => navigate('/risk-result'), 2800);
@@ -1062,9 +1109,11 @@ function buildDomainResponses(sId, data, children) {
       { question_key: `child_${i}_delivery_mode`,  answer: c.deliveryMode || '' },
       { question_key: `child_${i}_cried_well`,     answer: c.criedWell ? 'yes' : 'no' },
       { question_key: `child_${i}_birth_weight`,   answer: String(c.birthWeight || '') },
+      { question_key: `child_${i}_days_in_hospital`, answer: String(c.daysInHospital || '') },
       { question_key: `child_${i}_state_now`,      answer: c.stateNow || '' },
       { question_key: `child_${i}_anomaly`,        answer: c.anomaly ? 'yes' : 'no' },
       { question_key: `child_${i}_events`,         answer: (c.events || []).join(',') },
+      { question_key: `child_${i}_events_other`,   answer: (c.events || []).includes('Other') ? (c.eventsOther || '') : '' },
       { question_key: `child_${i}_postnatal_issues`, answer: c.hasPostnatalComplication ? [...(c.postnatalIssues || []), c.postnatalOther].filter(Boolean).join(', ') : 'no' },
     ]);
     case 'gynae': return [
@@ -1091,7 +1140,7 @@ function buildDomainResponses(sId, data, children) {
         { question_key: `surgery_${i}_type`, answer: s.type || '' },
         { question_key: `surgery_${i}_year`, answer: String(s.year || '') },
       ]),
-      { question_key: 'pregnancy_medications', answer: (data.pregMeds || []).join(', ') },
+      { question_key: 'pregnancy_medications', answer: data.pregMeds || '' },
       { question_key: 'routine_medications',   answer: data.routineMedsCheck ? 'yes' : 'no' },
       { question_key: 'other_medications',     answer: data.currentMeds || '' },
       { question_key: 'drug_allergy',     answer: data.drugAllergy ? 'yes' : 'no' },

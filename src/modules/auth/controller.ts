@@ -38,7 +38,7 @@ export const authController = {
 
         await whatsappService.sendMessage({
           to: phone_number,
-          message: `Your Mama Care verification code is ${code}. Valid for 15 minutes.`
+          message: `Your 9Care verification code is ${code}. Valid for 15 minutes.`
         });
 
         return res.status(200).json({ pin_id });

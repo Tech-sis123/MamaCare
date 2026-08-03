@@ -181,7 +181,7 @@ const RegistrationFlow = () => {
                 <div className="w-16 h-16 bg-primary-fixed rounded-full flex items-center justify-center mb-6">
                   <span className="material-symbols-outlined text-primary text-4xl">pregnant_woman</span>
                 </div>
-                <h1 className="font-headline-lg text-primary mb-2">Welcome to Mama Care</h1>
+                <h1 className="font-headline-lg text-primary mb-2">Welcome to 9Care</h1>
                 <p className="font-body-md text-on-surface-variant">Enter your phone number to get started</p>
               </div>
               <form onSubmit={handlePhoneSubmit} className="space-y-6">

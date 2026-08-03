@@ -113,4 +113,11 @@ describe('Risk Stratification Engine', () => {
     expect(result.reasons).toContain('Missing critical field: age');
     expect(result.reasons).toContain('Missing critical field: genotype');
   });
+
+  it('should treat genotype "Not sure" as a missing critical field', () => {
+    const result = runRiskEngine({ ...baseHappyInput, genotype: 'Not sure' });
+    expect(result.reasons).toContain('Missing critical field: genotype');
+    // LOW + one missing critical field → MEDIUM
+    expect(result.tier).toBe('MEDIUM');
+  });
 });

@@ -30,6 +30,14 @@ function escalateTier(current: RiskTier): RiskTier {
   return 'HIGH'; // MEDIUM → HIGH, HIGH stays HIGH
 }
 
+/** Known clinical genotypes. "Not sure" / Unknown / empty → null (missing). */
+function normalizeGenotype(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const gt = String(value).trim().toUpperCase();
+  if (!gt || gt === 'NOT SURE' || gt === 'UNKNOWN' || gt === 'N/A') return null;
+  return gt;
+}
+
 export function runRiskEngine(input: RiskInput): RiskOutput {
   let tier: RiskTier = 'LOW';
   const reasons: string[] = [];
@@ -67,12 +75,12 @@ export function runRiskEngine(input: RiskInput): RiskOutput {
     }
   }
 
-  // Genotype rules
-  if (input.genotype != null) {
-    const gt = input.genotype.toUpperCase();
-    if (gt === 'SS' || gt === 'SC') {
+  // Genotype rules — "Not sure" / unknown values are treated as missing (see graceful degradation)
+  const knownGenotype = normalizeGenotype(input.genotype);
+  if (knownGenotype != null) {
+    if (knownGenotype === 'SS' || knownGenotype === 'SC') {
       tier = applyTier(tier, 'HIGH');
-      reasons.push(`High-risk genotype: ${gt}`);
+      reasons.push(`High-risk genotype: ${knownGenotype}`);
     }
   }
 
@@ -117,6 +125,14 @@ export function runRiskEngine(input: RiskInput): RiskOutput {
   // escalate the tier and flag the missing field.
 
   for (const field of CRITICAL_FIELDS) {
+    if (field === 'genotype') {
+      // Treat "Not sure" / Unknown as missing critical genotype data
+      if (normalizeGenotype(input.genotype) === null) {
+        tier = escalateTier(tier);
+        reasons.push(`Missing critical field: ${field}`);
+      }
+      continue;
+    }
     if (input[field] === undefined || input[field] === null) {
       tier = escalateTier(tier);
       reasons.push(`Missing critical field: ${field}`);

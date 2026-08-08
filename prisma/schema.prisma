@@ -10,6 +10,8 @@ datasource db {
 model Patient {
   id                    String   @id @default(uuid())
   phone_number          String   @unique
+  email                 String?  @unique
+  password_hash         String?
   name                  String?
   age                   Int?
   education_level       String?
@@ -20,6 +22,11 @@ model Patient {
   ethnicity             String?
   language_preference   String?  // en/pidgin
   primary_doctor_id     String?
+  /// not_started | in_progress | submitted
+  intake_status         String   @default("not_started")
+  /// Set on first successful questionnaire submit; used for 7-day edit window
+  intake_first_submitted_at DateTime?
+  intake_last_saved_at  DateTime?
   created_at            DateTime @default(now())
 
   pregnancies           Pregnancy[]

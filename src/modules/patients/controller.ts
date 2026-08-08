@@ -130,8 +130,13 @@ export const patientsController = {
         ega = calculateEGADetailed(new Date(pregnancy.lmp_date));
       }
 
+      const { password_hash: _pw, ...safePatient } = patient as typeof patient & {
+        password_hash?: string | null;
+      };
+
       res.status(200).json({
-        ...patient,
+        ...safePatient,
+        has_password: !!_pw,
         current_ega: ega,
         risk_tier: patient.risk_assessments?.[0]?.tier || 'Low Risk',
       });

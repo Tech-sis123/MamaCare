@@ -2,9 +2,13 @@ import { Router } from 'express';
 import { authController } from './controller';
 import { validate } from '../../middleware/validate';
 import { authRateLimiter } from '../../middleware/rateLimiter';
+import { authenticate } from '../../middleware/auth';
+import { rbac } from '../../middleware/rbac';
 import {
   otpRequestSchema,
   otpVerifySchema,
+  patientLoginSchema,
+  patientSetCredentialsSchema,
   doctorLoginSchema,
   refreshTokenSchema,
   doctorRegisterSchema,
@@ -14,7 +18,7 @@ import {
 
 const router = Router();
 
-// Patient OTP flow
+// Patient OTP — sign-up / first phone verification only
 router.post(
   '/patient/otp/request',
   authRateLimiter,
@@ -27,6 +31,24 @@ router.post(
   authRateLimiter,
   validate(otpVerifySchema),
   authController.patientOtpVerify
+);
+
+// Set email + password after OTP sign-up
+router.post(
+  '/patient/credentials',
+  authenticate,
+  rbac('patient'),
+  authRateLimiter,
+  validate(patientSetCredentialsSchema),
+  authController.patientSetCredentials
+);
+
+// Returning patient login (email + password, no OTP)
+router.post(
+  '/patient/login',
+  authRateLimiter,
+  validate(patientLoginSchema),
+  authController.patientLogin
 );
 
 // Doctor login

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { upsertProfile, addPregnancy, saveIntake, submitIntake, getPatientMe, getIntake } from '../lib/api';
-import { getPatientId } from '../lib/auth';
+import { getPatientId, isPatientAuthenticated } from '../lib/auth';
 
 // ── Colours (sky-blue theme) ─────────────────────────────────────────────────
 const C = {
@@ -670,17 +670,37 @@ const IntakeQuestionnaire = () => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [data, setData] = useState(INIT);
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  /** @type {[{ can_edit?: boolean, is_locked?: boolean, days_remaining?: number|null, status?: string, first_submitted_at?: string|null }|null, Function]} */
+  const [intakeMeta, setIntakeMeta] = useState(null);
+  const [saveError, setSaveError] = useState('');
+
+  const canEdit = intakeMeta?.can_edit !== false && !intakeMeta?.is_locked;
 
   useEffect(() => {
+    if (!isPatientAuthenticated() || !getPatientId()) {
+      navigate('/register?mode=login', { replace: true });
+      return;
+    }
     const patientId = getPatientId();
-    if (!patientId) return;
     Promise.all([
       getPatientMe().catch(() => ({ data: null })),
       getIntake(patientId).catch(() => ({ data: null }))
     ]).then(([profileRes, intakeRes]) => {
-      const prof = profileRes?.data;
+      const prof = profileRes?.data?.patient || profileRes?.data;
       const intk = intakeRes?.data?.domains;
-      if (!prof && !intk) return;
+      if (intakeRes?.data?.meta) setIntakeMeta(intakeRes.data.meta);
+      else if (intakeRes?.data?.status) {
+        setIntakeMeta({
+          status: intakeRes.data.status,
+          can_edit: true,
+          is_locked: false,
+        });
+      }
+      if (!prof && !intk) {
+        setHydrated(true);
+        return;
+      }
 
       const map = {};
       Object.values(intk || {}).flat().forEach(r => {
@@ -795,12 +815,16 @@ const IntakeQuestionnaire = () => {
           painDetails: map['pain_details'] || prev.painDetails
         };
       });
-    });
-  }, []);
+    }).finally(() => setHydrated(true));
+  }, [navigate]);
 
-  const set = (key, val) => setData(prev => ({ ...prev, [key]: val }));
+  const set = (key, val) => {
+    if (!canEdit) return;
+    setData(prev => ({ ...prev, [key]: val }));
+  };
 
   const setChild = (idx, field, val) => {
+    if (!canEdit) return;
     setData(prev => {
       const parity = parseInt(prev.parity) || 0;
       const children = Array.from({ length: parity }, (_, i) => prev.children?.[i] || {});
@@ -810,6 +834,7 @@ const IntakeQuestionnaire = () => {
   };
 
   const setSurgery = (idx, field, val) => {
+    if (!canEdit) return;
     setData(prev => {
       const count = parseInt(prev.surgeryCount) || 0;
       const surgeries = Array.from({ length: count }, (_, i) => prev.surgeryDetails?.[i] || {});
@@ -858,8 +883,9 @@ const IntakeQuestionnaire = () => {
 
   const autoSave = async (sIdx) => {
     const patientId = getPatientId();
-    if (!patientId) return;
+    if (!patientId || !canEdit) return;
     const sId = SECTION_META[sIdx].id;
+    setSaveError('');
     try {
       if (sId === 'biodata') {
         await upsertProfile({
@@ -904,12 +930,18 @@ const IntakeQuestionnaire = () => {
   };
 
   const handleSubmit = async () => {
+    if (!canEdit) {
+      setSaveError('This questionnaire is locked. The 7-day edit window has ended.');
+      return;
+    }
     setLoading(true);
+    setSaveError('');
     const patientId = getPatientId();
     if (patientId) {
       try {
         for (let i = 0; i < SECTION_META.length; i++) await autoSave(i);
         const { data: res } = await submitIntake(patientId);
+        if (res?.meta) setIntakeMeta(res.meta);
         // API shape: { risk: { tier, reasons, engine_version, id } }
         const risk = res?.risk && typeof res.risk === 'object' ? res.risk : null;
         const tier = risk?.tier || res?.risk_tier || res?.tier;
@@ -924,24 +956,45 @@ const IntakeQuestionnaire = () => {
         if (risk?.engine_version) {
           localStorage.setItem('mc_risk_engine', String(risk.engine_version));
         }
-      } catch (_) {}
+        setTimeout(() => navigate('/risk-result'), 2800);
+      } catch (err) {
+        const msg =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          'Could not submit questionnaire. Please try again.';
+        setSaveError(msg);
+        setLoading(false);
+        return;
+      }
+    } else {
+      setLoading(false);
     }
-    setTimeout(() => navigate('/risk-result'), 2800);
   };
 
   const allDone = SECTION_META.every(s => sectionComplete(s.id, { ...data, children: ensuredChildren }));
 
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {
+    const hasProgress =
+      hydrated &&
+      SECTION_META.some(s => sectionComplete(s.id, { ...data, children: ensuredChildren }));
+    const status = intakeMeta?.status || (hasProgress ? 'in_progress' : 'not_started');
+
     return (
       <div className="min-h-screen bg-primary/5 font-body-md">
         <header className="bg-primary px-6 pt-10 pb-16">
           <div className="max-w-[640px] mx-auto">
-            <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-primary-fixed/80 text-sm">
-              ← Back
+            <button onClick={() => navigate('/dashboard')} className="mb-6 flex items-center gap-2 text-primary-fixed/80 text-sm">
+              ← Dashboard
             </button>
             <h1 className="text-white text-3xl font-bold">Health Profile</h1>
-            <p className="text-primary-fixed mt-1 text-sm">Fill in each section — tap any card to begin.</p>
+            <p className="text-primary-fixed mt-1 text-sm">
+              {status === 'in_progress'
+                ? 'Welcome back — your answers were saved. Continue where you left off.'
+                : status === 'submitted' && canEdit
+                  ? 'You can still edit your answers for a short time after submitting.'
+                  : 'Fill in each section — tap any card to begin.'}
+            </p>
             {gp && (
               <div className="mt-4 inline-block bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-semibold">
                 {gp}
@@ -951,6 +1004,38 @@ const IntakeQuestionnaire = () => {
         </header>
 
         <main className="max-w-[640px] mx-auto px-4 -mt-8 pb-32">
+          {/* Resume / edit-window banners */}
+          {status === 'in_progress' && canEdit && (
+            <div className="mb-4 bg-sky-50 border border-sky-200 rounded-2xl p-4">
+              <p className="text-sky-800 font-bold text-sm">Progress saved</p>
+              <p className="text-sky-700 text-xs mt-1">
+                Your questionnaire is stored on your account. Log out and back in any time — you will see the same answers.
+              </p>
+            </div>
+          )}
+          {status === 'submitted' && canEdit && intakeMeta?.days_remaining != null && (
+            <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <p className="text-amber-800 font-bold text-sm">Edit window open</p>
+              <p className="text-amber-700 text-xs mt-1">
+                You can update this questionnaire for {intakeMeta.days_remaining} more day
+                {intakeMeta.days_remaining === 1 ? '' : 's'} (7 days from first submission). After that it locks.
+              </p>
+            </div>
+          )}
+          {!canEdit && (
+            <div className="mb-4 bg-stone-100 border border-stone-200 rounded-2xl p-4">
+              <p className="text-stone-800 font-bold text-sm">Questionnaire locked</p>
+              <p className="text-stone-600 text-xs mt-1">
+                The 7-day edit window after your first submission has ended. You can still review your answers.
+              </p>
+            </div>
+          )}
+          {saveError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm font-semibold">
+              {saveError}
+            </div>
+          )}
+
           {/* Risk summary */}
           {risks.length > 0 && (
             <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4">
@@ -1005,10 +1090,17 @@ const IntakeQuestionnaire = () => {
 
           {/* Submit */}
           <div className="mt-6">
-            {allDone ? (
+            {!canEdit ? (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="w-full py-5 bg-primary text-white font-bold text-lg rounded-2xl shadow-lg"
+              >
+                Back to dashboard
+              </button>
+            ) : allDone ? (
               <button onClick={handleSubmit}
                 className="w-full py-5 bg-primary text-white font-bold text-lg rounded-2xl shadow-lg hover:bg-primary active:scale-95 transition-all">
-                Submit & Get Risk Assessment
+                {status === 'submitted' ? 'Update & re-check risk' : 'Submit & Get Risk Assessment'}
               </button>
             ) : (
               <div className="text-center">

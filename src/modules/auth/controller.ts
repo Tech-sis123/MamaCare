@@ -5,11 +5,12 @@ import prisma from '../../config/prisma';
 import { env } from '../../config/env';
 import { termiiService } from '../../services/termii';
 import { redis } from '../../config/redis';
-import { AppError, NotFoundError, UnauthorizedError } from '../../utils/errors';
+import { AppError, ConflictError, NotFoundError, UnauthorizedError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { whatsappService } from '../../services/whatsapp';
 import crypto from 'crypto';
 import { brevoService } from '../../services/brevo';
+import { AuthRequest } from '../../utils/types';
 
 function generateTokens(payload: { id: string; role: string; type: string }) {
   const access_token = jwt.sign(payload, env.JWT_SECRET, {
@@ -21,14 +22,42 @@ function generateTokens(payload: { id: string; role: string; type: string }) {
   return { access_token, refresh_token };
 }
 
+function patientPublic(patient: {
+  id: string;
+  phone_number: string;
+  email?: string | null;
+  name?: string | null;
+  intake_status?: string | null;
+  intake_first_submitted_at?: Date | null;
+  password_hash?: string | null;
+}) {
+  return {
+    id: patient.id,
+    phone_number: patient.phone_number,
+    email: patient.email ?? null,
+    name: patient.name ?? null,
+    has_password: !!patient.password_hash,
+    intake_status: patient.intake_status ?? 'not_started',
+    intake_first_submitted_at: patient.intake_first_submitted_at ?? null,
+  };
+}
+
 export const authController = {
   /**
    * POST /auth/patient/otp/request
-   * Sends OTP to patient phone via Termii, creates patient if new
+   * OTP is for **sign-up / first-time phone verification only**.
+   * If the phone already has a password set, reject and direct them to email login.
    */
   async patientOtpRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const { phone_number, channel } = req.body;
+
+      const existing = await prisma.patient.findUnique({ where: { phone_number } });
+      if (existing?.password_hash) {
+        throw new ConflictError(
+          'This phone number already has an account. Please log in with your email and password.'
+        );
+      }
 
       if (channel === 'whatsapp') {
         const pin_id = `wa-${Date.now()}`;
@@ -38,7 +67,7 @@ export const authController = {
 
         await whatsappService.sendMessage({
           to: phone_number,
-          message: `Your 9Care verification code is ${code}. Valid for 15 minutes.`
+          message: `Your 9Care verification code is ${code}. Valid for 15 minutes.`,
         });
 
         return res.status(200).json({ pin_id });
@@ -63,19 +92,18 @@ export const authController = {
 
   /**
    * POST /auth/patient/otp/verify
-   * Verifies OTP and returns JWT tokens
+   * Completes sign-up phone verification and returns JWT tokens.
+   * Client should then call /auth/patient/credentials to set email + password.
    */
   async patientOtpVerify(req: Request, res: Response, next: NextFunction) {
     try {
       const { pin_id, code } = req.body;
 
-      // Look up the phone number associated with this pin_id in Redis
       const phone_number = await redis.get(`otp:${pin_id}`);
       if (!phone_number) {
         throw new UnauthorizedError('OTP session expired or invalid');
       }
 
-      // Dev mode: verify against stored dev code
       const devCode = await redis.get(`otp:code:${pin_id}`);
       if (devCode) {
         if (code !== devCode) throw new UnauthorizedError('Invalid or expired OTP');
@@ -85,14 +113,20 @@ export const authController = {
         if (!result.verified) throw new UnauthorizedError('Invalid or expired OTP');
       }
 
-      // Upsert patient now that their phone is verified
+      const existing = await prisma.patient.findUnique({ where: { phone_number } });
+      if (existing?.password_hash) {
+        await redis.del(`otp:${pin_id}`);
+        throw new ConflictError(
+          'This phone number already has an account. Please log in with your email and password.'
+        );
+      }
+
       const patient = await prisma.patient.upsert({
         where: { phone_number },
         update: {},
-        create: { phone_number },
+        create: { phone_number, intake_status: 'not_started' },
       });
 
-      // Cleanup OTP session
       await redis.del(`otp:${pin_id}`);
 
       const tokens = generateTokens({
@@ -103,11 +137,94 @@ export const authController = {
 
       res.status(200).json({
         ...tokens,
-        patient: {
-          id: patient.id,
-          phone_number: patient.phone_number,
-          name: patient.name,
+        needs_credentials: !patient.password_hash,
+        patient: patientPublic(patient),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/patient/credentials
+   * Authenticated. Sets email + password after OTP sign-up (or legacy accounts without password).
+   */
+  async patientSetCredentials(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const patientId = req.user!.id;
+      const { email, password, name, age } = req.body;
+      const normalizedEmail = String(email).trim().toLowerCase();
+
+      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+      if (!patient) throw new NotFoundError('Patient not found');
+
+      const emailTaken = await prisma.patient.findFirst({
+        where: { email: normalizedEmail, NOT: { id: patientId } },
+      });
+      if (emailTaken) {
+        throw new ConflictError('This email is already registered. Please log in instead.');
+      }
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const updated = await prisma.patient.update({
+        where: { id: patientId },
+        data: {
+          email: normalizedEmail,
+          password_hash,
+          ...(name ? { name } : {}),
+          ...(age != null ? { age } : {}),
         },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actor_type: 'patient',
+          actor_id: patientId,
+          action: 'patient_credentials_set',
+          resource_type: 'patient',
+          resource_id: patientId,
+          before: null,
+          after: { email: normalizedEmail },
+        },
+      });
+
+      res.status(200).json({
+        message: 'Account credentials saved. You can log in with email and password next time.',
+        patient: patientPublic(updated),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/patient/login
+   * Email + password. No OTP on returning login.
+   */
+  async patientLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+      const normalizedEmail = String(email).trim().toLowerCase();
+
+      const patient = await prisma.patient.findUnique({ where: { email: normalizedEmail } });
+      if (!patient || !patient.password_hash) {
+        throw new UnauthorizedError('Invalid email or password');
+      }
+
+      const valid = await bcrypt.compare(password, patient.password_hash);
+      if (!valid) {
+        throw new UnauthorizedError('Invalid email or password');
+      }
+
+      const tokens = generateTokens({
+        id: patient.id,
+        role: 'patient',
+        type: 'patient',
+      });
+
+      res.status(200).json({
+        ...tokens,
+        patient: patientPublic(patient),
       });
     } catch (err) {
       next(err);

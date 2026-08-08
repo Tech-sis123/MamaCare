@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPatientMe } from '../lib/api';
-import { getPatientData, clearPatientAuth } from '../lib/auth';
+import { getPatientMe, setPatientCredentials } from '../lib/api';
+import { getPatientData, setPatientAuth, clearPatientAuth } from '../lib/auth';
 
 const PatientProfile = () => {
   const navigate = useNavigate();
@@ -10,11 +10,81 @@ const PatientProfile = () => {
   const [patient, setPatient] = useState(getPatientData());
   const [needsPassword, setNeedsPassword] = useState(true);
 
+  // Password Modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+
   useEffect(() => {
     getPatientMe()
-      .then(r => setPatient(r.data))
+      .then(r => {
+        if (r.data) {
+          setPatient(prev => ({ ...prev, ...r.data }));
+          if (r.data.has_password || r.data.password_hash) {
+            setNeedsPassword(false);
+          }
+          if (r.data.email) {
+            setPasswordForm(f => ({ ...f, email: r.data.email }));
+          }
+        }
+      })
       .catch(() => {});
   }, []);
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!passwordForm.email || !passwordForm.email.includes('@')) {
+      setPasswordError('Please enter a valid email address.');
+      return;
+    }
+    if (passwordForm.password.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      return;
+    }
+    if (passwordForm.password !== passwordForm.confirmPassword) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const { data } = await setPatientCredentials({
+        email: passwordForm.email.trim(),
+        password: passwordForm.password,
+      });
+
+      setNeedsPassword(false);
+      setPasswordSuccess('Password saved successfully!');
+      if (data?.patient) {
+        setPatient(prev => ({ ...prev, ...data.patient, has_password: true }));
+        const existing = getPatientData();
+        setPatientAuth(
+          localStorage.getItem('mc_patient_token'),
+          localStorage.getItem('mc_patient_refresh'),
+          { ...existing, ...data.patient, has_password: true }
+        );
+      }
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordSuccess('');
+        setPasswordForm(f => ({ ...f, password: '', confirmPassword: '' }));
+      }, 1500);
+    } catch (err) {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to save password. Please try again.';
+      setPasswordError(msg);
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handleSignOut = () => {
     clearPatientAuth();
@@ -125,7 +195,14 @@ const PatientProfile = () => {
                 </p>
               </div>
             </div>
-            <button className={`w-full py-3 rounded-xl font-label-sm text-sm border-2 transition-colors ${needsPassword ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' : 'bg-surface-container border-outline text-on-surface hover:bg-surface-container-high'}`}>
+            <button
+              onClick={() => {
+                setPasswordError('');
+                setPasswordSuccess('');
+                setShowPasswordModal(true);
+              }}
+              className={`w-full py-3 rounded-xl font-label-sm text-sm border-2 transition-colors ${needsPassword ? 'bg-amber-100 border-amber-300 text-amber-800 hover:bg-amber-200' : 'bg-surface-container border-outline text-on-surface hover:bg-surface-container-high'}`}
+            >
               {needsPassword ? 'Set Password' : 'Change Password'}
             </button>
           </div>
@@ -240,6 +317,108 @@ const PatientProfile = () => {
           </button>
         </div>
       </nav>
+      {/* Set/Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-outline-variant/30 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-outline-variant/20 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">security</span>
+                <h3 className="font-headline-md text-lg text-on-surface">
+                  {needsPassword ? 'Set Account Password' : 'Change Password'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-surface-container flex items-center justify-center text-on-surface-variant transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <p className="font-body-md text-xs text-on-surface-variant">
+              {needsPassword
+                ? 'Set an email and password to log in easily from any device without waiting for SMS OTP.'
+                : 'Update your account login email and password.'}
+            </p>
+
+            {passwordError && (
+              <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-body-md flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">error</span>
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-primary text-xs font-body-md flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                <span>{passwordSuccess}</span>
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-3 pt-1">
+              <div>
+                <label className="block font-label-sm text-xs text-on-surface-variant mb-1">
+                  Login Email <span className="text-error">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="e.g. mama@example.com"
+                  value={passwordForm.email}
+                  onChange={e => setPasswordForm({ ...passwordForm, email: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-sm text-xs text-on-surface-variant mb-1">
+                  New Password <span className="text-error">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Min 6 characters"
+                  value={passwordForm.password}
+                  onChange={e => setPasswordForm({ ...passwordForm, password: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block font-label-sm text-xs text-on-surface-variant mb-1">
+                  Confirm Password <span className="text-error">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Re-enter password"
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl border border-outline-variant text-sm focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-outline-variant text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-label-sm hover:bg-primary/90 disabled:opacity-50 transition-all shadow-sm"
+                >
+                  {passwordLoading ? 'Saving...' : 'Save Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

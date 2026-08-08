@@ -6,6 +6,7 @@ export const otpRequestSchema = z.object({
     .min(10, 'Phone number must be at least 10 digits')
     .max(15, 'Phone number too long')
     .regex(/^\+?[0-9]+$/, 'Invalid phone number format'),
+  channel: z.enum(['sms', 'whatsapp']).optional(),
 });
 
 export const otpVerifySchema = z.object({
@@ -14,6 +15,20 @@ export const otpVerifySchema = z.object({
     .string()
     .length(6, 'OTP code must be 6 digits')
     .regex(/^[0-9]+$/, 'OTP code must be numeric'),
+});
+
+/** After OTP signup — set email + password for future password logins (no OTP). */
+export const patientSetCredentialsSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  name: z.string().min(2, 'Name is required').optional(),
+  age: z.number().int().min(10).max(60).optional(),
+});
+
+/** Returning patients log in with email + password (no OTP). */
+export const patientLoginSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 export const doctorLoginSchema = z.object({

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { askPatientAI } from '../lib/api';
+import { askPatientAI, getPatientMe } from '../lib/api';
+import { getPatientData } from '../lib/auth';
 
 const AIChatPanel = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -122,7 +123,20 @@ const AIChatPanel = ({ onClose }) => {
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const [showAI, setShowAI] = useState(false);
-  const [needsPassword, setNeedsPassword] = useState(true);
+  const [needsPassword, setNeedsPassword] = useState(() => {
+    const p = getPatientData();
+    return !p?.has_password && !p?.password_hash;
+  });
+
+  useEffect(() => {
+    getPatientMe()
+      .then(r => {
+        if (r.data?.has_password || r.data?.password_hash || r.data?.email) {
+          setNeedsPassword(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
@@ -157,7 +171,10 @@ const PatientDashboard = () => {
                 <p className="text-amber-800 text-xs">Set up a password to log in easily without OTP.</p>
               </div>
             </div>
-            <button className="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm">
+            <button
+              onClick={() => navigate('/profile')}
+              className="bg-amber-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shrink-0 shadow-sm cursor-pointer"
+            >
               Set Password
             </button>
           </div>

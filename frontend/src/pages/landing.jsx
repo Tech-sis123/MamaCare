@@ -53,10 +53,16 @@ const Landing = () => {
               EN | Pidgin
             </button>
             <button
+              onClick={() => navigate('/register?mode=login')}
+              className="hidden sm:block text-primary font-body-md font-bold px-3 py-2 hover:opacity-80"
+            >
+              Log in
+            </button>
+            <button
               onClick={() => navigate('/register')}
               className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-body-md font-bold hover:opacity-90 transition-all scale-95 active:scale-90"
             >
-              Register/sign in
+              Sign up
             </button>
           </div>
         </div>
@@ -192,7 +198,7 @@ const Landing = () => {
               </div>
               <h4 className="font-headline-md text-primary mb-2">1. Register</h4>
               <p className="text-on-surface-variant font-body-md">
-                Sign up quickly with your phone number.
+                Sign up with phone OTP once, then log in with email anytime.
               </p>
             </div>
             {/* Step 2 */}

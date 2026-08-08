@@ -26,7 +26,22 @@ import adminRoutes from './modules/admin/routes';
 const app = express();
 
 // ─── Global Middleware ──────────────────────────────────────
-app.use(cors({ origin: '*' }));
+
+// Manual preflight handler — Express 5 + path-to-regexp v8 breaks
+// app.options('*', cors()), so we catch OPTIONS here before routing.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Idempotency-Key');
+
+  if (req.method === 'OPTIONS') {
+    logger.info({ path: req.path }, '✅ Preflight OPTIONS handled');
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(requestId);
 app.use(pinoHttp({ logger }));

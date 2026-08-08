@@ -232,6 +232,49 @@ export const authController = {
   },
 
   /**
+   * POST /auth/patient/register-email
+   * Direct email + password signup — no OTP needed.
+   * Creates a new patient and returns JWT tokens.
+   */
+  async patientRegisterEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password, name, phone_number } = req.body;
+      const normalizedEmail = String(email).trim().toLowerCase();
+
+      const existing = await prisma.patient.findFirst({ where: { email: normalizedEmail } });
+      if (existing) {
+        throw new ConflictError('This email is already registered. Please log in instead.');
+      }
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const patient = await prisma.patient.create({
+        data: {
+          email: normalizedEmail,
+          password_hash,
+          phone_number: phone_number || `email-${Date.now()}`,
+          name: name || null,
+          intake_status: 'not_started',
+        },
+      });
+
+      logger.info({ patientId: patient.id, email: normalizedEmail }, 'Patient registered via email');
+
+      const tokens = generateTokens({
+        id: patient.id,
+        role: 'patient',
+        type: 'patient',
+      });
+
+      res.status(201).json({
+        ...tokens,
+        patient: patientPublic(patient),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * POST /auth/doctor/login
    * Email + password auth for doctors
    */

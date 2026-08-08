@@ -9,6 +9,7 @@ import {
   otpVerifySchema,
   patientLoginSchema,
   patientSetCredentialsSchema,
+  patientRegisterEmailSchema,
   doctorLoginSchema,
   refreshTokenSchema,
   doctorRegisterSchema,
@@ -49,6 +50,14 @@ router.post(
   authRateLimiter,
   validate(patientLoginSchema),
   authController.patientLogin
+);
+
+// Direct patient signup with email + password (no OTP)
+router.post(
+  '/patient/register-email',
+  authRateLimiter,
+  validate(patientRegisterEmailSchema),
+  authController.patientRegisterEmail
 );
 
 // Doctor login

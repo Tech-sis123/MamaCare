@@ -55,12 +55,19 @@ const PatientProfile = () => {
       return;
     }
 
+    const token = localStorage.getItem('mc_patient_token');
+    console.log('[SetPassword] Token present:', !!token);
+    console.log('[SetPassword] Token preview:', token ? token.substring(0, 20) + '...' : 'NONE');
+    console.log('[SetPassword] API base URL:', import.meta.env.VITE_API_URL || 'http://localhost:3000');
+
     setPasswordLoading(true);
     try {
+      console.log('[SetPassword] Sending request to /auth/patient/credentials...');
       const { data } = await setPatientCredentials({
         email: passwordForm.email.trim(),
         password: passwordForm.password,
       });
+      console.log('[SetPassword] ✅ Success:', data);
 
       setNeedsPassword(false);
       setPasswordSuccess('Password saved successfully!');
@@ -79,7 +86,17 @@ const PatientProfile = () => {
         setPasswordForm(f => ({ ...f, password: '', confirmPassword: '' }));
       }, 1500);
     } catch (err) {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to save password. Please try again.';
+      console.error('[SetPassword] ❌ Error:', {
+        message: err.message,
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        code: err.code,
+        url: err.config?.url,
+        baseURL: err.config?.baseURL,
+        hasToken: !!err.config?.headers?.Authorization,
+      });
+      const msg = err.response?.data?.message || err.response?.data?.error || `Failed to save password (${err.code || err.response?.status || 'network error'}). Please try again.`;
       setPasswordError(msg);
     } finally {
       setPasswordLoading(false);

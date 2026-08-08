@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   requestOtp,
@@ -6,6 +6,7 @@ import {
   upsertProfile,
   setPatientCredentials,
   patientLogin,
+  registerPatientEmail,
 } from '../lib/api';
 import { setPatientAuth, isPatientAuthenticated } from '../lib/auth';
 
@@ -191,6 +192,31 @@ const RegistrationFlow = () => {
     }
   };
 
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerName, setRegisterName] = useState('');
+
+  const handleEmailRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setApiError('');
+    if (registerPassword.length < 6) {
+      setApiError('Password must be at least 6 characters.');
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data } = await registerPatientEmail(registerEmail.trim(), registerPassword, registerName.trim());
+      setPatientAuth(data.access_token, data.refresh_token, data.patient);
+      navigate('/intake');
+    } catch (err) {
+      const d = err.response?.data;
+      setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to create account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -334,7 +360,7 @@ const RegistrationFlow = () => {
             </section>
           )}
 
-          {/* Sign-up step 1: phone + OTP */}
+          {/* Sign-up step 1: Choose Phone or Email */}
           {step === 'phone' && (
             <section className="space-y-8 animate-fade-in">
               <div className="flex flex-col items-center text-center">
@@ -343,11 +369,64 @@ const RegistrationFlow = () => {
                 </div>
                 <h1 className="font-headline-lg text-primary mb-2">Welcome to 9Care</h1>
                 <p className="font-body-md text-on-surface-variant">
-                  Verify your phone once to create your account
+                  Create your account below
                 </p>
               </div>
-              <form onSubmit={handlePhoneSubmit} className="space-y-6">
-                <div className="space-y-2">
+
+              {/* Toggle for Email vs Phone signup */}
+              <div className="flex justify-center mb-4">
+                 <button type="button" onClick={() => setAuthChannel('email')} className={`px-4 py-2 text-sm font-bold border-b-2 ${authChannel === 'email' ? 'border-primary text-primary' : 'border-transparent text-stone-500'}`}>Email Signup</button>
+                 <button type="button" onClick={() => setAuthChannel('sms')} className={`px-4 py-2 text-sm font-bold border-b-2 ${authChannel === 'sms' ? 'border-primary text-primary' : 'border-transparent text-stone-500'}`}>Phone Signup</button>
+              </div>
+
+              {authChannel === 'email' ? (
+                 <form onSubmit={handleEmailRegisterSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="font-label-sm text-on-surface-variant">FULL NAME</label>
+                    <input
+                      type="text"
+                      value={registerName}
+                      onChange={(e) => setRegisterName(e.target.value)}
+                      className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="Jane Doe"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="font-label-sm text-on-surface-variant">EMAIL</label>
+                    <input
+                      type="email"
+                      value={registerEmail}
+                      onChange={(e) => setRegisterEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="font-label-sm text-on-surface-variant">PASSWORD</label>
+                    <input
+                      type="password"
+                      value={registerPassword}
+                      onChange={(e) => setRegisterPassword(e.target.value)}
+                      className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="At least 6 characters"
+                      required
+                    />
+                  </div>
+                  {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-primary text-white font-label-sm py-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-60"
+                  >
+                    {loading ? 'Creating Account...' : 'Sign up'}
+                    {!loading && <span className="material-symbols-outlined text-sm">arrow_forward</span>}
+                  </button>
+                 </form>
+              ) : (
+                <form onSubmit={(e) => handlePhoneSubmit(e, 'sms')} className="space-y-6">
+                  <div className="space-y-2">
                   <label className="font-label-sm text-on-surface-variant">PHONE NUMBER</label>
                   <div className="flex gap-2">
                     <div className="flex items-center gap-2 px-3 py-3 border border-outline-variant rounded-lg bg-surface-container-low">
@@ -381,6 +460,7 @@ const RegistrationFlow = () => {
                   Use WhatsApp instead
                 </button>
               </form>
+              )}
             </section>
           )}
 

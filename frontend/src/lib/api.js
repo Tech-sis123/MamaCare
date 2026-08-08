@@ -57,6 +57,10 @@ export const setPatientCredentials = (data) =>
 export const patientLogin = (email, password) =>
   axios.post(`${BASE}/auth/patient/login`, { email, password });
 
+/** Direct email + password signup (no OTP). */
+export const registerPatientEmail = (email, password, name) =>
+  axios.post(`${BASE}/auth/patient/register-email`, { email, password, name });
+
 export const doctorLogin = (email, password) =>
   axios.post(`${BASE}/auth/doctor/login`, { email, password });
 

@@ -60,8 +60,13 @@ const PatientDetailPanel = () => {
 
   const preg = fullPatient?.pregnancies?.[0] || {};
   const intakeMap = {};
+  const intakeByDomain = {};
   (fullPatient?.intake_responses || []).forEach(r => {
-    if (r && r.question_key) intakeMap[r.question_key] = r.answer;
+    if (r && r.question_key) {
+      intakeMap[r.question_key] = r.answer;
+      if (!intakeByDomain[r.domain]) intakeByDomain[r.domain] = [];
+      intakeByDomain[r.domain].push({ key: r.question_key, answer: r.answer });
+    }
   });
 
   const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
@@ -104,7 +109,8 @@ const PatientDetailPanel = () => {
     conditions: activeConditions.length > 0 ? activeConditions : (fullPatient?.conditions || passedPatient?.conditions || MOCK.conditions),
     medications: intakeMap['pregnancy_medications'] || intakeMap['other_medications'] || passedPatient?.medications || MOCK.medications,
     drugAllergies: intakeMap['drug_allergy'] === 'yes' ? (intakeMap['allergy_details'] || 'Yes') : intakeMap['drug_allergy'] === 'no' ? 'None' : (passedPatient?.drugAllergies || MOCK.drugAllergies),
-    risk: passedPatient?.risk_tier || fullPatient?.risk_assessments?.[0]?.tier || passedPatient?.risk || 'HIGH'
+    risk: passedPatient?.risk_tier || fullPatient?.risk_assessments?.[0]?.tier || passedPatient?.risk || 'HIGH',
+    flags: fullPatient?.risk_assessments?.[0]?.reasons || passedPatient?.flags || []
   };
 
   const name = p.name || MOCK.name;
@@ -252,12 +258,12 @@ const PatientDetailPanel = () => {
           {/* Clinical Flags */}
           {(p.flags?.length > 0 || !isReal) && (
             <section>
-              <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Clinical Flags</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">AI Risk Analysis / Flags</h3>
+              <div className="flex flex-col gap-2">
                 {(p.flags?.length ? p.flags : ['High BP', 'Low Hb']).map(flag => (
-                  <div key={flag} className="flex items-center gap-2 p-3 rounded-lg border bg-secondary-fixed border-secondary/20">
-                    <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                    <span className="font-label-sm text-xs text-on-secondary-fixed-variant">{flag}</span>
+                  <div key={flag} className="flex items-start gap-3 p-3 rounded-lg border bg-secondary-fixed border-secondary/20 shadow-sm">
+                    <span className="material-symbols-outlined text-secondary mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
+                    <span className="font-body-md text-sm text-on-secondary-fixed-variant leading-tight">{flag}</span>
                   </div>
                 ))}
               </div>
@@ -369,6 +375,28 @@ const PatientDetailPanel = () => {
                 <Row label="Food Allergies"      value={p.foodAllergies || p.food_allergies || 'None'} />
               </div>
             </SectionAccordion>
+
+            {/* Dynamic Questionnaire Dump */}
+            {Object.keys(intakeByDomain).length > 0 && (
+              <SectionAccordion title="Full Questionnaire Data">
+                <div className="mt-4 space-y-6">
+                  {Object.entries(intakeByDomain).map(([domain, questions]) => (
+                    <div key={domain}>
+                      <h4 className="font-label-sm text-primary uppercase mb-2 border-b border-primary/20 pb-1">
+                        {domain.replace(/_/g, ' ')}
+                      </h4>
+                      <div className="space-y-0">
+                        {questions.map((q, i) => {
+                          const formattedAnswer = typeof q.answer === 'object' ? JSON.stringify(q.answer) : String(q.answer);
+                          const formattedLabel = q.key.replace(/_/g, ' ');
+                          return <Row key={i} label={formattedLabel} value={formattedAnswer} />;
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionAccordion>
+            )}
           </section>
 
           {/* Clinical Notes */}

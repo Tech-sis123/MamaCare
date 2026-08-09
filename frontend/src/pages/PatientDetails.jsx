@@ -378,24 +378,20 @@ const PatientDetailPanel = () => {
 
             {/* Dynamic Questionnaire Dump */}
             {Object.keys(intakeByDomain).length > 0 && (
-              <SectionAccordion title="Full Questionnaire Data">
-                <div className="mt-4 space-y-6">
-                  {Object.entries(intakeByDomain).map(([domain, questions]) => (
-                    <div key={domain}>
-                      <h4 className="font-label-sm text-primary uppercase mb-2 border-b border-primary/20 pb-1">
-                        {domain.replace(/_/g, ' ')}
-                      </h4>
-                      <div className="space-y-0">
-                        {questions.map((q, i) => {
-                          const formattedAnswer = typeof q.answer === 'object' ? JSON.stringify(q.answer) : String(q.answer);
-                          const formattedLabel = q.key.replace(/_/g, ' ');
-                          return <Row key={i} label={formattedLabel} value={formattedAnswer} />;
-                        })}
-                      </div>
+              <div className="pt-2 border-t border-outline-variant/30 mt-4 space-y-2">
+                <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">Raw Questionnaire Data</h3>
+                {Object.entries(intakeByDomain).map(([domain, questions]) => (
+                  <SectionAccordion key={domain} title={`${domain.replace(/_/g, ' ')} Questions`}>
+                    <div className="mt-3 space-y-0">
+                      {questions.map((q, i) => {
+                        const formattedAnswer = typeof q.answer === 'object' ? JSON.stringify(q.answer) : String(q.answer);
+                        const formattedLabel = q.key.replace(/_/g, ' ');
+                        return <Row key={i} label={formattedLabel} value={formattedAnswer} />;
+                      })}
                     </div>
-                  ))}
-                </div>
-              </SectionAccordion>
+                  </SectionAccordion>
+                ))}
+              </div>
             )}
           </section>
 

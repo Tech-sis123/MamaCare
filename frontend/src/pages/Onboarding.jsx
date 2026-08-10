@@ -939,7 +939,8 @@ const IntakeQuestionnaire = () => {
     const patientId = getPatientId();
     if (patientId) {
       try {
-        for (let i = 0; i < SECTION_META.length; i++) await autoSave(i);
+        // Save all sections in parallel (was sequential — major latency)
+        await Promise.all(SECTION_META.map((_, i) => autoSave(i)));
         const { data: res } = await submitIntake(patientId);
         if (res?.meta) setIntakeMeta(res.meta);
         // API shape: { risk: { tier, reasons, engine_version, id } }
@@ -956,7 +957,8 @@ const IntakeQuestionnaire = () => {
         if (risk?.engine_version) {
           localStorage.setItem('mc_risk_engine', String(risk.engine_version));
         }
-        setTimeout(() => navigate('/risk-result'), 2800);
+        // Navigate as soon as the API returns — no artificial 2.8s delay
+        navigate('/risk-result');
       } catch (err) {
         const msg =
           err?.response?.data?.message ||

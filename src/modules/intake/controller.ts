@@ -4,6 +4,7 @@ import { ForbiddenError, NotFoundError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { normalizeIntakeDomain } from './schemas';
 import { getIntakeEditMeta } from './editWindow';
+import { runRiskEngine } from '../risk/engine';
 
 async function assertPatientCanEditIntake(patientId: string) {
   const patient = await prisma.patient.findUnique({ where: { id: patientId } });
@@ -30,42 +31,44 @@ export const intakeController = {
       const { domain, responses } = req.body;
       const normalizedDomain = normalizeIntakeDomain(domain);
 
-      await assertPatientCanEditIntake(patientId);
+      const { patient } = await assertPatientCanEditIntake(patientId);
 
-      const upserted = [];
-      for (const resp of responses) {
-        const existing = await prisma.intakeResponse.findFirst({
-          where: {
-            patient_id: patientId,
-            domain: normalizedDomain,
-            question_key: resp.question_key,
-          },
-        });
+      const keys = responses.map((r: { question_key: string }) => r.question_key);
+      // One query for existing rows instead of N findFirst calls
+      const existingRows = await prisma.intakeResponse.findMany({
+        where: {
+          patient_id: patientId,
+          domain: normalizedDomain,
+          question_key: { in: keys },
+        },
+      });
+      const byKey = new Map(existingRows.map((r) => [r.question_key, r]));
 
-        if (existing) {
-          const updated = await prisma.intakeResponse.update({
-            where: { id: existing.id },
-            data: { answer: resp.answer },
-          });
-          upserted.push(updated);
-        } else {
-          const created = await prisma.intakeResponse.create({
+      // Parallel upserts within the domain
+      const upserted = await Promise.all(
+        responses.map(async (resp: { question_key: string; answer: unknown }) => {
+          const existing = byKey.get(resp.question_key);
+          if (existing) {
+            return prisma.intakeResponse.update({
+              where: { id: existing.id },
+              data: { answer: resp.answer as any },
+            });
+          }
+          return prisma.intakeResponse.create({
             data: {
               patient_id: patientId,
               domain: normalizedDomain,
               question_key: resp.question_key,
-              answer: resp.answer,
+              answer: resp.answer as any,
             },
           });
-          upserted.push(created);
-        }
-      }
+        })
+      );
 
-      // Mark progress; keep "submitted" if already submitted within the edit window
-      const current = await prisma.patient.findUnique({ where: { id: patientId } });
+      // Single patient update (reuse edit-window patient; avoid extra findUnique)
       const nextStatus =
-        current?.intake_status === 'submitted' ? 'submitted' : 'in_progress';
-      await prisma.patient.update({
+        patient.intake_status === 'submitted' ? 'submitted' : 'in_progress';
+      const updatedPatient = await prisma.patient.update({
         where: { id: patientId },
         data: {
           intake_status: nextStatus,
@@ -73,21 +76,22 @@ export const intakeController = {
         },
       });
 
-      await prisma.auditLog.create({
-        data: {
-          actor_type: 'patient',
-          actor_id: patientId,
-          action: 'intake_partial_save',
-          resource_type: 'intake_response',
-          resource_id: patientId,
-          before: null,
-          after: { domain: normalizedDomain, question_count: responses.length },
-        },
-      });
+      // Fire-and-forget audit — do not block the response on logging
+      prisma.auditLog
+        .create({
+          data: {
+            actor_type: 'patient',
+            actor_id: patientId,
+            action: 'intake_partial_save',
+            resource_type: 'intake_response',
+            resource_id: patientId,
+            before: null,
+            after: { domain: normalizedDomain, question_count: responses.length },
+          },
+        })
+        .catch((err) => logger.warn({ err, patientId }, 'intake audit log failed'));
 
-      const meta = getIntakeEditMeta(
-        (await prisma.patient.findUnique({ where: { id: patientId } }))!
-      );
+      const meta = getIntakeEditMeta(updatedPatient);
 
       res.status(200).json({ saved: upserted.length, domain: normalizedDomain, meta });
     } catch (err) {
@@ -151,16 +155,16 @@ export const intakeController = {
 
       const { patient } = await assertPatientCanEditIntake(patientId);
 
-      const { runRiskEngine } = await import('../risk/engine');
+      const [pregnancy, intakeResponses] = await Promise.all([
+        prisma.pregnancy.findFirst({
+          where: { patient_id: patientId },
+          orderBy: { id: 'desc' },
+        }),
+        prisma.intakeResponse.findMany({
+          where: { patient_id: patientId },
+        }),
+      ]);
 
-      const pregnancy = await prisma.pregnancy.findFirst({
-        where: { patient_id: patientId },
-        orderBy: { id: 'desc' },
-      });
-
-      const intakeResponses = await prisma.intakeResponse.findMany({
-        where: { patient_id: patientId },
-      });
       const intakeMap = new Map<string, any>();
       for (const ir of intakeResponses) {
         intakeMap.set(ir.question_key, ir.answer);
@@ -185,43 +189,49 @@ export const intakeController = {
               : null,
       };
 
+      // Pure sync rules engine — milliseconds
       const result = runRiskEngine(riskInput);
 
-      const assessment = await prisma.riskAssessment.create({
-        data: {
-          patient_id: patientId,
-          tier: result.tier,
-          reasons: result.reasons,
-          engine_version: result.engine_version,
-          input_snapshot: riskInput as any,
-        },
-      });
-
       const firstSubmitted = patient.intake_first_submitted_at ?? new Date();
-      await prisma.patient.update({
-        where: { id: patientId },
-        data: {
-          intake_status: 'submitted',
-          intake_first_submitted_at: firstSubmitted,
-          intake_last_saved_at: new Date(),
-        },
-      });
 
-      await prisma.auditLog.create({
-        data: {
-          actor_type: 'patient',
-          actor_id: patientId,
-          action: 'intake_submitted',
-          resource_type: 'intake_response',
-          resource_id: patientId,
-          before: null,
-          after: {
-            risk_tier: result.tier,
-            assessment_id: assessment.id,
-            first_submit: !patient.intake_first_submitted_at,
+      // Persist assessment + patient status in parallel
+      const [assessment] = await Promise.all([
+        prisma.riskAssessment.create({
+          data: {
+            patient_id: patientId,
+            tier: result.tier,
+            reasons: result.reasons,
+            engine_version: result.engine_version,
+            input_snapshot: riskInput as any,
           },
-        },
-      });
+        }),
+        prisma.patient.update({
+          where: { id: patientId },
+          data: {
+            intake_status: 'submitted',
+            intake_first_submitted_at: firstSubmitted,
+            intake_last_saved_at: new Date(),
+          },
+        }),
+      ]);
+
+      prisma.auditLog
+        .create({
+          data: {
+            actor_type: 'patient',
+            actor_id: patientId,
+            action: 'intake_submitted',
+            resource_type: 'intake_response',
+            resource_id: patientId,
+            before: null,
+            after: {
+              risk_tier: result.tier,
+              assessment_id: assessment.id,
+              first_submit: !patient.intake_first_submitted_at,
+            },
+          },
+        })
+        .catch((err) => logger.warn({ err, patientId }, 'intake submit audit failed'));
 
       logger.info({ patientId, tier: result.tier }, 'Intake submitted, risk assessed');
 

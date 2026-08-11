@@ -227,9 +227,15 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'medical': {
-      const sCount = parseInt(data.surgeryCount) || 0;
+      // Cap count so a large/invalid number cannot freeze the UI with huge arrays
+      const sCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
       const surgeryFields = Array.from({ length: sCount }, (_, i) => ({
-        id: `surgery_${i}`, question: null, type: 'surgery_card', surgeryIdx: i, required: false, condition: d => d.surgeries === true
+        id: `surgery_${i}`,
+        question: null,
+        type: 'surgery_card',
+        surgeryIdx: i,
+        required: false,
+        condition: d => d.surgeries === true && (parseInt(d.surgeryCount, 10) || 0) > 0,
       }));
 
       return [
@@ -276,15 +282,82 @@ function buildSlides(sectionId, data) {
   }
 }
 
+// ── Completion helpers ────────────────────────────────────────────────────────
+function isFilledValue(v) {
+  if (v === '' || v === null || v === undefined) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
+/** Minimum fields for a previous-child card to count as done */
+function isChildCardFilled(child) {
+  if (!child || typeof child !== 'object') return false;
+  // Year + gender + mode of delivery + state now is a practical "filled" bar
+  return (
+    isFilledValue(child.year) &&
+    isFilledValue(child.gender) &&
+    isFilledValue(child.deliveryMode) &&
+    isFilledValue(child.stateNow)
+  );
+}
+
+function isSurgeryCardFilled(surgery) {
+  if (!surgery || typeof surgery !== 'object') return false;
+  return isFilledValue(surgery.type) && isFilledValue(surgery.year);
+}
+
+function isSlideAnswered(slide, data) {
+  if (!slide) return false;
+  if (slide.type === 'obs_none' || slide.type === 'gp_summary') return true;
+  if (slide.type === 'child_card') {
+    return isChildCardFilled((data.children || [])[slide.childIdx]);
+  }
+  if (slide.type === 'surgery_card') {
+    return isSurgeryCardFilled((data.surgeryDetails || [])[slide.surgeryIdx]);
+  }
+  if (slide.field) return isFilledValue(data[slide.field]);
+  return false;
+}
+
 // ── Completion check ──────────────────────────────────────────────────────────
 function sectionComplete(sectionId, data) {
   const slides = buildSlides(sectionId, data).filter(s => !s.condition || s.condition(data));
-  const required = slides.filter(s => s.required);
-  if (required.length === 0) {
-    const answered = slides.filter(s => s.field && (data[s.field] !== '' && data[s.field] !== null && data[s.field] !== undefined));
-    return answered.length >= Math.min(3, slides.length);
+  if (slides.length === 0) return true;
+
+  // Obstetric is only child cards (or first-delivery notice) — never has top-level `field`s
+  if (sectionId === 'obstetric') {
+    const p = parseInt(data.parity, 10) || 0;
+    if (p === 0) return true; // first delivery — nothing to record
+    return Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
   }
-  return required.every(s => s.field && data[s.field] !== '' && data[s.field] !== null && data[s.field] !== undefined);
+
+  const required = slides.filter(s => s.required);
+  if (required.length > 0) {
+    return required.every(s => isSlideAnswered(s, data));
+  }
+
+  // Optional field sections: keep prior “enough answers” heuristic so we don’t
+  // suddenly mark long sections incomplete; always require card slides (surgery) if present.
+  const fieldSlides = slides.filter(s => s.field);
+  const cardSlides = slides.filter(s => s.type === 'child_card' || s.type === 'surgery_card');
+
+  if (fieldSlides.length === 0) {
+    return cardSlides.length === 0 || cardSlides.every(s => isSlideAnswered(s, data));
+  }
+
+  const answeredFields = fieldSlides.filter(s => isFilledValue(data[s.field])).length;
+  const fieldsOk = answeredFields >= Math.min(3, fieldSlides.length);
+  const cardsOk = cardSlides.every(s => isSlideAnswered(s, data));
+  return fieldsOk && cardsOk;
+}
+
+/** Progress counts for overview cards (works for field slides + child/surgery cards) */
+function sectionProgress(sectionId, data) {
+  const slides = buildSlides(sectionId, data).filter(s => !s.condition || s.condition(data));
+  if (slides.length === 0) return { answered: 0, total: 0 };
+  const total = slides.length;
+  const answered = slides.filter(s => isSlideAnswered(s, data)).length;
+  return { answered, total };
 }
 
 // ── Initial data ──────────────────────────────────────────────────────────────
@@ -548,7 +621,7 @@ const ChildCard = ({ idx, child, onChange }) => {
 };
 
 // ── Slide renderer ────────────────────────────────────────────────────────────
-const SlideContent = ({ slide, data, set, setChild }) => {
+const SlideContent = ({ slide, data, set, setChild, setSurgery }) => {
   if (!slide) return null;
   const val = slide.field ? data[slide.field] : null;
   const risk = slide.riskCheck ? slide.riskCheck(val, data) : null;
@@ -654,6 +727,13 @@ const SlideContent = ({ slide, data, set, setChild }) => {
   }
 
   if (slide.type === 'surgery_card') {
+    if (typeof setSurgery !== 'function') {
+      return (
+        <p className="text-red-600 text-sm font-semibold">
+          Unable to load surgery details. Please go back and try again.
+        </p>
+      );
+    }
     const surgeries = data.surgeryDetails || [];
     const surgery = surgeries[slide.surgeryIdx] || {};
     return <SurgeryCard idx={slide.surgeryIdx} surgery={surgery} onChange={setSurgery} />;
@@ -836,8 +916,8 @@ const IntakeQuestionnaire = () => {
   const setSurgery = (idx, field, val) => {
     if (!canEdit) return;
     setData(prev => {
-      const count = parseInt(prev.surgeryCount) || 0;
-      const surgeries = Array.from({ length: count }, (_, i) => prev.surgeryDetails?.[i] || {});
+      const count = Math.min(20, Math.max(0, parseInt(prev.surgeryCount, 10) || 0));
+      const surgeries = Array.from({ length: Math.max(count, idx + 1) }, (_, i) => prev.surgeryDetails?.[i] || {});
       surgeries[idx] = { ...(surgeries[idx] || {}), [field]: val };
       return { ...prev, surgeryDetails: surgeries };
     });
@@ -846,11 +926,12 @@ const IntakeQuestionnaire = () => {
   const risks = useMemo(() => computeRisks(data), [data]);
   const gp    = useMemo(() => computeGP(data), [data]);
 
-  // Sync children array length when parity changes
-  const parity = parseInt(data.parity) || 0;
+  // Sync children / surgery array length when counts change
+  const parity = Math.min(20, Math.max(0, parseInt(data.parity, 10) || 0));
   const ensuredChildren = Array.from({ length: parity }, (_, i) => data.children?.[i] || {});
-  
-  const ensuredSurgeries = Array.from({ length: parseInt(data.surgeryCount) || 0 }, (_, i) => data.surgeryDetails?.[i] || {});
+
+  const surgeryCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
+  const ensuredSurgeries = Array.from({ length: surgeryCount }, (_, i) => data.surgeryDetails?.[i] || {});
 
   const getSlides = (sId) => {
     const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries });
@@ -864,9 +945,11 @@ const IntakeQuestionnaire = () => {
   };
 
   const goNext = async () => {
-    const slides = getSlides(SECTION_META[secIdx].id);
-    if (slideIdx < slides.length - 1) {
-      setSlideIdx(s => s + 1);
+    // Recompute slides so newly added surgery/child cards are included after count is entered
+    const list = getSlides(SECTION_META[secIdx].id);
+    const idx = Math.min(slideIdx, Math.max(0, list.length - 1));
+    if (list.length > 0 && idx < list.length - 1) {
+      setSlideIdx(idx + 1);
       window.scrollTo(0, 0);
     } else {
       // Section complete — save & return to overview
@@ -973,13 +1056,14 @@ const IntakeQuestionnaire = () => {
     }
   };
 
-  const allDone = SECTION_META.every(s => sectionComplete(s.id, { ...data, children: ensuredChildren }));
+  const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
+  const allDone = SECTION_META.every(s => sectionComplete(s.id, dataForComplete));
 
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {
     const hasProgress =
       hydrated &&
-      SECTION_META.some(s => sectionComplete(s.id, { ...data, children: ensuredChildren }));
+      SECTION_META.some(s => sectionComplete(s.id, dataForComplete));
     const status = intakeMeta?.status || (hasProgress ? 'in_progress' : 'not_started');
 
     return (
@@ -1053,10 +1137,9 @@ const IntakeQuestionnaire = () => {
           {/* Section cards */}
           <div className="space-y-3">
             {SECTION_META.map((s, i) => {
-              const done = sectionComplete(s.id, { ...data, children: ensuredChildren });
-              const slides = getSlides(s.id);
-              const answered = slides.filter(sl => sl.field && data[sl.field] !== '' && data[sl.field] !== null && data[sl.field] !== undefined).length;
-              const total = slides.filter(sl => sl.field).length;
+              const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
+              const done = sectionComplete(s.id, dataForSection);
+              const { answered, total } = sectionProgress(s.id, dataForSection);
               return (
                 <button key={s.id} onClick={() => enterSection(i)}
                   className="w-full bg-white rounded-2xl p-5 flex items-center gap-4 shadow-sm border border-primary/10 hover:border-primary/30 hover:shadow-md transition-all text-left active:scale-[0.99]">
@@ -1124,9 +1207,20 @@ const IntakeQuestionnaire = () => {
   // ── Carousel section view ──────────────────────────────────────────────────
   const sec = SECTION_META[secIdx];
   const slides = getSlides(sec.id);
-  const slide = slides[slideIdx];
-  const progress = ((slideIdx + 1) / slides.length) * 100;
-  const isLast = slideIdx === slides.length - 1;
+  // Clamp index when slide list grows/shrinks (e.g. after entering surgery count)
+  const safeSlideIdx = slides.length === 0 ? 0 : Math.min(slideIdx, slides.length - 1);
+  const slide = slides[safeSlideIdx];
+  const progress = slides.length > 0 ? ((safeSlideIdx + 1) / slides.length) * 100 : 0;
+  const isLast = slides.length === 0 || safeSlideIdx === slides.length - 1;
+
+  // Keep slideIdx in range after dynamic slides appear (surgery / child cards)
+  useEffect(() => {
+    if (view !== 'section') return;
+    const list = getSlides(SECTION_META[secIdx].id);
+    if (list.length > 0 && slideIdx >= list.length) {
+      setSlideIdx(list.length - 1);
+    }
+  }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, slideIdx]);
 
   return (
     <div className="min-h-screen flex flex-col bg-white font-body-md">
@@ -1138,7 +1232,7 @@ const IntakeQuestionnaire = () => {
           </button>
           <div className="flex-1">
             <p className="text-primary font-bold text-sm">{sec.label}</p>
-            <p className="text-slate-400 text-xs">{slideIdx + 1} of {slides.length}</p>
+            <p className="text-slate-400 text-xs">{slides.length ? `${safeSlideIdx + 1} of ${slides.length}` : '—'}</p>
           </div>
           <span className="material-symbols-outlined text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>{sec.icon}</span>
         </div>
@@ -1170,8 +1264,20 @@ const IntakeQuestionnaire = () => {
             <h2 className="text-2xl font-bold text-slate-800">Tell us about each of your previous children</h2>
           </div>
         )}
+        {slide?.type === 'surgery_card' && (
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold text-slate-800">Tell us about each surgery</h2>
+            <p className="text-slate-400 text-sm mt-2">What was done, and roughly which year.</p>
+          </div>
+        )}
 
-        <SlideContent slide={slide} data={{ ...data, children: ensuredChildren }} set={set} setChild={setChild} />
+        <SlideContent
+          slide={slide}
+          data={{ ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries }}
+          set={set}
+          setChild={setChild}
+          setSurgery={setSurgery}
+        />
       </main>
 
       {/* Footer nav */}

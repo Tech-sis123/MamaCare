@@ -54,16 +54,18 @@ const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
   </div>
 );
 
-const Chips = ({ options, value, onChange, multi = false }) => {
-  const vals = multi ? (value || []) : null;
+const Chips = ({ options = [], value, onChange, multi = false }) => {
+  const vals = multi
+    ? (Array.isArray(value) ? value : value != null && value !== '' ? [value] : [])
+    : null;
   return (
     <div className="flex flex-wrap gap-2">
-      {options.map(opt => {
-        const v = opt.value !== undefined ? opt.value : opt;
-        const l = opt.label !== undefined ? opt.label : opt;
+      {(options || []).map(opt => {
+        const v = opt && opt.value !== undefined ? opt.value : opt;
+        const l = opt && opt.label !== undefined ? opt.label : opt;
         const active = multi ? vals.includes(v) : value === v;
         return (
-          <button key={String(v)} onClick={() => {
+          <button key={String(v)} type="button" onClick={() => {
             if (multi) {
               if (vals.includes(v)) onChange(vals.filter(x => x !== v));
               else onChange([...vals, v]);
@@ -1123,6 +1125,15 @@ const IntakeQuestionnaire = () => {
   const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
   const allDone = SECTION_META.every(s => sectionComplete(s.id, dataForComplete));
 
+  // MUST stay above any early return — otherwise overview→section crashes (hooks order)
+  useEffect(() => {
+    if (view !== 'section') return;
+    const list = getSlides(SECTION_META[secIdx]?.id);
+    if (list.length > 0 && slideIdx >= list.length) {
+      setSlideIdx(list.length - 1);
+    }
+  }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, slideIdx]);
+
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {
     const hasProgress =
@@ -1277,14 +1288,20 @@ const IntakeQuestionnaire = () => {
   const progress = slides.length > 0 ? ((safeSlideIdx + 1) / slides.length) * 100 : 0;
   const isLast = slides.length === 0 || safeSlideIdx === slides.length - 1;
 
-  // Keep slideIdx in range after dynamic slides appear (surgery / child cards)
-  useEffect(() => {
-    if (view !== 'section') return;
-    const list = getSlides(SECTION_META[secIdx].id);
-    if (list.length > 0 && slideIdx >= list.length) {
-      setSlideIdx(list.length - 1);
-    }
-  }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, slideIdx]);
+  if (!sec) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-4">
+        <p className="text-slate-600 text-center">Could not open this section.</p>
+        <button
+          type="button"
+          onClick={() => setView('overview')}
+          className="px-6 py-3 bg-primary text-white font-bold rounded-xl"
+        >
+          Back to health profile
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-white font-body-md">

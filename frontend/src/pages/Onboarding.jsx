@@ -141,6 +141,8 @@ function buildSlides(sectionId, data) {
   switch (sectionId) {
 
     case 'biodata': return [
+      { id: 'age',           question: 'How old are you?',                           field: 'age',           type: 'number',  required: true,  placeholder: 'e.g. 28', min: 12, max: 55,
+        hint: 'Your age is used in your risk assessment — please confirm it is correct.' },
       { id: 'occupation',    question: 'What is your occupation?',                   field: 'occupation',    type: 'text',    required: false, placeholder: 'e.g. Trader, Teacher, Nurse' },
       { id: 'marital',       question: 'What is your marital status?',               field: 'marital',       type: 'chips',   required: false,
         options: ['Single', 'Married', 'Widowed', 'Divorced'] },
@@ -1018,9 +1020,10 @@ const IntakeQuestionnaire = () => {
     setSaveError('');
     try {
       if (sId === 'biodata') {
+        const ageNum = parseInt(String(data.age), 10);
         await upsertProfile({
           name: data.name || undefined,
-          age: Number(data.age) || undefined,
+          age: !isNaN(ageNum) && ageNum > 0 ? ageNum : undefined,
           occupation: data.occupation || undefined,
           marital_status: data.marital?.toLowerCase() || undefined,
           address: [data.addrHouse, data.addrStreet, data.addrCity, data.addrState].filter(Boolean).join(', ') || undefined,

@@ -99,25 +99,26 @@ describe('Risk Stratification Engine', () => {
     expect(result.reasons).toContain('HIV positive');
   });
 
-  // Graceful degradation test
-  it('should gracefully degrade by escalating and flagging missing critical fields', () => {
-    const incompleteInput: RiskInput = {
-      ...baseHappyInput,
-      age: null, // missing critical field
-      genotype: undefined, // missing critical field
-    };
-
-    const result = runRiskEngine(incompleteInput);
-    // Should be elevated to HIGH because two critical fields are missing (LOW -> MEDIUM -> HIGH)
-    expect(result.tier).toBe('HIGH');
+  // Missing-data policy (self-serve mothers often have no clinic BP yet)
+  it('should escalate when age is missing (hard critical)', () => {
+    const result = runRiskEngine({ ...baseHappyInput, age: null });
+    expect(result.tier).toBe('MEDIUM'); // LOW → MEDIUM once
     expect(result.reasons).toContain('Missing critical field: age');
-    expect(result.reasons).toContain('Missing critical field: genotype');
   });
 
-  it('should treat genotype "Not sure" as a missing critical field', () => {
+  it('should NOT escalate to HIGH solely because BP is missing', () => {
+    const result = runRiskEngine({
+      ...baseHappyInput,
+      bp_systolic: null,
+      bp_diastolic: null,
+    });
+    expect(result.tier).toBe('LOW');
+    expect(result.reasons.some((r) => r.includes('Incomplete clinic data'))).toBe(true);
+  });
+
+  it('should note unconfirmed genotype without escalating by itself', () => {
     const result = runRiskEngine({ ...baseHappyInput, genotype: 'Not sure' });
-    expect(result.reasons).toContain('Missing critical field: genotype');
-    // LOW + one missing critical field → MEDIUM
-    expect(result.tier).toBe('MEDIUM');
+    expect(result.reasons).toContain('Genotype not confirmed');
+    expect(result.tier).toBe('LOW');
   });
 });

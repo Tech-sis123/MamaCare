@@ -52,53 +52,68 @@ export const patientsController = {
   },
 
   /**
-   * POST /patients/pregnancy — create pregnancy record, compute EDD and EGA
+   * POST /patients/pregnancy — create or update the latest pregnancy record
    */
   async createPregnancy(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const patientId = req.user!.id;
       const data = req.body;
 
-      const lmpDate = new Date(data.lmp_date);
-      const eddComputed = calculateEDD(lmpDate);
-      const currentEgaWeeks = calculateEGAWeeks(lmpDate);
+      const hasLmp = data.lmp_date && !isNaN(Date.parse(data.lmp_date));
+      const lmpDate = hasLmp ? new Date(data.lmp_date) : null;
+      const eddComputed = lmpDate ? calculateEDD(lmpDate) : undefined;
+      const currentEgaWeeks = lmpDate ? calculateEGAWeeks(lmpDate) : undefined;
 
-      const pregnancy = await prisma.pregnancy.create({
-        data: {
-          patient_id: patientId,
-          lmp_date: lmpDate,
-          edd_computed: eddComputed,
-          current_ega_weeks: currentEgaWeeks,
-          booking_weight: data.booking_weight,
-          booking_height: data.booking_height,
-          booking_bp_systolic: data.booking_bp_systolic,
-          booking_bp_diastolic: data.booking_bp_diastolic,
-          blood_group: data.blood_group,
-          genotype: data.genotype,
-          rvd_status: data.rvd_status,
-          vdrl: data.vdrl,
-          pcv: data.pcv,
-          hep_b: data.hep_b,
-          tetanus_history: data.tetanus_history,
-          gravidity: data.gravidity,
-          parity: data.parity,
-        },
+      const payload = {
+        ...(lmpDate ? { lmp_date: lmpDate, edd_computed: eddComputed, current_ega_weeks: currentEgaWeeks } : {}),
+        ...(data.booking_weight != null ? { booking_weight: data.booking_weight } : {}),
+        ...(data.booking_height != null ? { booking_height: data.booking_height } : {}),
+        ...(data.booking_bp_systolic != null ? { booking_bp_systolic: data.booking_bp_systolic } : {}),
+        ...(data.booking_bp_diastolic != null ? { booking_bp_diastolic: data.booking_bp_diastolic } : {}),
+        ...(data.blood_group != null ? { blood_group: data.blood_group } : {}),
+        ...(data.genotype != null ? { genotype: data.genotype } : {}),
+        ...(data.rvd_status != null ? { rvd_status: data.rvd_status } : {}),
+        ...(data.vdrl != null ? { vdrl: data.vdrl } : {}),
+        ...(data.pcv != null ? { pcv: data.pcv } : {}),
+        ...(data.hep_b != null ? { hep_b: data.hep_b } : {}),
+        ...(data.tetanus_history != null ? { tetanus_history: data.tetanus_history } : {}),
+        ...(data.gravidity != null ? { gravidity: data.gravidity } : {}),
+        ...(data.parity != null ? { parity: data.parity } : {}),
+      };
+
+      const existing = await prisma.pregnancy.findFirst({
+        where: { patient_id: patientId },
+        orderBy: { id: 'desc' },
       });
 
-      // Audit log
+      let pregnancy;
+      if (existing) {
+        pregnancy = await prisma.pregnancy.update({
+          where: { id: existing.id },
+          data: payload,
+        });
+      } else {
+        pregnancy = await prisma.pregnancy.create({
+          data: {
+            patient_id: patientId,
+            ...payload,
+          },
+        });
+      }
+
       await prisma.auditLog.create({
         data: {
           actor_type: 'patient',
           actor_id: patientId,
-          action: 'pregnancy_created',
+          action: existing ? 'pregnancy_updated' : 'pregnancy_created',
           resource_type: 'pregnancy',
           resource_id: pregnancy.id,
-          before: null,
+          before: existing as any,
           after: pregnancy as any,
         },
       });
 
-      res.status(201).json({ pregnancy });
+      res.status(existing ? 200 : 201).json({ pregnancy });
     } catch (err) {
       next(err);
     }

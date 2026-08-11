@@ -8,21 +8,24 @@
  * Rules validated against WHO Antenatal Care Guidelines and
  * Nigerian Federal Ministry of Health ANC protocols.
  *
- * GRACEFUL DEGRADATION POLICY:
- * If a critical input is missing or null, NEVER downgrade.
- * Escalate one tier and add the missing field to reasons.
+ * MISSING-DATA POLICY (self-serve + clinic hybrid):
+ * - HARD critical (age): missing → escalate tier (identity must exist).
+ * - SOFT incomplete (BP, unconfirmed genotype): flag for care team but do NOT
+ *   escalate to HIGH just because clinic vitals were never entered.
+ *   Escalating on missing BP alone was marking every mother HIGH.
  */
 
 import { RiskInput, RiskOutput, RiskTier } from '../../utils/types';
 
-export const ENGINE_VERSION = '1.0.0';
+export const ENGINE_VERSION = '1.1.0';
 
-// Critical fields — if missing, we escalate
-const CRITICAL_FIELDS: (keyof RiskInput)[] = [
-  'age',
+/** Missing these forces a tier escalate (mother-path must provide them). */
+const HARD_CRITICAL_FIELDS: (keyof RiskInput)[] = ['age'];
+
+/** Missing these are noted for clinicians but do not raise risk tier alone. */
+const SOFT_INCOMPLETE_FIELDS: (keyof RiskInput)[] = [
   'bp_systolic',
   'bp_diastolic',
-  'genotype',
 ];
 
 function escalateTier(current: RiskTier): RiskTier {
@@ -30,7 +33,7 @@ function escalateTier(current: RiskTier): RiskTier {
   return 'HIGH'; // MEDIUM → HIGH, HIGH stays HIGH
 }
 
-/** Known clinical genotypes. "Not sure" / Unknown / empty → null (missing). */
+/** Known clinical genotypes. "Not sure" / Unknown / empty → null (unconfirmed). */
 function normalizeGenotype(value: string | null | undefined): string | null {
   if (value == null) return null;
   const gt = String(value).trim().toUpperCase();
@@ -56,7 +59,7 @@ export function runRiskEngine(input: RiskInput): RiskOutput {
     }
   }
 
-  // Blood pressure rules
+  // Blood pressure rules (only when measured)
   if (input.bp_systolic != null && input.bp_diastolic != null) {
     if (input.bp_systolic >= 140 || input.bp_diastolic >= 90) {
       tier = applyTier(tier, 'HIGH');
@@ -75,7 +78,7 @@ export function runRiskEngine(input: RiskInput): RiskOutput {
     }
   }
 
-  // Genotype rules — "Not sure" / unknown values are treated as missing (see graceful degradation)
+  // Genotype rules — only known high-risk genotypes raise tier
   const knownGenotype = normalizeGenotype(input.genotype);
   if (knownGenotype != null) {
     if (knownGenotype === 'SS' || knownGenotype === 'SC') {
@@ -120,22 +123,23 @@ export function runRiskEngine(input: RiskInput): RiskOutput {
     reasons.push('HIV positive');
   }
 
-  // ─── Graceful degradation ─────────────────────────────────────
-  // Check for missing critical fields. If any are missing,
-  // escalate the tier and flag the missing field.
+  // ─── Missing-data handling ────────────────────────────────────
 
-  for (const field of CRITICAL_FIELDS) {
-    if (field === 'genotype') {
-      // Treat "Not sure" / Unknown as missing critical genotype data
-      if (normalizeGenotype(input.genotype) === null) {
-        tier = escalateTier(tier);
-        reasons.push(`Missing critical field: ${field}`);
-      }
-      continue;
-    }
+  for (const field of HARD_CRITICAL_FIELDS) {
     if (input[field] === undefined || input[field] === null) {
       tier = escalateTier(tier);
       reasons.push(`Missing critical field: ${field}`);
+    }
+  }
+
+  // Unconfirmed genotype — note for care team, do not escalate by itself
+  if (knownGenotype === null) {
+    reasons.push('Genotype not confirmed');
+  }
+
+  for (const field of SOFT_INCOMPLETE_FIELDS) {
+    if (input[field] === undefined || input[field] === null) {
+      reasons.push(`Incomplete clinic data: ${field}`);
     }
   }
 

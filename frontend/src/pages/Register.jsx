@@ -153,14 +153,21 @@ const RegistrationFlow = () => {
     setLoading(true);
     try {
       const dob = formData.dob ? new Date(formData.dob) : null;
-      const age = dob ? new Date().getFullYear() - dob.getFullYear() : undefined;
+      let age;
+      if (dob && !isNaN(dob.getTime())) {
+        const today = new Date();
+        age = today.getFullYear() - dob.getFullYear();
+        const m = today.getMonth() - dob.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age -= 1;
+        if (age < 10 || age > 60) age = undefined;
+      }
       const name = `${formData.firstName} ${formData.lastName}`.trim();
 
       const { data } = await setPatientCredentials({
         email: formData.email.trim(),
         password: formData.password,
         name: name || undefined,
-        age,
+        age: age != null ? age : undefined,
       });
 
       if (data?.patient) {
@@ -168,17 +175,16 @@ const RegistrationFlow = () => {
         setPatientAuth(
           localStorage.getItem('mc_patient_token'),
           localStorage.getItem('mc_patient_refresh'),
-          { ...existing, ...data.patient }
+          { ...existing, ...data.patient, age: data.patient.age ?? age }
         );
       }
 
-      if (name || age) {
-        await upsertProfile({
-          name: name || undefined,
-          age,
-          language_preference: 'en',
-        }).catch(() => {});
-      }
+      // Always try to persist age on the profile (risk engine requires it)
+      await upsertProfile({
+        name: name || undefined,
+        age: age != null ? age : undefined,
+        language_preference: 'en',
+      }).catch(() => {});
 
       // Resume questionnaire if in progress; otherwise start intake
       const status = data?.patient?.intake_status;

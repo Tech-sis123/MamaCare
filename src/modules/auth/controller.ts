@@ -27,6 +27,7 @@ function patientPublic(patient: {
   phone_number: string;
   email?: string | null;
   name?: string | null;
+  age?: number | null;
   intake_status?: string | null;
   intake_first_submitted_at?: Date | null;
   password_hash?: string | null;
@@ -36,6 +37,7 @@ function patientPublic(patient: {
     phone_number: patient.phone_number,
     email: patient.email ?? null,
     name: patient.name ?? null,
+    age: patient.age ?? null,
     has_password: !!patient.password_hash,
     intake_status: patient.intake_status ?? 'not_started',
     intake_first_submitted_at: patient.intake_first_submitted_at ?? null,

@@ -13,7 +13,11 @@ export const createProfileSchema = z.object({
 });
 
 export const createPregnancySchema = z.object({
-  lmp_date: z.string().refine((val) => !isNaN(Date.parse(val)), 'Invalid date format'),
+  // Optional so blood group / genotype can save even if LMP is filled later
+  lmp_date: z
+    .string()
+    .refine((val) => !val || !isNaN(Date.parse(val)), 'Invalid date format')
+    .optional(),
   booking_weight: z.number().positive().optional(),
   booking_height: z.number().positive().optional(),
   booking_bp_systolic: z.number().int().positive().optional(),

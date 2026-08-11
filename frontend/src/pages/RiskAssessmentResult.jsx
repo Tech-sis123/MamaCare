@@ -62,13 +62,27 @@ function reasonToFactor(reason, riskLevel) {
   const r = String(reason || '');
   const lower = r.toLowerCase();
 
-  // Missing data is informational, not a clinical danger for the mother-facing UI
+  // Missing / incomplete data — mother-friendly, not emergency language
   if (lower.includes('missing critical field')) {
+    const field = r.split(':').slice(1).join(':').trim() || 'details';
     return {
       type: 'warn',
       icon: 'info',
       title: 'Some information is incomplete',
-      desc: 'We could not verify every clinical detail yet. Your care team may ask for more information.',
+      desc:
+        field === 'age'
+          ? 'Your age was not found on your profile. Please update it in your health profile so risk can be assessed accurately.'
+          : `We could not verify “${field}” yet. Your care team may ask for more information.`,
+    };
+  }
+  if (lower.includes('incomplete clinic data') || lower.includes('genotype not confirmed')) {
+    return {
+      type: 'warn',
+      icon: 'info',
+      title: lower.includes('genotype') ? 'Genotype not confirmed' : 'Clinic measurements not on file',
+      desc: lower.includes('genotype')
+        ? 'You selected “Not sure” or genotype was not saved. This is noted for your care team — it does not by itself mean an emergency.'
+        : 'Blood pressure or lab values are not on your record yet. They will be added at your clinic visit.',
     };
   }
 
@@ -191,15 +205,19 @@ const RiskAssessmentResult = () => {
 
   const factors = useMemo(() => {
     const reasons = loadStoredReasons();
-    // Only show clinical reasons (skip pure "missing field" noise if we also have real clinical flags)
-    const clinical = reasons.filter(r => !String(r).toLowerCase().includes('missing critical field'));
-    const source = clinical.length > 0 ? clinical : reasons;
+    if (reasons.length === 0) return cfg.factors;
 
-    if (source.length > 0) {
-      return source.map(r => reasonToFactor(r, riskLevel));
+    // Map + dedupe by title so we don't show three identical "incomplete" cards
+    const mapped = reasons.map(r => reasonToFactor(r, riskLevel));
+    const seen = new Set();
+    const deduped = [];
+    for (const f of mapped) {
+      const key = `${f.title}|${f.desc}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(f);
     }
-    // Fallback static factors for this tier when no engine reasons are available
-    return cfg.factors;
+    return deduped.length > 0 ? deduped : cfg.factors;
   }, [riskLevel, cfg.factors]);
 
   const factorStyles = {

@@ -166,6 +166,10 @@ function buildSlides(sectionId, data) {
         hint: 'This is your parity — babies born alive or stillborn after 24 weeks.',
         riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
       { id: 'multiGestation', question: 'Did any of those pregnancies include Twin or multiple gestations?', field: 'multiGestation', type: 'yes_no', required: false },
+      { id: 'multiGestationCount', question: 'How many of those pregnancies were twin or multiple gestations?', field: 'multiGestationCount', type: 'number', required: false,
+        condition: d => d.multiGestation === true,
+        placeholder: 'e.g. 1', min: 1, max: 20,
+        hint: 'Count pregnancies with twins, triplets, or more — not the number of babies.' },
       { id: 'childrenAlive', question: 'Of the children you have given birth to, how many are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
@@ -175,6 +179,8 @@ function buildSlides(sectionId, data) {
       { id: 'desired',        question: 'Was this pregnancy planned or desired?',        field: 'desired',        type: 'yes_no',  required: false },
       { id: 'conception',     question: 'How was this pregnancy achieved?',              field: 'conception',     type: 'chips',   required: false,
         options: [{ value: 'spontaneous', label: 'Spontaneous (natural)' }, { value: 'assisted', label: 'Assisted (IVF / IUI)' }] },
+      { id: 'currentMultiGestation', question: 'Is this pregnancy a twin or multiple pregnancy?', field: 'currentMultiGestation', type: 'yes_no', required: false,
+        hint: 'This is about the pregnancy you are carrying now.' },
       { id: 'pregTestDone',   question: 'Did you do a pregnancy test to confirm this pregnancy?', field: 'pregTestDone', type: 'yes_no', required: false },
       { id: 'pregTestType',   question: 'What type of pregnancy test did you use?',      field: 'pregTestType',   type: 'chips',   required: false,
         condition: d => d.pregTestDone === true,
@@ -367,9 +373,9 @@ const INIT = {
   addrHouse: '', addrStreet: '', addrCity: '', addrState: '',
   religion: null, christianDenom: null, tribe: '',
   lmpKnown: null, lmpDate: '', lmpMonth: '', lmpYear: '',
-  gravidity: '', parity: '', multiGestation: null, childrenAlive: '',
+  gravidity: '', parity: '', multiGestation: null, multiGestationCount: '', childrenAlive: '',
   // Index pregnancy
-  desired: null, conception: null,
+  desired: null, conception: null, currentMultiGestation: null,
   pregTestDone: null, pregTestType: null,
   scanDone: null, scanDate: '',
   bloodGroup: null, genotype: null,
@@ -847,11 +853,32 @@ const IntakeQuestionnaire = () => {
           parity: parityVal,
           bloodGroup: preg.blood_group || prev.bloodGroup,
           genotype: preg.genotype || prev.genotype,
-          multiGestation: map['is_twin_pregnancy'] === true || map['is_twin_pregnancy'] === 'true' || map['is_twin_pregnancy'] === 'yes'
-            ? true
-            : map['is_twin_pregnancy'] === false || map['is_twin_pregnancy'] === 'false' || map['is_twin_pregnancy'] === 'no'
-              ? false
-              : prev.multiGestation,
+          multiGestation: (() => {
+            const yn = (v) => (v === true || v === 'true' || v === 'yes' ? true : v === false || v === 'false' || v === 'no' ? false : null);
+            const hist = yn(map['multi_gestation_history']);
+            if (hist !== null) return hist;
+            // Legacy: older saves stored past multi-gestation as is_twin_pregnancy only
+            if (!('multi_gestation_history' in map)) {
+              const legacy = yn(map['is_twin_pregnancy']);
+              if (legacy !== null) return legacy;
+            }
+            return prev.multiGestation;
+          })(),
+          multiGestationCount: map['multi_gestation_count'] != null && map['multi_gestation_count'] !== ''
+            ? String(map['multi_gestation_count'])
+            : prev.multiGestationCount,
+          // Current pregnancy twins — only from is_twin_pregnancy once we use the new history key
+          currentMultiGestation: (() => {
+            const yn = (v) => (v === true || v === 'true' || v === 'yes' ? true : v === false || v === 'false' || v === 'no' ? false : null);
+            if ('multi_gestation_history' in map || 'is_twin_pregnancy' in map) {
+              // Prefer explicit current flag; if only legacy history key existed, leave current unset
+              if ('multi_gestation_history' in map) {
+                const cur = yn(map['is_twin_pregnancy']);
+                return cur !== null ? cur : prev.currentMultiGestation;
+              }
+            }
+            return prev.currentMultiGestation;
+          })(),
           children,
           menarche: map['menarche_age'] || prev.menarche,
           cycleLength: map['cycle_days'] || prev.cycleLength,
@@ -900,7 +927,27 @@ const IntakeQuestionnaire = () => {
 
   const set = (key, val) => {
     if (!canEdit) return;
-    setData(prev => ({ ...prev, [key]: val }));
+    setData(prev => {
+      const next = { ...prev, [key]: val };
+      // Clear follow-ups when parent answer is No / cleared
+      if (key === 'multiGestation' && val !== true) next.multiGestationCount = '';
+      if (key === 'surgeries' && val !== true) {
+        next.surgeryCount = '';
+        next.surgeryDetails = [];
+      }
+      if (key === 'routineMedsCheck' && val !== true) next.currentMeds = '';
+      if (key === 'drugAllergy' && val !== true) next.allergyDetails = '';
+      if (key === 'pregTestDone' && val !== true) next.pregTestType = null;
+      if (key === 'scanDone' && val !== true) next.scanDate = '';
+      if (key === 'hasPain' && val !== true) next.painDetails = '';
+      if (key === 'topDone' && val !== true) {
+        next.topCount = '';
+        next.topYear = '';
+        next.topMethod = null;
+        next.topComplications = null;
+      }
+      return next;
+    });
   };
 
   const setChild = (idx, field, val) => {
@@ -980,11 +1027,19 @@ const IntakeQuestionnaire = () => {
           religion: data.religion?.toLowerCase() || undefined,
           ethnicity: data.tribe || undefined,
         }).catch(() => {});
-        // Persist twin/multiple gestation for risk engine (is_twin_pregnancy)
+        // Past twin/multiple history + current twin flag (biodata domain is allowed by API)
+        const biodataResponses = [];
         if (data.multiGestation !== null && data.multiGestation !== undefined) {
-          await saveIntake(patientId, 'biodata', [
-            { question_key: 'is_twin_pregnancy', answer: data.multiGestation === true },
-          ]).catch(() => {});
+          biodataResponses.push({ question_key: 'multi_gestation_history', answer: data.multiGestation === true });
+        }
+        if (data.multiGestation === true && data.multiGestationCount !== '' && data.multiGestationCount != null) {
+          biodataResponses.push({ question_key: 'multi_gestation_count', answer: String(data.multiGestationCount) });
+        }
+        if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
+          biodataResponses.push({ question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true });
+        }
+        if (biodataResponses.length) {
+          await saveIntake(patientId, 'biodata', biodataResponses).catch(() => {});
         }
       }
       if (sId === 'index') {
@@ -997,6 +1052,12 @@ const IntakeQuestionnaire = () => {
           gravidity: Number(data.gravidity) || undefined,
           parity: Number(data.parity) || undefined,
         }).catch(() => {});
+        // Current pregnancy twin/multiple → risk engine (same biodata domain for intake keys)
+        if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
+          await saveIntake(patientId, 'biodata', [
+            { question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true },
+          ]).catch(() => {});
+        }
       }
       const domainMap = {
         obstetric: 'obstetric',

@@ -7,8 +7,8 @@ const RISK_CONFIG = {
     heroBg: '#D4E6D8',
     icon: 'check_circle',
     iconColor: 'text-primary',
-    title: "You're doing well!",
-    body: 'Your assessment looks healthy. Keep attending your antenatal visits and follow your care plan.',
+    title: "You're all set",
+    body: 'Up next is to book your first antenatal clinic visit and have your booking investigations done.',
     reason:
       'Your blood pressure, blood levels, and symptoms are all within safe ranges. This means your baby is growing in a healthy environment. Keep eating well, resting, and attending all your checkups.',
     factors: [
@@ -17,7 +17,7 @@ const RISK_CONFIG = {
       { type: 'ok', icon: 'check_circle', title: 'Age within range', desc: 'Your age factor is considered low-risk.' },
       { type: 'ok', icon: 'check_circle', title: 'No major risk flags', desc: 'No high-risk clinical flags were raised by the assessment.' },
     ],
-    ctaLabel: 'Book your next appointment',
+    ctaLabel: 'Book your Antenatal clinic visit',
     ctaRoute: '/appointments',
     urgent: false,
   },
@@ -299,8 +299,9 @@ const RiskAssessmentResult = () => {
           </div>
         </section>
 
-        {/* Contributing Factors */}
-        <section className="mt-10">
+        {/* Contributing Factors (hidden for LOW risk to simplify the green screen) */}
+        {riskLevel !== 'LOW' && (
+          <section className="mt-10">
           <div className="flex justify-between items-end mb-6 gap-3">
             <div>
               <h3 className="font-headline-md text-on-surface">Contributing Factors</h3>
@@ -332,7 +333,8 @@ const RiskAssessmentResult = () => {
           <p className="mt-6 text-center italic text-outline font-body-md text-sm">
             Assessed by 9Care AI clinical rules based on current medical standards.
           </p>
-        </section>
+          </section>
+        )}
       </main>
 
       {/* Sticky bottom CTA */}

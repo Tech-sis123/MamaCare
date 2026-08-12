@@ -18,6 +18,8 @@ const PatientProfile = () => {
     religion: '',
     ethnicity: '',
   });
+  const [saveError, setSaveError] = useState('');
+  const [saveLoading, setSaveLoading] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(true);
 
   // Password Modal state
@@ -133,7 +135,8 @@ const PatientProfile = () => {
   const saveProfile = async () => {
     try {
       const payload = {
-        name: editForm.name || undefined,
+        // name is required by backend schema — fallback to existing patient name
+        name: editForm.name && String(editForm.name).trim() ? String(editForm.name).trim() : patient?.name || undefined,
         age: editForm.age !== '' && editForm.age != null ? Number(editForm.age) : undefined,
         occupation: editForm.occupation || undefined,
         address: editForm.address || undefined,
@@ -184,33 +187,18 @@ const PatientProfile = () => {
             </button>
             <h1 className="font-headline-md text-lg">My Profile</h1>
           </div>
-          <button
-            onClick={() => setEditing(!editing)}
-            className="px-4 py-1.5 rounded-full border border-white/30 font-label-sm text-xs hover:bg-white/10 transition-all"
-          >
-            {editing ? 'Save' : 'Edit'}
-          </button>
+          <div>
+            <button
+              onClick={() => (editing ? saveProfile() : setEditing(true))}
+              className="px-4 py-1.5 rounded-full border border-white/30 font-label-sm text-xs hover:bg-white/10 transition-all"
+            >
+              {editing ? (saveLoading ? 'Saving…' : 'Save') : 'Edit'}
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-[640px] mx-auto px-4 pb-40 space-y-6 pt-6">
-        {/* Avatar + Name */}
-        <div className="flex flex-col items-center gap-4 py-6">
-          <div className="w-24 h-24 rounded-full bg-tertiary-fixed flex items-center justify-center border-4 border-white shadow-lg">
-            <span className="font-headline-md text-primary text-3xl">ME</span>
-          </div>
-          <div className="text-center">
-            <h2 className="font-headline-md text-primary text-xl">{patient?.name || 'Patient'}</h2>
-            <p className="font-body-md text-on-surface-variant text-sm mt-1">
-              Phone: {patient?.phone_number || '—'}
-            </p>
-            <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 bg-tertiary-fixed rounded-full">
-              <span className="material-symbols-outlined text-primary text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              <span className="font-label-sm text-primary text-xs">Verified Patient</span>
-            </div>
-          </div>
-        </div>
-
         {/* Pregnancy Status */}
         <section className="bg-primary rounded-xl p-6 text-white relative overflow-hidden">
           <div className="absolute right-4 top-4 opacity-10">
@@ -258,6 +246,12 @@ const PatientProfile = () => {
                   <label className="font-label-sm text-xs text-on-surface-variant">Occupation</label>
                   <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.occupation} onChange={e => handleEditChange('occupation', e.target.value)} />
                 </div>
+                {saveError && (
+                  <div className="p-3 bg-error/10 border border-error/20 rounded-xl text-error text-xs font-body-md flex items-center gap-2">
+                    <span className="material-symbols-outlined text-base">error</span>
+                    <span>{saveError}</span>
+                  </div>
+                )}
               </div>
             ) : (
               <>

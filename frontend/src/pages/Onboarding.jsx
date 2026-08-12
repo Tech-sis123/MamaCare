@@ -271,6 +271,7 @@ function buildSlides(sectionId, data) {
         options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
       { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
       { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
+      { id: 'patientHerbal', question: 'Do you consume or use herbal concoctions?',       field: 'patientHerbal',  type: 'yes_no',  required: false, hint: 'Including herbal remedies, traditional mixtures or concoctions' },
       { id: 'supportive',    question: 'Is your husband or partner supportive of this pregnancy?', field: 'supportive', type: 'yes_no', required: false },
     ];
 
@@ -394,7 +395,7 @@ const INIT = {
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Family & Social
   husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
-  patientSmokes: null, patientDrinks: null, supportive: null,
+  patientSmokes: null, patientDrinks: null, patientHerbal: null, supportive: null,
   // Systems
   neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
 };

@@ -280,15 +280,15 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'systems': return [
-      { id: 'neuro',         question: 'Do you have any of these symptoms?',              field: 'neuroSymptoms', type: 'multi', required: false,
-        options: ['Headaches', 'Seizures / convulsions', 'Dizziness', 'Fainting episodes', 'None of these'] },
-      { id: 'cardio',        question: 'Do you have any of these chest symptoms?',        field: 'cardioSymptoms', type: 'multi', required: false,
-        options: ['Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'None of these'] },
-      { id: 'urinary',       question: 'Have you noticed any changes in how often or how much you urinate?', field: 'urinaryChanges', type: 'yes_no', required: false },
-      { id: 'bowel',         question: 'Have you noticed any changes in how frequently you use the toilet?', field: 'bowelChanges', type: 'yes_no', required: false },
-      { id: 'pain',          question: 'Do you have pain anywhere in your body?',         field: 'hasPain',       type: 'yes_no',  required: false },
-      { id: 'painLocation',  question: 'Where is the pain, and how would you describe it?', field: 'painDetails', type: 'text', required: false,
-        condition: d => d.hasPain === true, placeholder: 'e.g. Lower abdomen, sharp, comes and goes' },
+      { id: 'systemsSymptoms', question: 'Do you have any of these symptoms?', field: 'systemsSymptoms', type: 'multi', required: false,
+        options: [
+          'Headaches', 'Seizures / convulsions', 'Dizziness', 'Fainting episodes',
+          'Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'None of these'
+        ]
+      },
+      { id: 'uroGynae', question: 'Are you experiencing any of these?', field: 'uroGynaeSymptoms', type: 'multi', required: false,
+        options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling']
+      },
     ];
 
     default: return [];
@@ -401,7 +401,7 @@ const INIT = {
   husbandOccupation: '', husbandEducation: null, husbandAge: '', husbandGenotype: null, husbandBloodGroup: null, husbandMarriage: null,
   patientSmokes: null, patientDrinks: null, patientHerbal: null, supportive: null,
   // Systems
-  neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
+  neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], uroGynaeSymptoms: [],
 };
 
 // ── Surgery card ──────────────────────────────────────────────────────────────
@@ -923,12 +923,31 @@ const IntakeQuestionnaire = () => {
               patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
               patientHerbal: map['patient_herbal'] === 'yes' ? true : map['patient_herbal'] === 'no' ? false : prev.patientHerbal,
           supportive: map['supportive'] === 'yes' ? true : map['supportive'] === 'no' ? false : prev.supportive,
-          neuroSymptoms: ['headaches', 'seizures_/_convulsions', 'dizziness', 'fainting_episodes'].filter(s => map[s] === 'yes').map(s => s === 'headaches' ? 'Headaches' : s === 'seizures_/_convulsions' ? 'Seizures / convulsions' : s === 'dizziness' ? 'Dizziness' : 'Fainting episodes'),
-          cardioSymptoms: ['chest_pain', 'cough', 'palpitations', 'difficulty_breathing'].filter(s => map[s] === 'yes').map(s => s === 'chest_pain' ? 'Chest pain' : s === 'cough' ? 'Cough' : s === 'palpitations' ? 'Palpitations' : 'Difficulty breathing'),
-          urinaryChanges: map['urinary_changes'] === 'yes' ? true : map['urinary_changes'] === 'no' ? false : prev.urinaryChanges,
-          bowelChanges: map['bowel_changes'] === 'yes' ? true : map['bowel_changes'] === 'no' ? false : prev.bowelChanges,
-          hasPain: map['pain'] === 'yes' ? true : map['pain'] === 'no' ? false : prev.hasPain,
-          painDetails: map['pain_details'] || prev.painDetails
+          // Systems: prefer new grouped key 'systems_symptoms' if present, else fall back to legacy individual keys
+          systemsSymptoms: (map['systems_symptoms'] ? String(map['systems_symptoms']).split(',').map(s => s.trim()).filter(Boolean) : (
+            [
+              { key: 'headaches', label: 'Headaches' },
+              { key: 'seizures_/_convulsions', label: 'Seizures / convulsions' },
+              { key: 'dizziness', label: 'Dizziness' },
+              { key: 'fainting_episodes', label: 'Fainting episodes' },
+              { key: 'chest_pain', label: 'Chest pain' },
+              { key: 'cough', label: 'Cough' },
+              { key: 'palpitations', label: 'Palpitations' },
+              { key: 'difficulty_breathing', label: 'Difficulty breathing' }
+            ].filter(x => map[x.key] === 'yes').map(x => x.label)
+          )),
+          // Uro/gynae grouped symptoms
+          uroGynaeSymptoms: (map['uro_gynae_symptoms'] ? String(map['uro_gynae_symptoms']).split(',').map(s => s.trim()).filter(Boolean) : (
+            [
+              { key: 'frequent_urination', label: 'Frequent urination' },
+              { key: 'pain_on_urination', label: 'Pain on urination' },
+              { key: 'urinating_blood', label: 'Urinating blood' },
+              { key: 'vaginal_discharge', label: 'Unusual vaginal discharge' },
+              { key: 'constipation', label: 'Constipation (hard stool)' },
+              { key: 'frequent_stooling', label: 'Frequent stooling' }
+            ].filter(x => map[x.key] === 'yes').map(x => x.label)
+          )),
+          // legacy per-field keys removed — new grouped keys used: systems_symptoms, uro_gynae_symptoms
         };
       });
     }).finally(() => setHydrated(true));
@@ -948,7 +967,7 @@ const IntakeQuestionnaire = () => {
       if (key === 'drugAllergy' && val !== true) next.allergyDetails = '';
       if (key === 'pregTestDone' && val !== true) next.pregTestType = null;
       if (key === 'scanDone' && val !== true) next.scanDate = '';
-      if (key === 'hasPain' && val !== true) next.painDetails = '';
+      // removed: hasPain/painDetails follow-up is no longer used
       if (key === 'topDone' && val !== true) {
         next.topCount = '';
         next.topYear = '';
@@ -1462,12 +1481,20 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'supportive',           answer: data.supportive ? 'yes' : 'no' },
     ];
     case 'systems': return [
-      ...(data.neuroSymptoms || []).map(s => ({ question_key: s.toLowerCase().replace(/ \/ /g, '_').replace(/ /g, '_'), answer: 'yes' })),
-      ...(data.cardioSymptoms || []).map(s => ({ question_key: s.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
-      { question_key: 'urinary_changes',  answer: data.urinaryChanges ? 'yes' : 'no' },
-      { question_key: 'bowel_changes',    answer: data.bowelChanges ? 'yes' : 'no' },
-      { question_key: 'pain',             answer: data.hasPain ? 'yes' : 'no' },
-      { question_key: 'pain_details',     answer: data.painDetails || '' },
+      // Persist merged systems symptoms. Send both a grouped key and individual per-symptom flags.
+      ...(data.systemsSymptoms || []).flatMap(s => {
+        const slug = String(s).toLowerCase().replace(/\s*\/\s*/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        return [
+          { question_key: slug, answer: 'yes' },
+        ];
+      }),
+      { question_key: 'systems_symptoms', answer: (data.systemsSymptoms || []).join(', ') },
+      // Uro/gynae grouped symptoms
+      ...(data.uroGynaeSymptoms || []).flatMap(s => {
+        const slug = String(s).toLowerCase().replace(/\s*\/\s*/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        return [{ question_key: slug, answer: 'yes' }];
+      }),
+      { question_key: 'uro_gynae_symptoms', answer: (data.uroGynaeSymptoms || []).join(', ') },
     ];
     default: return [];
   }

@@ -17,6 +17,9 @@ const PatientProfile = () => {
     marital_status: '',
     religion: '',
     ethnicity: '',
+    emergency_contact_name: '',
+    emergency_contact_relationship: '',
+    emergency_contact_phone: '',
   });
   const [saveError, setSaveError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
@@ -47,6 +50,9 @@ const PatientProfile = () => {
             marital_status: r.data.marital_status || '',
             religion: r.data.religion || '',
             ethnicity: r.data.ethnicity || '',
+            emergency_contact_name: r.data.emergency_contact_name || '',
+            emergency_contact_relationship: r.data.emergency_contact_relationship || '',
+            emergency_contact_phone: r.data.emergency_contact_phone || '',
           });
           if (r.data.has_password || r.data.password_hash) {
             setNeedsPassword(false);
@@ -144,6 +150,9 @@ const PatientProfile = () => {
         marital_status: editForm.marital_status || undefined,
         religion: editForm.religion || undefined,
         ethnicity: editForm.ethnicity || undefined,
+        emergency_contact_name: editForm.emergency_contact_name || undefined,
+        emergency_contact_relationship: editForm.emergency_contact_relationship || undefined,
+        emergency_contact_phone: editForm.emergency_contact_phone || undefined,
       };
       const { data } = await upsertProfile(payload);
       if (data?.patient) {
@@ -305,7 +314,7 @@ const PatientProfile = () => {
             <InfoRow label="Genotype"      value={pregnancy?.genotype || patient?.genotype || '—'}         icon="genetics" />
             <InfoRow label="PCV"           value={pregnancy?.pcv ? `${pregnancy.pcv}%` : patient?.pcv || '—'} icon="science" />
             <InfoRow label="Malaria Parasite (MP)" value={pregnancy?.mp || patient?.mp || '—'}             icon="bug_report" />
-            <InfoRow label="Risk Level"    value={riskTier}                                                icon="analytics" />
+            {/* Risk level removed from profile summary per design */}
           </div>
         </section>
 
@@ -315,9 +324,28 @@ const PatientProfile = () => {
             <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">Emergency Contact</p>
           </div>
           <div className="px-6">
-            <InfoRow label="Name"         value="Chukwuemeka Okoye"  icon="person" />
-            <InfoRow label="Relationship" value="Husband"            icon="favorite" />
-            <InfoRow label="Phone"        value="+234 803 456 7890"  icon="phone" />
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Name</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.emergency_contact_name} onChange={e => handleEditChange('emergency_contact_name', e.target.value)} />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Relationship</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.emergency_contact_relationship} onChange={e => handleEditChange('emergency_contact_relationship', e.target.value)} />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Phone</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.emergency_contact_phone} onChange={e => handleEditChange('emergency_contact_phone', e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <InfoRow label="Name" value={patient?.emergency_contact_name || '—'} icon="person" />
+                <InfoRow label="Relationship" value={patient?.emergency_contact_relationship || '—'} icon="favorite" />
+                <InfoRow label="Phone" value={patient?.emergency_contact_phone || '—'} icon="phone" />
+              </>
+            )}
           </div>
         </section>
 

@@ -29,6 +29,10 @@ export const patientsController = {
           religion: data.religion,
           ethnicity: data.ethnicity,
           language_preference: data.language_preference,
+          // Emergency contact fields
+          emergency_contact_name: data.emergency_contact_name,
+          emergency_contact_relationship: data.emergency_contact_relationship,
+          emergency_contact_phone: data.emergency_contact_phone,
         },
       });
 

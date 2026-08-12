@@ -21,6 +21,9 @@ model Patient {
   religion              String?
   ethnicity             String?
   language_preference   String?  // en/pidgin
+  emergency_contact_name String?
+  emergency_contact_relationship String?
+  emergency_contact_phone String?
   primary_doctor_id     String?
   /// not_started | in_progress | submitted
   intake_status         String   @default("not_started")

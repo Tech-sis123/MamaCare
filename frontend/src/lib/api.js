@@ -21,8 +21,24 @@ doctorApi.interceptors.request.use(cfg => {
 // Auto-logout on 401 — stale or wrong-env token
 patientApi.interceptors.response.use(
   res => res,
-  err => {
+  async err => {
     if (err.response?.status === 401) {
+      const refresh = localStorage.getItem('mc_patient_refresh');
+      if (refresh) {
+        try {
+          // Attempt token refresh
+          const { data } = await axios.post(`${BASE}/auth/refresh`, { refresh_token: refresh });
+          if (data?.access_token) {
+            localStorage.setItem('mc_patient_token', data.access_token);
+            if (data.refresh_token) localStorage.setItem('mc_patient_refresh', data.refresh_token);
+            // Retry original request with new token
+            err.config.headers.Authorization = `Bearer ${data.access_token}`;
+            return axios(err.config);
+          }
+        } catch (e) {
+          // fallthrough to logout
+        }
+      }
       clearPatientAuth();
       window.location.href = '/register';
     }
@@ -32,8 +48,22 @@ patientApi.interceptors.response.use(
 
 doctorApi.interceptors.response.use(
   res => res,
-  err => {
+  async err => {
     if (err.response?.status === 401) {
+      const refresh = localStorage.getItem('mc_doctor_refresh');
+      if (refresh) {
+        try {
+          const { data } = await axios.post(`${BASE}/auth/refresh`, { refresh_token: refresh });
+          if (data?.access_token) {
+            localStorage.setItem('mc_doctor_token', data.access_token);
+            if (data.refresh_token) localStorage.setItem('mc_doctor_refresh', data.refresh_token);
+            err.config.headers.Authorization = `Bearer ${data.access_token}`;
+            return axios(err.config);
+          }
+        } catch (e) {
+          // fallthrough to logout
+        }
+      }
       clearDoctorAuth();
       window.location.href = '/provider';
     }

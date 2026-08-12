@@ -264,11 +264,15 @@ function buildSlides(sectionId, data) {
 
     case 'family_social': return [
       { id: 'husbandOccupation', question: "What is your husband or partner's occupation?", field: 'husbandOccupation', type: 'text', required: false, placeholder: 'e.g. Driver, Civil Servant, Farmer' },
+        { id: 'husbandEducation', question: "What is your husband or partner's level of education?", field: 'husbandEducation', type: 'chips', required: false,
+          options: ['Primary', 'Secondary', 'Tertiary (University or Polytechnic)', 'None'] },
       { id: 'husbandAge',    question: "How old is your husband or partner?",            field: 'husbandAge',     type: 'number',  required: false, placeholder: 'e.g. 34', min: 15, max: 90 },
       { id: 'husbandGenotype', question: "What is your husband or partner's genotype?", field: 'husbandGenotype', type: 'chips',  required: false,
         options: ['AA', 'AS', 'SS', 'AC', 'Not sure'] },
       { id: 'husbandBloodGroup', question: "What is your husband or partner's blood group?", field: 'husbandBloodGroup', type: 'chips', required: false,
         options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
+        { id: 'husbandMarriage', question: 'Type of marriage', field: 'husbandMarriage', type: 'chips', required: false,
+          options: [{ value: 'monogamous', label: 'Monogamous (one husband, one wife)' }, { value: 'polygamous', label: 'Polygamous (one husband, multiple wives)' }] },
       { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
       { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
       { id: 'patientHerbal', question: 'Do you consume or use herbal concoctions?',       field: 'patientHerbal',  type: 'yes_no',  required: false, hint: 'Including herbal remedies, traditional mixtures or concoctions' },
@@ -394,7 +398,7 @@ const INIT = {
   // Medical
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Family & Social
-  husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
+  husbandOccupation: '', husbandEducation: null, husbandAge: '', husbandGenotype: null, husbandBloodGroup: null, husbandMarriage: null,
   patientSmokes: null, patientDrinks: null, patientHerbal: null, supportive: null,
   // Systems
   neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
@@ -759,6 +763,7 @@ const IntakeQuestionnaire = () => {
   const [slideIdx, setSlideIdx] = useState(0);
   const [data, setData] = useState(INIT);
   const [loading, setLoading] = useState(false);
+  const [navLoading, setNavLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   /** @type {[{ can_edit?: boolean, is_locked?: boolean, days_remaining?: number|null, status?: string, first_submitted_at?: string|null }|null, Function]} */
   const [intakeMeta, setIntakeMeta] = useState(null);
@@ -909,11 +914,14 @@ const IntakeQuestionnaire = () => {
           drugAllergy: map['drug_allergy'] === 'yes' ? true : map['drug_allergy'] === 'no' ? false : prev.drugAllergy,
           allergyDetails: map['allergy_details'] || prev.allergyDetails,
           husbandOccupation: map['husband_occupation'] || prev.husbandOccupation,
-          husbandAge: map['husband_age'] || prev.husbandAge,
-          husbandGenotype: map['husband_genotype'] || prev.husbandGenotype,
-          husbandBloodGroup: map['husband_blood_group'] || prev.husbandBloodGroup,
-          patientSmokes: map['patient_smokes'] === 'yes' ? true : map['patient_smokes'] === 'no' ? false : prev.patientSmokes,
-          patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
+              husbandAge: map['husband_age'] || prev.husbandAge,
+              husbandEducation: map['husband_education'] || prev.husbandEducation,
+              husbandGenotype: map['husband_genotype'] || prev.husbandGenotype,
+              husbandBloodGroup: map['husband_blood_group'] || prev.husbandBloodGroup,
+              husbandMarriage: map['husband_marriage'] || prev.husbandMarriage,
+              patientSmokes: map['patient_smokes'] === 'yes' ? true : map['patient_smokes'] === 'no' ? false : prev.patientSmokes,
+              patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
+              patientHerbal: map['patient_herbal'] === 'yes' ? true : map['patient_herbal'] === 'no' ? false : prev.patientHerbal,
           supportive: map['supportive'] === 'yes' ? true : map['supportive'] === 'no' ? false : prev.supportive,
           neuroSymptoms: ['headaches', 'seizures_/_convulsions', 'dizziness', 'fainting_episodes'].filter(s => map[s] === 'yes').map(s => s === 'headaches' ? 'Headaches' : s === 'seizures_/_convulsions' ? 'Seizures / convulsions' : s === 'dizziness' ? 'Dizziness' : 'Fainting episodes'),
           cardioSymptoms: ['chest_pain', 'cough', 'palpitations', 'difficulty_breathing'].filter(s => map[s] === 'yes').map(s => s === 'chest_pain' ? 'Chest pain' : s === 'cough' ? 'Cough' : s === 'palpitations' ? 'Palpitations' : 'Difficulty breathing'),
@@ -993,21 +1001,27 @@ const IntakeQuestionnaire = () => {
   };
 
   const goNext = async () => {
-    // Recompute slides so newly added surgery/child cards are included after count is entered
-    const list = getSlides(SECTION_META[secIdx].id);
-    const idx = Math.min(slideIdx, Math.max(0, list.length - 1));
-    if (list.length > 0 && idx < list.length - 1) {
-      setSlideIdx(idx + 1);
-      window.scrollTo(0, 0);
-    } else {
-      // Section complete — save & return to overview
-      await autoSave(secIdx);
-      setView('overview');
-      window.scrollTo(0, 0);
+    setNavLoading(true);
+    try {
+      // Recompute slides so newly added surgery/child cards are included after count is entered
+      const list = getSlides(SECTION_META[secIdx].id);
+      const idx = Math.min(slideIdx, Math.max(0, list.length - 1));
+      if (list.length > 0 && idx < list.length - 1) {
+        setSlideIdx(idx + 1);
+        window.scrollTo(0, 0);
+      } else {
+        // Section complete — save & return to overview
+        await autoSave(secIdx);
+        setView('overview');
+        window.scrollTo(0, 0);
+      }
+    } finally {
+      setNavLoading(false);
     }
   };
 
   const goBack = () => {
+    if (navLoading) return;
     if (slideIdx > 0) { setSlideIdx(s => s - 1); window.scrollTo(0, 0); }
     else { setView('overview'); window.scrollTo(0, 0); }
   };
@@ -1362,13 +1376,24 @@ const IntakeQuestionnaire = () => {
       <footer className="sticky bottom-0 bg-white border-t border-primary/10 px-6 py-4">
         <div className="max-w-[640px] mx-auto flex gap-3">
           <button onClick={goBack}
-            className="flex-1 py-4 font-bold text-primary border-2 border-primary/20 rounded-2xl hover:bg-primary/5 transition-all active:scale-95">
+            disabled={navLoading}
+            className={`flex-1 py-4 font-bold text-primary border-2 border-primary/20 rounded-2xl hover:bg-primary/5 transition-all active:scale-95 ${navLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
             Back
           </button>
           <button onClick={goNext}
-            className="flex-[2] py-4 font-bold text-white bg-primary rounded-2xl shadow-lg hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-2">
-            {isLast ? `Finish ${sec.label}` : 'Next'}
-            <span>→</span>
+            disabled={navLoading}
+            className={`flex-[2] py-4 font-bold text-white bg-primary rounded-2xl shadow-lg hover:bg-primary transition-all active:scale-95 flex items-center justify-center gap-2 ${navLoading ? 'opacity-80 cursor-wait' : ''}`}>
+            {navLoading ? (
+              <div className="flex items-center gap-2">
+                <div className={`w-4 h-4 rounded-full animate-spin ${isLast ? 'border-2 border-white border-t-transparent' : 'border-2 border-primary/20 border-t-primary'}`} />
+                <span>{isLast ? `Saving ${sec.label}...` : 'Loading...'}</span>
+              </div>
+            ) : (
+              <>
+                {isLast ? `Finish ${sec.label}` : 'Next'}
+                <span>→</span>
+              </>
+            )}
           </button>
         </div>
       </footer>
@@ -1426,11 +1451,14 @@ function buildDomainResponses(sId, data, children) {
     ];
     case 'family_social': return [
       { question_key: 'husband_occupation',   answer: data.husbandOccupation || '' },
+      { question_key: 'husband_education',   answer: data.husbandEducation || '' },
       { question_key: 'husband_age',          answer: String(data.husbandAge || '') },
       { question_key: 'husband_genotype',     answer: data.husbandGenotype || '' },
       { question_key: 'husband_blood_group',  answer: data.husbandBloodGroup || '' },
+      { question_key: 'husband_marriage',     answer: data.husbandMarriage || '' },
       { question_key: 'patient_smokes',       answer: data.patientSmokes ? 'yes' : 'no' },
       { question_key: 'patient_drinks',       answer: data.patientDrinks ? 'yes' : 'no' },
+      { question_key: 'patient_herbal',       answer: data.patientHerbal ? 'yes' : 'no' },
       { question_key: 'supportive',           answer: data.supportive ? 'yes' : 'no' },
     ];
     case 'systems': return [

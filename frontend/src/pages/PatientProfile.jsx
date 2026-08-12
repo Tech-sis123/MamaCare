@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPatientMe, setPatientCredentials } from '../lib/api';
+import { getPatientMe, setPatientCredentials, upsertProfile } from '../lib/api';
 import { getPatientData, setPatientAuth, clearPatientAuth } from '../lib/auth';
 
 const PatientProfile = () => {
@@ -8,6 +8,16 @@ const PatientProfile = () => {
   const [editing, setEditing] = useState(false);
   const [lang, setLang] = useState('EN');
   const [patient, setPatient] = useState(getPatientData());
+  const [editForm, setEditForm] = useState({
+    name: '',
+    age: '',
+    occupation: '',
+    address: '',
+    education_level: '',
+    marital_status: '',
+    religion: '',
+    ethnicity: '',
+  });
   const [needsPassword, setNeedsPassword] = useState(true);
 
   // Password Modal state
@@ -26,6 +36,16 @@ const PatientProfile = () => {
       .then(r => {
         if (r.data) {
           setPatient(prev => ({ ...prev, ...r.data }));
+          setEditForm({
+            name: r.data.name || '',
+            age: r.data.age || '',
+            occupation: r.data.occupation || '',
+            address: r.data.address || '',
+            education_level: r.data.education_level || '',
+            marital_status: r.data.marital_status || '',
+            religion: r.data.religion || '',
+            ethnicity: r.data.ethnicity || '',
+          });
           if (r.data.has_password || r.data.password_hash) {
             setNeedsPassword(false);
           }
@@ -108,6 +128,34 @@ const PatientProfile = () => {
     navigate('/');
   };
 
+  const handleEditChange = (key, val) => setEditForm(prev => ({ ...prev, [key]: val }));
+
+  const saveProfile = async () => {
+    try {
+      const payload = {
+        name: editForm.name || undefined,
+        age: editForm.age !== '' && editForm.age != null ? Number(editForm.age) : undefined,
+        occupation: editForm.occupation || undefined,
+        address: editForm.address || undefined,
+        education_level: editForm.education_level || undefined,
+        marital_status: editForm.marital_status || undefined,
+        religion: editForm.religion || undefined,
+        ethnicity: editForm.ethnicity || undefined,
+      };
+      const { data } = await upsertProfile(payload);
+      if (data?.patient) {
+        setPatient(data.patient);
+        const existing = JSON.parse(localStorage.getItem('mc_patient') || '{}');
+        // update stored patient
+        localStorage.setItem('mc_patient', JSON.stringify({ ...existing, ...data.patient }));
+      }
+      setEditing(false);
+    } catch (err) {
+      console.error('Failed to save profile', err);
+      // keep editing state for user to retry
+    }
+  };
+
   const pregnancy = patient?.pregnancies?.[0] || patient?.pregnancy_record || patient?.latest_pregnancy;
   const weeks = patient?.current_ega?.weeks ?? pregnancy?.current_ega_weeks ?? pregnancy?.gestational_age?.weeks ?? 12;
   const eddVal = pregnancy?.edd_computed || pregnancy?.edd;
@@ -188,12 +236,39 @@ const PatientProfile = () => {
             <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">Personal Information</p>
           </div>
           <div className="px-6">
-            <InfoRow label="Full Name"    value={patient?.name || '—'}                             icon="person" />
-            <InfoRow label="Age"           value={patient?.age ? `${patient.age} years` : '—'}      icon="today" />
-            <InfoRow label="Phone"         value={patient?.phone_number || '—'}                     icon="phone" />
-            <InfoRow label="Language"      value={lang}                                              icon="translate" />
-            <InfoRow label="Address"       value={patient?.address || '—'}                          icon="location_on" />
-            <InfoRow label="Occupation"    value={patient?.occupation || '—'}                       icon="work" />
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Full name</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.name} onChange={e => handleEditChange('name', e.target.value)} />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Age</label>
+                  <input type="number" min={10} max={60} className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.age} onChange={e => handleEditChange('age', e.target.value)} />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Phone</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={patient?.phone_number || ''} disabled />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Address</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.address} onChange={e => handleEditChange('address', e.target.value)} />
+                </div>
+                <div>
+                  <label className="font-label-sm text-xs text-on-surface-variant">Occupation</label>
+                  <input className="w-full px-3 py-2 rounded-xl border mt-1" value={editForm.occupation} onChange={e => handleEditChange('occupation', e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <>
+                <InfoRow label="Full Name"    value={patient?.name || '—'}                             icon="person" />
+                <InfoRow label="Age"           value={patient?.age ? `${patient.age} years` : '—'}      icon="today" />
+                <InfoRow label="Phone"         value={patient?.phone_number || '—'}                     icon="phone" />
+                <InfoRow label="Language"      value={lang}                                              icon="translate" />
+                <InfoRow label="Address"       value={patient?.address || '—'}                          icon="location_on" />
+                <InfoRow label="Occupation"    value={patient?.occupation || '—'}                       icon="work" />
+              </>
+            )}
           </div>
         </section>
 

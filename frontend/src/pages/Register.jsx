@@ -214,7 +214,8 @@ const RegistrationFlow = () => {
     try {
       const { data } = await registerPatientEmail(registerEmail.trim(), registerPassword, registerName.trim());
       setPatientAuth(data.access_token, data.refresh_token, data.patient);
-      navigate('/intake');
+      // Email-registered users need to complete basic biodata before intake
+      navigate('/profile');
     } catch (err) {
       const d = err.response?.data;
       setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to create account.');

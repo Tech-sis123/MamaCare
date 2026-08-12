@@ -271,8 +271,6 @@ function buildSlides(sectionId, data) {
         options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
       { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
       { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
-      { id: 'husbandSmokes', question: 'Does your husband or partner smoke?',             field: 'husbandSmokes',  type: 'yes_no',  required: false },
-      { id: 'husbandDrinks', question: 'Does your husband or partner drink alcohol?',     field: 'husbandDrinks',  type: 'yes_no',  required: false },
       { id: 'supportive',    question: 'Is your husband or partner supportive of this pregnancy?', field: 'supportive', type: 'yes_no', required: false },
     ];
 
@@ -396,7 +394,7 @@ const INIT = {
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Family & Social
   husbandOccupation: '', husbandAge: '', husbandGenotype: null, husbandBloodGroup: null,
-  patientSmokes: null, patientDrinks: null, husbandSmokes: null, husbandDrinks: null, supportive: null,
+  patientSmokes: null, patientDrinks: null, supportive: null,
   // Systems
   neuroSymptoms: [], cardioSymptoms: [], urinaryChanges: null, bowelChanges: null, hasPain: null, painDetails: '',
 };
@@ -915,8 +913,6 @@ const IntakeQuestionnaire = () => {
           husbandBloodGroup: map['husband_blood_group'] || prev.husbandBloodGroup,
           patientSmokes: map['patient_smokes'] === 'yes' ? true : map['patient_smokes'] === 'no' ? false : prev.patientSmokes,
           patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
-          husbandSmokes: map['husband_smokes'] === 'yes' ? true : map['husband_smokes'] === 'no' ? false : prev.husbandSmokes,
-          husbandDrinks: map['husband_drinks'] === 'yes' ? true : map['husband_drinks'] === 'no' ? false : prev.husbandDrinks,
           supportive: map['supportive'] === 'yes' ? true : map['supportive'] === 'no' ? false : prev.supportive,
           neuroSymptoms: ['headaches', 'seizures_/_convulsions', 'dizziness', 'fainting_episodes'].filter(s => map[s] === 'yes').map(s => s === 'headaches' ? 'Headaches' : s === 'seizures_/_convulsions' ? 'Seizures / convulsions' : s === 'dizziness' ? 'Dizziness' : 'Fainting episodes'),
           cardioSymptoms: ['chest_pain', 'cough', 'palpitations', 'difficulty_breathing'].filter(s => map[s] === 'yes').map(s => s === 'chest_pain' ? 'Chest pain' : s === 'cough' ? 'Cough' : s === 'palpitations' ? 'Palpitations' : 'Difficulty breathing'),
@@ -1434,8 +1430,6 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'husband_blood_group',  answer: data.husbandBloodGroup || '' },
       { question_key: 'patient_smokes',       answer: data.patientSmokes ? 'yes' : 'no' },
       { question_key: 'patient_drinks',       answer: data.patientDrinks ? 'yes' : 'no' },
-      { question_key: 'husband_smokes',       answer: data.husbandSmokes ? 'yes' : 'no' },
-      { question_key: 'husband_drinks',       answer: data.husbandDrinks ? 'yes' : 'no' },
       { question_key: 'supportive',           answer: data.supportive ? 'yes' : 'no' },
     ];
     case 'systems': return [

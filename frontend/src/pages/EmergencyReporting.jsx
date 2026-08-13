@@ -16,6 +16,8 @@ const EmergencyReporting = () => {
     { id: 'pain', emoji: '⚡', title: 'Abdominal Pain', description: 'Sharp or constant cramps', risk: 'high' },
     { id: 'fever', emoji: '🤒', title: 'High Fever', description: 'Chills or excessive heat', risk: 'medium' },
     { id: 'movement', emoji: '👶', title: 'Reduced Movement', description: 'Baby moving less than usual', risk: 'high' },
+    { id: 'vomiting', emoji: '🤢', title: 'Persistent Vomiting', description: 'Vomiting more than 5 episodes', risk: 'high' },
+    { id: 'liquor', emoji: '💧', title: 'Drainage of Liquor', description: 'Fluid leaking from the vagina', risk: 'high' },
   ];
 
   const toggleSymptom = (symptomId) => {
@@ -28,11 +30,13 @@ const EmergencyReporting = () => {
 
   const SYMPTOM_KEY_MAP = {
     headache: 'severe_headache',
-    bleeding: 'bleeding',
-    swelling: 'swelling',
-    pain: 'epigastric_pain',
-    fever: 'fever',
+    bleeding: 'vaginal_bleeding',
+    swelling: 'facial_swelling',
+    pain: 'abdominal_pain',
+    fever: 'high_fever',
     movement: 'reduced_fetal_movement',
+    vomiting: 'severe_vomiting',
+    liquor: 'liquor_drainage',
   };
 
   const handleSendAlert = async () => {
@@ -117,19 +121,6 @@ const EmergencyReporting = () => {
               </p>
             </div>
 
-            {/* Dynamic Urgency Banner */}
-            {selectedSymptoms.length > 0 && (
-              <div className="bg-secondary-container text-on-secondary-container p-6 rounded-xl mb-12 shadow-sm border border-secondary/20 flex items-center gap-4">
-                <span className="material-symbols-outlined text-3xl">warning</span>
-                <div>
-                  <h2 className="font-headline-md text-headline-md">Multiple Symptoms Detected</h2>
-                  <p className="font-body-md">
-                    Your urgency level is rising. Please finish selecting signs so we can notify help.
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* 3-Column Symptom Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-32">
               {symptomsList.map((symptom) => (
@@ -177,7 +168,7 @@ const EmergencyReporting = () => {
                       : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
                 >
-                  Send High Urgency Alert
+                  Send urgency alert
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </button>
               </div>

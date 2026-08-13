@@ -264,9 +264,9 @@ const IntakeQuestionnaire = () => {
               </span>
             </div>
           </div>
-          <h3 className="font-headline-md text-primary mt-8">Calculating your risk...</h3>
+          <h3 className="font-headline-md text-primary mt-8">Loading…</h3>
           <p className="text-on-surface-variant text-center max-w-xs mt-2">
-            Mama, we are reviewing your profile to ensure you get the safest care possible.
+            Please wait a moment while we save your answers.
           </p>
         </div>
       )}

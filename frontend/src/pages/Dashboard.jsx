@@ -153,6 +153,13 @@ const PatientDashboard = () => {
   const riskLabel = riskTier === 'HIGH' ? 'HIGH RISK' : riskTier === 'MEDIUM' ? 'MEDIUM RISK' : 'LOW RISK';
   const nextAppt = dashData?.next_appointment;
   const eduModule = dashData?.educational_module || dashData?.recommended_module;
+  // Show complete-profile CTA only when intake is not finished (not a full retake)
+  const intakeStatus =
+    patientData?.intake_status ||
+    dashData?.intake_status ||
+    getPatientData()?.intake_status ||
+    'not_started';
+  const needsProfileCompletion = intakeStatus !== 'submitted';
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
       {/* Navbar & Header Cluster */}
@@ -192,9 +199,14 @@ const PatientDashboard = () => {
             </div>
             <div className="flex items-center gap-4 pt-1">
               <span className="text-xs text-primary/60">Last assessed: Today</span>
-              <button onClick={() => navigate('/intake')} className="text-xs font-bold text-primary underline underline-offset-4 decoration-primary/30">
-                Retake check →
-              </button>
+              {needsProfileCompletion && (
+                <button
+                  onClick={() => navigate('/intake')}
+                  className="text-xs font-bold text-primary underline underline-offset-4 decoration-primary/30"
+                >
+                  Complete health profile →
+                </button>
+              )}
             </div>
           </div>
           <div className="w-20 h-20 opacity-10 flex items-center justify-center">

@@ -218,8 +218,7 @@ const BookAppointment = () => {
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-sm">Priority slots for HIGH RISK patients</p>
-              <p className="text-xs opacity-90">Please call 08012345678 if urgent</p>
+              <p className="font-bold text-sm">Please contact 081012345678 if urgent</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">

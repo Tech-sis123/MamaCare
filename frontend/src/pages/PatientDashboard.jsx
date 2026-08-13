@@ -198,9 +198,6 @@ const PatientDashboard = () => {
             </div>
             <div className="flex items-center gap-4 pt-1">
               <span className="text-xs text-primary/60">Last assessed: Today</span>
-              <a className="text-xs font-bold text-primary underline underline-offset-4 decoration-primary/30" href="#">
-                Retake check →
-              </a>
             </div>
           </div>
           <div className="w-20 h-20 opacity-10">

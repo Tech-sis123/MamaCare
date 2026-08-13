@@ -1509,8 +1509,8 @@ const LoadingOverlay = () => (
         <span className="material-symbols-outlined text-4xl text-primary">pregnant_woman</span>
       </div>
     </div>
-    <h3 className="font-bold text-primary text-2xl">Calculating your risk…</h3>
-    <p className="text-slate-500 text-center max-w-xs mt-3">Our clinical AI is reviewing your profile using WHO-validated guidelines.</p>
+    <h3 className="font-bold text-primary text-2xl">Loading…</h3>
+    <p className="text-slate-500 text-center max-w-xs mt-3">Please wait a moment while we save your answers.</p>
     <div className="mt-8 flex gap-2">
       {[0, 1, 2].map(i => (
         <div key={i} className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />

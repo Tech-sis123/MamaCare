@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const createProfileSchema = z.object({
-  name: z.string().min(1),
-  age: z.number().int().min(10).max(60).optional(),
+  name: z.string().min(1, 'Name is required'),
+  age: z.coerce.number().int().min(10).max(60).optional(),
   education_level: z.string().optional(),
   occupation: z.string().optional(),
   marital_status: z.string().optional(),
@@ -10,6 +10,9 @@ export const createProfileSchema = z.object({
   religion: z.string().optional(),
   ethnicity: z.string().optional(),
   language_preference: z.enum(['en', 'pidgin']).optional(),
+  emergency_contact_name: z.string().optional(),
+  emergency_contact_relationship: z.string().optional(),
+  emergency_contact_phone: z.string().optional(),
 });
 
 export const createPregnancySchema = z.object({

@@ -23,6 +23,7 @@ const PatientProfile = () => {
   });
   const [saveError, setSaveError] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+  const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
   const [needsPassword, setNeedsPassword] = useState(true);
 
   // Password Modal state
@@ -138,33 +139,76 @@ const PatientProfile = () => {
 
   const handleEditChange = (key, val) => setEditForm(prev => ({ ...prev, [key]: val }));
 
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(() => setToast(null), 4000);
+  };
+
   const saveProfile = async () => {
+    if (saveLoading) return;
+    setSaveError('');
+    setToast(null);
+
+    const name =
+      (editForm.name && String(editForm.name).trim()) ||
+      (patient?.name && String(patient.name).trim()) ||
+      '';
+    if (!name) {
+      setSaveError('Please enter your full name.');
+      showToast('error', 'Please enter your full name.');
+      return;
+    }
+
+    const ageNum =
+      editForm.age !== '' && editForm.age != null ? Number(editForm.age) : NaN;
+    if (editForm.age !== '' && editForm.age != null && (isNaN(ageNum) || ageNum < 10 || ageNum > 60)) {
+      setSaveError('Age must be a number between 10 and 60.');
+      showToast('error', 'Age must be between 10 and 60.');
+      return;
+    }
+
+    const payload = {
+      name,
+      ...(editForm.age !== '' && editForm.age != null && !isNaN(ageNum)
+        ? { age: ageNum }
+        : {}),
+      occupation: editForm.occupation || undefined,
+      address: editForm.address || undefined,
+      education_level: editForm.education_level || undefined,
+      marital_status: editForm.marital_status || undefined,
+      religion: editForm.religion || undefined,
+      ethnicity: editForm.ethnicity || undefined,
+      emergency_contact_name: editForm.emergency_contact_name || undefined,
+      emergency_contact_relationship: editForm.emergency_contact_relationship || undefined,
+      emergency_contact_phone: editForm.emergency_contact_phone || undefined,
+    };
+
+    setSaveLoading(true);
     try {
-      const payload = {
-        // name is required by backend schema — fallback to existing patient name
-        name: editForm.name && String(editForm.name).trim() ? String(editForm.name).trim() : patient?.name || undefined,
-        age: editForm.age !== '' && editForm.age != null ? Number(editForm.age) : undefined,
-        occupation: editForm.occupation || undefined,
-        address: editForm.address || undefined,
-        education_level: editForm.education_level || undefined,
-        marital_status: editForm.marital_status || undefined,
-        religion: editForm.religion || undefined,
-        ethnicity: editForm.ethnicity || undefined,
-        emergency_contact_name: editForm.emergency_contact_name || undefined,
-        emergency_contact_relationship: editForm.emergency_contact_relationship || undefined,
-        emergency_contact_phone: editForm.emergency_contact_phone || undefined,
-      };
       const { data } = await upsertProfile(payload);
       if (data?.patient) {
-        setPatient(data.patient);
+        setPatient(prev => ({ ...prev, ...data.patient }));
         const existing = JSON.parse(localStorage.getItem('mc_patient') || '{}');
-        // update stored patient
         localStorage.setItem('mc_patient', JSON.stringify({ ...existing, ...data.patient }));
       }
       setEditing(false);
+      setSaveError('');
+      showToast('success', 'Profile saved successfully.');
     } catch (err) {
       console.error('Failed to save profile', err);
-      // keep editing state for user to retry
+      const msg =
+        err?.response?.data?.issues?.[0]?.message ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (err?.response?.status === 500
+          ? 'Server error while saving. Please try again in a moment.'
+          : 'Could not save profile. Check your connection and try again.');
+      setSaveError(msg);
+      showToast('error', msg);
+      // stay in editing mode so they can retry
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -198,16 +242,55 @@ const PatientProfile = () => {
           </div>
           <div>
             <button
+              type="button"
+              disabled={saveLoading}
               onClick={() => (editing ? saveProfile() : setEditing(true))}
-              className="px-4 py-1.5 rounded-full border border-white/30 font-label-sm text-xs hover:bg-white/10 transition-all"
+              className="px-4 py-1.5 rounded-full border border-white/30 font-label-sm text-xs hover:bg-white/10 transition-all disabled:opacity-60 disabled:cursor-wait inline-flex items-center gap-2"
             >
+              {editing && saveLoading && (
+                <span
+                  className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"
+                  aria-hidden
+                />
+              )}
               {editing ? (saveLoading ? 'Saving…' : 'Save') : 'Edit'}
             </button>
           </div>
         </div>
       </header>
 
+      {/* Toast: success / error */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed top-20 left-1/2 -translate-x-1/2 z-[80] max-w-[min(420px,calc(100%-2rem))] px-4 py-3 rounded-xl shadow-lg border text-sm font-semibold flex items-start gap-3 ${
+            toast.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
+            {toast.type === 'success' ? 'check_circle' : 'error'}
+          </span>
+          <span className="flex-1 leading-snug">{toast.message}</span>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="shrink-0 opacity-60 hover:opacity-100"
+            aria-label="Dismiss"
+          >
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      )}
+
       <main className="max-w-[640px] mx-auto px-4 pb-40 space-y-6 pt-6">
+        {saveError && editing && (
+          <div className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-xl px-4 py-3 font-medium">
+            {saveError}
+          </div>
+        )}
         {/* Pregnancy Status */}
         <section className="bg-primary rounded-xl p-6 text-white relative overflow-hidden">
           <div className="absolute right-4 top-4 opacity-10">

@@ -16,24 +16,32 @@ export const patientsController = {
       const data = req.body;
 
       const before = await prisma.patient.findUnique({ where: { id: patientId } });
+      if (!before) throw new NotFoundError('Patient not found');
+
+      // Only set defined fields so partial updates never wipe columns with undefined
+      const dataUpdate: Record<string, unknown> = {};
+      if (data.name != null) dataUpdate.name = data.name;
+      if (data.age != null) dataUpdate.age = data.age;
+      if (data.education_level !== undefined) dataUpdate.education_level = data.education_level;
+      if (data.occupation !== undefined) dataUpdate.occupation = data.occupation;
+      if (data.marital_status !== undefined) dataUpdate.marital_status = data.marital_status;
+      if (data.address !== undefined) dataUpdate.address = data.address;
+      if (data.religion !== undefined) dataUpdate.religion = data.religion;
+      if (data.ethnicity !== undefined) dataUpdate.ethnicity = data.ethnicity;
+      if (data.language_preference !== undefined) dataUpdate.language_preference = data.language_preference;
+      if (data.emergency_contact_name !== undefined) {
+        dataUpdate.emergency_contact_name = data.emergency_contact_name;
+      }
+      if (data.emergency_contact_relationship !== undefined) {
+        dataUpdate.emergency_contact_relationship = data.emergency_contact_relationship;
+      }
+      if (data.emergency_contact_phone !== undefined) {
+        dataUpdate.emergency_contact_phone = data.emergency_contact_phone;
+      }
 
       const patient = await prisma.patient.update({
         where: { id: patientId },
-        data: {
-          name: data.name,
-          age: data.age,
-          education_level: data.education_level,
-          occupation: data.occupation,
-          marital_status: data.marital_status,
-          address: data.address,
-          religion: data.religion,
-          ethnicity: data.ethnicity,
-          language_preference: data.language_preference,
-          // Emergency contact fields
-          emergency_contact_name: data.emergency_contact_name,
-          emergency_contact_relationship: data.emergency_contact_relationship,
-          emergency_contact_phone: data.emergency_contact_phone,
-        },
+        data: dataUpdate,
       });
 
       // Audit log

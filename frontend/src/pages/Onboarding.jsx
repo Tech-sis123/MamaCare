@@ -117,14 +117,43 @@ function computeRisks(data) {
   return risks;
 }
 
-// ── G/P notation ─────────────────────────────────────────────────────────────
+// ── G/P+ notation (ANC / clinical obstetric summary) ─────────────────────────
+// G  = Gravida  — total pregnancies (including current, miscarriages, terminations)
+// P  = Para     — pregnancies that reached ≥24 weeks (live birth or stillbirth)
+// +A = abortions/miscarriages/terminations before 24 weeks
+//
+// For a woman who is currently pregnant (this app’s users):
+//   G = P + A + 1   →   A = G − P − 1
+// (the “1” is the index/current pregnancy, which is in G but not yet in P)
+//
+// Display matches chart style, e.g. G3P2+1 or G3P2+1(2A)
+function computeGPParts(data) {
+  const G = parseInt(data.gravidity, 10);
+  const P = parseInt(data.parity, 10);
+  const alive = parseInt(data.childrenAlive, 10);
+  if (isNaN(G) || isNaN(P) || G < 0 || P < 0) return null;
+
+  // Currently pregnant → subtract 1 for the ongoing pregnancy
+  const abortions = Math.max(0, G - P - 1);
+  const inconsistent = G < P + 1; // e.g. G2 P2 while pregnant is impossible
+
+  return {
+    G,
+    P,
+    abortions,
+    alive: !isNaN(alive) && alive >= 0 ? alive : null,
+    inconsistent,
+    /** Compact clinical string: G3P2+1(2A) */
+    compact: `G${G}P${P}+${abortions}${!isNaN(alive) && alive >= 0 ? `(${alive}A)` : ''}`,
+    /** Chart-style two-line label */
+    chartLine1: `G${G}`,
+    chartLine2: `P${P} + ${abortions}`,
+  };
+}
+
 function computeGP(data) {
-  const G = parseInt(data.gravidity);
-  const P = parseInt(data.parity);
-  const alive = parseInt(data.childrenAlive);
-  if (isNaN(G) || isNaN(P)) return null;
-  const losses = G - P;
-  return `G${G}P${P}${losses > 0 ? `+${losses}` : ''}${!isNaN(alive) ? `(${alive}A)` : ''}`;
+  const parts = computeGPParts(data);
+  return parts ? parts.compact : null;
 }
 
 // ── Section definitions ───────────────────────────────────────────────────────
@@ -164,11 +193,13 @@ function buildSlides(sectionId, data) {
         hint: 'Approximate is fine — just pick the month and year.' },
       { id: 'gravidity',     question: 'How many times have you been pregnant in total? (including this one, miscarriages and terminations)',
         field: 'gravidity',     type: 'number',  required: true,  placeholder: 'e.g. 3', min: 1, max: 20,
-        hint: 'Count every pregnancy — include this one, miscarriages, terminations.' },
+        hint: 'This is your Gravida (G). Count every pregnancy — this one, births, miscarriages and terminations.' },
       { id: 'parity',        question: 'How many of those pregnancies reached 24 weeks (6 months) or more?',
         field: 'parity',        type: 'number',  required: true,  placeholder: 'e.g. 2', min: 0, max: 20,
-        hint: 'This is your parity — babies born alive or stillborn after 24 weeks.',
+        hint: 'This is your Para (P) — pregnancies that reached 24 weeks, whether the baby was born alive or stillborn. Do not count this pregnancy until after delivery.',
         riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
+      { id: 'gp_summary',    question: null, type: 'gp_summary', required: false,
+        condition: d => d.gravidity !== '' && d.gravidity != null && d.parity !== '' && d.parity != null && !isNaN(parseInt(d.gravidity, 10)) && !isNaN(parseInt(d.parity, 10)) },
       { id: 'multiGestation', question: 'Did any of those pregnancies include Twin or multiple gestations?', field: 'multiGestation', type: 'yes_no', required: false },
       { id: 'multiGestationCount', question: 'How many of those pregnancies were twin or multiple gestations?', field: 'multiGestationCount', type: 'number', required: false,
         condition: d => d.multiGestation === true,
@@ -711,16 +742,40 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery }) => {
   );
 
   if (slide.type === 'gp_summary') {
-    const gp = computeGP(data);
-    if (!gp) return <p className="text-slate-400 text-center py-8">Fill in gravidity and parity above to see your G/P summary.</p>;
+    const parts = computeGPParts(data);
+    if (!parts) {
+      return (
+        <p className="text-slate-400 text-center py-8">
+          Fill in total pregnancies (G) and births after 24 weeks (P) to see your obstetric summary.
+        </p>
+      );
+    }
     return (
-      <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-8 text-center space-y-4">
-        <p className="text-5xl font-bold text-primary tracking-wide">{gp}</p>
-        <div className="text-sm text-slate-500 space-y-1">
-          <p>G = Gravidity (total pregnancies)</p>
-          <p>P = Parity (births after 24 weeks)</p>
-          {(parseInt(data.gravidity) - parseInt(data.parity)) > 0 && <p>+{parseInt(data.gravidity) - parseInt(data.parity)} = pregnancy losses</p>}
-          {data.childrenAlive !== '' && <p>({data.childrenAlive}A) = children alive</p>}
+      <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-8 text-center space-y-5">
+        {/* Chart-style layout matching clinical ANC cards */}
+        <div className="inline-block text-left bg-white/80 border border-primary/15 rounded-2xl px-10 py-6 shadow-sm">
+          <p className="text-4xl font-bold text-primary tracking-wide text-center">{parts.chartLine1}</p>
+          <p className="text-4xl font-bold text-primary tracking-wide text-center mt-1">{parts.chartLine2}</p>
+          {parts.alive != null && (
+            <p className="text-lg font-semibold text-primary/70 text-center mt-2">({parts.alive}A)</p>
+          )}
+        </div>
+        <p className="text-sm font-semibold text-primary/80 tracking-wide">{parts.compact}</p>
+        <div className="text-sm text-slate-600 space-y-2 text-left max-w-sm mx-auto">
+          <p><span className="font-bold text-primary">G{parts.G}</span> — Gravida: total pregnancies (including this one)</p>
+          <p><span className="font-bold text-primary">P{parts.P}</span> — Para: pregnancies that reached 24 weeks</p>
+          <p><span className="font-bold text-primary">+{parts.abortions}</span> — pregnancies that ended before 24 weeks (miscarriage / termination)</p>
+          {parts.alive != null && (
+            <p><span className="font-bold text-primary">({parts.alive}A)</span> — children currently alive</p>
+          )}
+          <p className="text-xs text-slate-400 pt-1">
+            While you are pregnant: G = P + (losses) + 1 (this pregnancy).
+          </p>
+          {parts.inconsistent && (
+            <p className="text-amber-700 font-semibold text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              These numbers may not add up. Total pregnancies (G) should be at least Para (P) + 1 while you are pregnant. Please check your answers.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -999,7 +1054,8 @@ const IntakeQuestionnaire = () => {
   };
 
   const risks = useMemo(() => computeRisks(data), [data]);
-  const gp    = useMemo(() => computeGP(data), [data]);
+  const gpParts = useMemo(() => computeGPParts(data), [data]);
+  const gp = gpParts ? gpParts.compact : null;
 
   // Sync children / surgery array length when counts change
   const parity = Math.min(20, Math.max(0, parseInt(data.parity, 10) || 0));
@@ -1186,9 +1242,13 @@ const IntakeQuestionnaire = () => {
                   ? 'You can still edit your answers for a short time after submitting.'
                   : 'Fill in each section — tap any card to begin.'}
             </p>
-            {gp && (
-              <div className="mt-4 inline-block bg-white/20 text-white rounded-full px-4 py-1.5 text-sm font-semibold">
-                {gp}
+            {gpParts && (
+              <div className="mt-4 inline-flex flex-col items-start gap-0.5 bg-white/20 text-white rounded-2xl px-4 py-2 text-sm font-semibold leading-tight">
+                <span className="text-base tracking-wide">{gpParts.chartLine1}</span>
+                <span className="text-base tracking-wide">{gpParts.chartLine2}</span>
+                {gpParts.alive != null && (
+                  <span className="text-xs opacity-90">({gpParts.alive}A)</span>
+                )}
               </div>
             )}
           </div>

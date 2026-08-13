@@ -354,9 +354,29 @@ const PatientDetailPanel = () => {
 
             <SectionAccordion title="Obstetric History">
               <div className="mt-3 space-y-0">
-                <Row label="Obstetric Summary" value={`G${p.gravida ?? MOCK.gravida} P${p.para ?? MOCK.para}`} highlight />
-                <Row label="Gravida"    value={p.gravida != null ? `G${p.gravida}` : '—'} />
-                <Row label="Para"       value={p.para != null ? `P${p.para}` : '—'} />
+                <Row
+                  label="Obstetric Summary"
+                  value={(() => {
+                    const G = Number(p.gravida ?? MOCK.gravida);
+                    const P = Number(p.para ?? MOCK.para);
+                    if (Number.isNaN(G) || Number.isNaN(P)) return '—';
+                    // Currently pregnant mothers: abortions = G − P − 1
+                    const A = Math.max(0, G - P - 1);
+                    return `G${G}P${P}+${A}`;
+                  })()}
+                  highlight
+                />
+                <Row label="Gravida (G)" value={p.gravida != null ? `G${p.gravida}` : '—'} />
+                <Row
+                  label="Para (P+)"
+                  value={(() => {
+                    const G = Number(p.gravida ?? MOCK.gravida);
+                    const P = Number(p.para ?? MOCK.para);
+                    if (Number.isNaN(P)) return '—';
+                    const A = Number.isNaN(G) ? 0 : Math.max(0, G - P - 1);
+                    return `P${P}+${A}`;
+                  })()}
+                />
                 <Row label="Miscarriage / TOP" value={p.miscarriage != null ? (p.miscarriage ? 'Yes' : 'No') : '—'} />
                 {p.miscarriage && (
                   <div className="flex items-center justify-between gap-4 py-2 border-b border-outline-variant/15 last:border-0">

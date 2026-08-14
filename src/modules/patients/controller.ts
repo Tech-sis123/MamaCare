@@ -76,6 +76,9 @@ export const patientsController = {
       const eddComputed = lmpDate ? calculateEDD(lmpDate) : undefined;
       const currentEgaWeeks = lmpDate ? calculateEGAWeeks(lmpDate) : undefined;
 
+      const ussDate =
+        data.uss_date && !isNaN(Date.parse(data.uss_date)) ? new Date(data.uss_date) : undefined;
+
       const payload = {
         ...(lmpDate ? { lmp_date: lmpDate, edd_computed: eddComputed, current_ega_weeks: currentEgaWeeks } : {}),
         ...(data.booking_weight != null ? { booking_weight: data.booking_weight } : {}),
@@ -84,11 +87,21 @@ export const patientsController = {
         ...(data.booking_bp_diastolic != null ? { booking_bp_diastolic: data.booking_bp_diastolic } : {}),
         ...(data.blood_group != null ? { blood_group: data.blood_group } : {}),
         ...(data.genotype != null ? { genotype: data.genotype } : {}),
+        ...(data.rhesus != null ? { rhesus: data.rhesus } : {}),
         ...(data.rvd_status != null ? { rvd_status: data.rvd_status } : {}),
         ...(data.vdrl != null ? { vdrl: data.vdrl } : {}),
         ...(data.pcv != null ? { pcv: data.pcv } : {}),
         ...(data.hep_b != null ? { hep_b: data.hep_b } : {}),
+        ...(data.malaria_parasite != null ? { malaria_parasite: data.malaria_parasite } : {}),
+        ...(data.urinalysis != null ? { urinalysis: data.urinalysis } : {}),
         ...(data.tetanus_history != null ? { tetanus_history: data.tetanus_history } : {}),
+        ...(data.ipt_history != null ? { ipt_history: data.ipt_history } : {}),
+        ...(ussDate ? { uss_date: ussDate } : {}),
+        ...(data.uss_ega_weeks != null ? { uss_ega_weeks: data.uss_ega_weeks } : {}),
+        ...(data.uss_notes != null ? { uss_notes: data.uss_notes } : {}),
+        ...(data.booked_anc != null ? { booked_anc: data.booked_anc } : {}),
+        ...(data.booked_anc_facility != null ? { booked_anc_facility: data.booked_anc_facility } : {}),
+        ...(data.booking_ga_weeks != null ? { booking_ga_weeks: data.booking_ga_weeks } : {}),
         ...(data.gravidity != null ? { gravidity: data.gravidity } : {}),
         ...(data.parity != null ? { parity: data.parity } : {}),
       };

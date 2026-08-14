@@ -3,7 +3,13 @@ import { providersController } from './controller';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
-import { queueQuerySchema, visitNotesSchema, visitIdParamSchema, askQuestionSchema } from './schemas';
+import {
+  queueQuerySchema,
+  visitNotesSchema,
+  visitIdParamSchema,
+  askQuestionSchema,
+  doctorPregnancyUpdateSchema,
+} from './schemas';
 import { patientIdParamSchema } from '../symptoms/schemas';
 
 const router = Router();
@@ -49,6 +55,16 @@ router.get(
   rbac('doctor', 'department_head'),
   validate(patientIdParamSchema, 'params'),
   providersController.getPatientSummary
+);
+
+// Doctor updates index pregnancy / booking investigations
+router.patch(
+  '/patients/:id/pregnancy',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(patientIdParamSchema, 'params'),
+  validate(doctorPregnancyUpdateSchema),
+  providersController.updatePatientPregnancy
 );
 
 // Visit notes

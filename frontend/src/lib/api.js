@@ -145,8 +145,12 @@ export const getDoctorPatientDetail = (patientId) =>
 export const getPatientSummary = (patientId) =>
   doctorApi.get(`/providers/patients/${patientId}/summary`);
 
-export const saveVisitNotes = (appointmentId, doctor_notes) =>
-  doctorApi.post(`/visits/${appointmentId}/notes`, { doctor_notes });
+export const updateDoctorPregnancy = (patientId, data) =>
+  doctorApi.patch(`/providers/patients/${patientId}/pregnancy`, data);
+
+/** Save visit notes. Pass complete:true only when marking the appointment done. */
+export const saveVisitNotes = (appointmentId, doctor_notes, { complete = false } = {}) =>
+  doctorApi.post(`/providers/visits/${appointmentId}/notes`, { doctor_notes, complete });
 
 export const searchPatients = (q = '') =>
   doctorApi.get('/providers/patients', { params: { q } });

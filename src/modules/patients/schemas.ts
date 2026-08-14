@@ -27,11 +27,24 @@ export const createPregnancySchema = z.object({
   booking_bp_diastolic: z.number().int().positive().optional(),
   blood_group: z.string().optional(),
   genotype: z.string().optional(),
+  rhesus: z.string().optional(),
   rvd_status: z.string().optional(),
   vdrl: z.string().optional(),
   pcv: z.number().optional(),
   hep_b: z.string().optional(),
+  malaria_parasite: z.string().optional(),
+  urinalysis: z.string().optional(),
   tetanus_history: z.string().optional(),
+  ipt_history: z.string().optional(),
+  uss_date: z
+    .string()
+    .refine((val) => !val || !isNaN(Date.parse(val)), 'Invalid USS date')
+    .optional(),
+  uss_ega_weeks: z.number().int().min(0).max(45).optional(),
+  uss_notes: z.string().optional(),
+  booked_anc: z.boolean().optional(),
+  booked_anc_facility: z.string().optional(),
+  booking_ga_weeks: z.number().int().min(0).max(45).optional(),
   gravidity: z.number().int().min(0).optional(),
   parity: z.number().int().min(0).optional(),
 });

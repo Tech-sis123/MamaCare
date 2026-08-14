@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 const intakeDomainEnum = z.enum([
   'biodata',
+  'index',
   'obstetric',
   'gynae',
   'medical',

@@ -959,6 +959,16 @@ const IntakeQuestionnaire = () => {
           papSmearAware: map['pap_smear'] ? true : prev.papSmearAware,
           topDone: map['top'] === 'yes' ? true : map['top'] === 'no' ? false : prev.topDone,
           topCount: map['top_count'] || prev.topCount,
+          topYear: map['top_year'] || prev.topYear,
+          topMethod: map['top_method'] || prev.topMethod,
+          topComplications: map['top_complications'] === 'yes' ? true : map['top_complications'] === 'no' ? false : prev.topComplications,
+          // Index pregnancy (doctor clerking)
+          desired: map['desired'] === 'yes' ? true : map['desired'] === 'no' ? false : prev.desired,
+          conception: map['conception'] || prev.conception,
+          pregTestDone: map['preg_test_done'] === 'yes' ? true : map['preg_test_done'] === 'no' ? false : prev.pregTestDone,
+          pregTestType: map['preg_test_type'] || prev.pregTestType,
+          scanDone: map['scan_done'] === 'yes' ? true : map['scan_done'] === 'no' ? false : prev.scanDone,
+          scanDate: map['scan_date'] || prev.scanDate,
           conditions: loadedConditions.length > 0 ? loadedConditions : prev.conditions,
           surgeries: map['surgery'] === 'yes' ? true : map['surgery'] === 'no' ? false : prev.surgeries,
           surgeryCount: surgeryCountVal,
@@ -1143,7 +1153,12 @@ const IntakeQuestionnaire = () => {
           gravidity: Number(data.gravidity) || undefined,
           parity: Number(data.parity) || undefined,
         }).catch(() => {});
-        // Current pregnancy twin/multiple → risk engine (same biodata domain for intake keys)
+        // Index pregnancy clerking details for doctor view
+        const indexResponses = buildDomainResponses('index', data, ensuredChildren);
+        if (indexResponses.length) {
+          await saveIntake(patientId, 'index', indexResponses).catch(() => {});
+        }
+        // Keep twin flag on biodata domain for risk engine compatibility
         if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
           await saveIntake(patientId, 'biodata', [
             { question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true },
@@ -1485,6 +1500,17 @@ const IntakeQuestionnaire = () => {
 // ── Domain response builder ───────────────────────────────────────────────────
 function buildDomainResponses(sId, data, children) {
   switch (sId) {
+    case 'index': return [
+      { question_key: 'desired', answer: data.desired === true ? 'yes' : data.desired === false ? 'no' : '' },
+      { question_key: 'conception', answer: data.conception || '' },
+      { question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true ? 'yes' : data.currentMultiGestation === false ? 'no' : '' },
+      { question_key: 'preg_test_done', answer: data.pregTestDone === true ? 'yes' : data.pregTestDone === false ? 'no' : '' },
+      { question_key: 'preg_test_type', answer: data.pregTestType || '' },
+      { question_key: 'scan_done', answer: data.scanDone === true ? 'yes' : data.scanDone === false ? 'no' : '' },
+      { question_key: 'scan_date', answer: data.scanDate || '' },
+      { question_key: 'blood_group', answer: data.bloodGroup || '' },
+      { question_key: 'genotype', answer: data.genotype || '' },
+    ].filter((r) => r.answer !== '' && r.answer != null);
     case 'obstetric': return (children || []).flatMap((c, i) => [
       { question_key: `child_${i}_year`,          answer: String(c.year || '') },
       { question_key: `child_${i}_gender`,         answer: c.gender || '' },
@@ -1513,6 +1539,9 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'pap_smear',       answer: data.papSmearDone ? 'yes' : 'no' },
       { question_key: 'top',             answer: data.topDone ? 'yes' : 'no' },
       { question_key: 'top_count',       answer: String(data.topCount || '') },
+      { question_key: 'top_year',        answer: String(data.topYear || '') },
+      { question_key: 'top_method',      answer: data.topMethod || '' },
+      { question_key: 'top_complications', answer: data.topComplications === true ? 'yes' : data.topComplications === false ? 'no' : '' },
     ];
     case 'medical': return [
       ...(data.conditions || []).filter(c => c !== 'None of these').map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),

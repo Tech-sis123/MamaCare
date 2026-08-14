@@ -33,10 +33,14 @@ const RESOURCES = [
   { title: 'Referral Forms',          type: 'DOC',  size: '0.3 MB', category: 'Admin' },
 ];
 
+const patientCode = (id) =>
+  id ? `MC-${String(id).replace(/-/g, '').slice(0, 6).toUpperCase()}` : '';
+
 const toQueuePatient = (apt) => ({
   id: apt.patient.id,
   appointment_id: apt.appointment_id,
   name: apt.patient.name || '—',
+  code: apt.patient.patient_code || patientCode(apt.patient.id),
   age: apt.patient.age || '—',
   weeks: apt.patient.ega_weeks || '—',
   risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
@@ -49,6 +53,7 @@ const toQueuePatient = (apt) => ({
 const toPatientRow = (p) => ({
   id: p.id,
   name: p.name || '—',
+  code: p.patient_code || patientCode(p.id),
   age: p.age || '—',
   weeks: p.ega_weeks || '—',
   risk: (p.risk_tier || 'LOW').toUpperCase(),
@@ -176,6 +181,7 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
                 <div>
                   <h4 className="font-headline-md text-amber-900 text-base">{p.name}</h4>
                   <p className="font-body-md text-on-surface-variant text-sm mt-0.5">
+                    {p.code ? <span className="font-mono text-xs mr-2 text-primary/80">{p.code}</span> : null}
                     Age {p.age} · Week {p.weeks}
                   </p>
                   {p.flags.length > 0 && (
@@ -300,8 +306,13 @@ const PatientsView = ({ navigate }) => {
   }, [search]);
 
   const filtered = patients.filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const matchRisk   = riskFilter === 'All' || p.risk === riskFilter;
+    const q = search.toLowerCase().trim();
+    const matchSearch =
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      (p.code && p.code.toLowerCase().includes(q)) ||
+      (p.code && p.code.toLowerCase().replace(/^mc-/, '').includes(q.replace(/^mc-/, '')));
+    const matchRisk = riskFilter === 'All' || p.risk === riskFilter;
     return matchSearch && matchRisk;
   });
 
@@ -319,7 +330,7 @@ const PatientsView = ({ navigate }) => {
           <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
           <input
             type="text"
-            placeholder="Search patient name…"
+            placeholder="Search by name or patient code (MC-XXXXXX)…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-body-md bg-white"
@@ -362,7 +373,10 @@ const PatientsView = ({ navigate }) => {
                 </div>
                 <div>
                   <p className="font-headline-md text-amber-900">{p.name}</p>
-                  <p className="font-body-md text-on-surface-variant text-sm">Age {p.age} · Week {p.weeks}</p>
+                  <p className="font-body-md text-on-surface-variant text-sm">
+                    {p.code ? <span className="font-mono text-xs mr-2 text-primary/80">{p.code}</span> : null}
+                    Age {p.age} · Week {p.weeks}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">

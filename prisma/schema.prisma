@@ -69,11 +69,47 @@ model Pregnancy {
   booking_bp_diastolic Int?
   blood_group          String?
   genotype             String?
+  rhesus               String?
   rvd_status           String?
   vdrl                 String?
   pcv                  Float?
   hep_b                String?
+  /// Malaria parasite result
+  malaria_parasite     String?
+  urinalysis           String?
+  /// Tetanus toxoid (TT) history / doses
   tetanus_history      String?
+  /// Intermittent preventive treatment for malaria (IPT)
+  ipt_history          String?
+  /// Ultrasound scan
+  uss_date             DateTime?
+  uss_ega_weeks        Int?
+  uss_notes            String?
+  /// Previously booked ANC at another facility
+  booked_anc           Boolean?
+  booked_anc_facility  String?
+  /// Gestational age at booking (weeks)
+  booking_ga_weeks     Int?
+  /// Free-text booking / ANC history notes (doctor-entered)
+  booking_history      String?
+  /// Hepatitis C result
+  hep_c                String?
+  /// Random blood glucose
+  rbg                  String?
+  /// Oral glucose tolerance test
+  ogtt                 String?
+  /// Extra labs / ad-hoc investigations (JSON: protein, glucose, additional[], request, etc.)
+  extra_labs           Json?
+  /// Doctor-logged vitals history (array of entries)
+  vitals_log           Json?
+  /// Prescribed meds + IPT/TT doses with GA (JSON object)
+  drugs_vaccines       Json?
+  /// Scans during pregnancy (array: date, ga, notes)
+  scans_log            Json?
+  /// Current examination findings (lie, presentation, SFH, fetal heart)
+  examination          Json?
+  /// Persistent doctor remarks — shown every consultation once set
+  important_remarks    String?
   gravidity            Int?
   parity               Int?
 

@@ -24,10 +24,6 @@ const MOCK = {
   childrenAlive: 1,
 };
 
-const DIPSTICK = ['none', '+', '++', '+++'];
-const LIE_OPTS = ['Transverse', 'Oblique', 'Longitudinal', 'Indeterminate'];
-const PRES_OPTS = ['Cephalic', 'Breech', 'Face', 'Shoulder', 'Indeterminate'];
-
 const calcEgaWeeks = (lmpRaw) => {
   if (!lmpRaw) return null;
   const lmp = new Date(lmpRaw);
@@ -118,9 +114,40 @@ const newId = () =>
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const emptyVitalsDraft = () => ({
+  date: new Date().toISOString().slice(0, 10),
+  pr: '',
+  rr: '',
+  bp_systolic: '',
+  bp_diastolic: '',
+  temp_c: '',
+  weight_kg: '',
+  height_cm: '',
+});
+
+const emptyInvestigations = () => ({
+  blood_group: '',
+  genotype: '',
+  rhesus: '',
+  rvd_status: '',
+  vdrl: '',
+  pcv: '',
+  hep_b: '',
+  hep_c: '',
+  malaria_parasite: '',
+  urinalysis: '',
+  rbg: '',
+  ogtt: '',
+  tetanus_history: '',
+  ipt_history: '',
+  uss_date: '',
+  uss_ega_weeks: '',
+  uss_notes: '',
+});
+
 /** Expandable clinic section */
 const ClinicSection = ({ title, open, onToggle, children, badge }) => (
-  <div className="bg-surface-container-lowest border border-outline-variant/40 rounded-xl overflow-hidden">
+  <div className="bg-white border border-outline-variant/40 rounded-xl overflow-hidden shadow-sm">
     <button
       type="button"
       onClick={onToggle}
@@ -172,42 +199,16 @@ const PatientDetailPanel = () => {
   const [fullPatient, setFullPatient] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const [openSection, setOpenSection] = useState('vitals');
+  const [openSection, setOpenSection] = useState('bookings');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
-  // Clinical review state
   const [vitalsLog, setVitalsLog] = useState([]);
   const [showLogVitals, setShowLogVitals] = useState(false);
-  const [vitalDraft, setVitalDraft] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    bp_systolic: '',
-    bp_diastolic: '',
-    pr: '',
-    weight_kg: '',
-    height_cm: '',
-    rr: '',
-    temp_c: '',
-    protein: 'none',
-    glucose: 'none',
-  });
+  const [vitalDraft, setVitalDraft] = useState(emptyVitalsDraft);
 
-  const [medications, setMedications] = useState('');
-  const [iptDoses, setIptDoses] = useState([{ dose: '', ga_weeks: '' }]);
-  const [ttDoses, setTtDoses] = useState([{ dose: '', ga_weeks: '' }]);
-
-  const [scansLog, setScansLog] = useState([]);
-  const [scanDraft, setScanDraft] = useState({ date: '', ga_weeks: '', notes: '' });
-  const [showAddScan, setShowAddScan] = useState(false);
-
-  const [exam, setExam] = useState({
-    lie: '',
-    presentation: '',
-    sfh: '',
-    fetal_heart: '',
-  });
-
-  const [importantRemarks, setImportantRemarks] = useState('');
+  const [investigations, setInvestigations] = useState(emptyInvestigations);
+  const [consultationNotes, setConsultationNotes] = useState('');
 
   const reloadPatient = useCallback(() => {
     if (!isReal) return Promise.resolve();
@@ -230,11 +231,10 @@ const PatientDetailPanel = () => {
       .finally(() => setLoadingSummary(false));
   }, [isReal, passedPatient?.id]);
 
-  // Hydrate review fields from pregnancy + intake
+  // Hydrate from pregnancy + intake
   useEffect(() => {
     if (!fullPatient) {
       if (!isReal) {
-        // Demo seed
         setVitalsLog([
           {
             id: 'demo-1',
@@ -246,75 +246,44 @@ const PatientDetailPanel = () => {
             height_cm: 169,
             rr: 18,
             temp_c: 37,
-            protein: 'none',
-            glucose: '+',
           },
         ]);
-        setMedications('Labetalol 200 mg BD, Folic acid');
-        setIptDoses([{ dose: 'IPT1', ga_weeks: '16' }]);
-        setTtDoses([{ dose: 'TT2', ga_weeks: '20' }]);
-        setScansLog([
-          { id: 'demo-s1', date: '2026-05-01', ga_weeks: 7, notes: 'Confirmed IUP, singleton' },
-        ]);
-        setExam({ lie: 'Longitudinal', presentation: 'Cephalic', sfh: '24 cm', fetal_heart: '148 bpm' });
-        setImportantRemarks('');
+        setInvestigations({
+          ...emptyInvestigations(),
+          blood_group: 'O+',
+          genotype: 'AA',
+          pcv: '32',
+          rvd_status: 'Negative',
+        });
+        setConsultationNotes('');
       }
       return;
     }
 
     const pr = fullPatient.pregnancies?.[0] || {};
-    const intakeMap = {};
-    (fullPatient.intake_responses || []).forEach((r) => {
-      if (r?.question_key) intakeMap[r.question_key] = r.answer;
+    setVitalsLog(Array.isArray(pr.vitals_log) ? pr.vitals_log : []);
+
+    setInvestigations({
+      blood_group: pr.blood_group || '',
+      genotype: pr.genotype || '',
+      rhesus: pr.rhesus || '',
+      rvd_status: pr.rvd_status || '',
+      vdrl: pr.vdrl || '',
+      pcv: pr.pcv != null && pr.pcv !== '' ? String(pr.pcv) : '',
+      hep_b: pr.hep_b || '',
+      hep_c: pr.hep_c || '',
+      malaria_parasite: pr.malaria_parasite || '',
+      urinalysis: pr.urinalysis || '',
+      rbg: pr.rbg || '',
+      ogtt: pr.ogtt || '',
+      tetanus_history: pr.tetanus_history || '',
+      ipt_history: pr.ipt_history || '',
+      uss_date: toDateInput(pr.uss_date),
+      uss_ega_weeks: pr.uss_ega_weeks != null ? String(pr.uss_ega_weeks) : '',
+      uss_notes: pr.uss_notes || '',
     });
 
-    const rawVitals = Array.isArray(pr.vitals_log) ? pr.vitals_log : [];
-    setVitalsLog(rawVitals);
-
-    const dv = pr.drugs_vaccines && typeof pr.drugs_vaccines === 'object' ? pr.drugs_vaccines : {};
-    const medsFromIntake =
-      ans(intakeMap, 'pregnancy_medications') || ans(intakeMap, 'other_medications') || '';
-    setMedications(dv.medications || medsFromIntake || '');
-
-    if (Array.isArray(dv.ipt) && dv.ipt.length) {
-      setIptDoses(dv.ipt.map((x) => ({ dose: x.dose || '', ga_weeks: x.ga_weeks != null ? String(x.ga_weeks) : '' })));
-    } else if (pr.ipt_history) {
-      setIptDoses([{ dose: String(pr.ipt_history), ga_weeks: '' }]);
-    } else {
-      setIptDoses([{ dose: '', ga_weeks: '' }]);
-    }
-
-    if (Array.isArray(dv.tt) && dv.tt.length) {
-      setTtDoses(dv.tt.map((x) => ({ dose: x.dose || '', ga_weeks: x.ga_weeks != null ? String(x.ga_weeks) : '' })));
-    } else if (pr.tetanus_history) {
-      setTtDoses([{ dose: String(pr.tetanus_history), ga_weeks: '' }]);
-    } else {
-      setTtDoses([{ dose: '', ga_weeks: '' }]);
-    }
-
-    let scans = Array.isArray(pr.scans_log) ? [...pr.scans_log] : [];
-    if (!scans.length && (pr.uss_date || pr.uss_ega_weeks || pr.uss_notes)) {
-      scans = [
-        {
-          id: 'uss-seed',
-          date: toDateInput(pr.uss_date),
-          ga_weeks: pr.uss_ega_weeks ?? '',
-          notes: pr.uss_notes || '',
-        },
-      ];
-    }
-    setScansLog(scans);
-
-    const ex = pr.examination && typeof pr.examination === 'object' ? pr.examination : {};
-    setExam({
-      lie: ex.lie || '',
-      presentation: ex.presentation || '',
-      sfh: ex.sfh || '',
-      fetal_heart: ex.fetal_heart || '',
-    });
-
-    // Persistent remarks — always show prior value
-    setImportantRemarks(pr.important_remarks || '');
+    setConsultationNotes(pr.important_remarks || '');
   }, [fullPatient, isReal]);
 
   // ── Derived display ──────────────────────────────────────────────────────
@@ -341,6 +310,7 @@ const PatientDetailPanel = () => {
           notes: null,
         },
       ];
+
   const intakeMap = {};
   (fullPatient?.intake_responses || []).forEach((r) => {
     if (r?.question_key) intakeMap[r.question_key] = r.answer;
@@ -397,7 +367,11 @@ const PatientDetailPanel = () => {
     ? new Date(preg.edd_computed).toLocaleDateString('en-GB')
     : passedPatient?.edd || (isReal ? '—' : MOCK.edd);
   const bloodType =
-    preg.blood_group || passedPatient?.bloodType || passedPatient?.blood_group || (isReal ? '—' : MOCK.bloodType);
+    investigations.blood_group ||
+    preg.blood_group ||
+    passedPatient?.bloodType ||
+    passedPatient?.blood_group ||
+    (isReal ? '—' : MOCK.bloodType);
   const patientCode =
     fullPatient?.patient_code || formatPatientCode(fullPatient?.id || passedPatient?.id);
   const weeks = liveEga != null && !Number.isNaN(liveEga) ? liveEga : null;
@@ -408,64 +382,55 @@ const PatientDetailPanel = () => {
 
   const toggle = (key) => setOpenSection((o) => (o === key ? null : key));
 
-  // ── Actions ──────────────────────────────────────────────────────────────
+  const setInv = (field, value) =>
+    setInvestigations((prev) => ({ ...prev, [field]: value }));
+
   const addVital = () => {
-    if (!vitalDraft.bp_systolic && !vitalDraft.weight_kg && !vitalDraft.pr) return;
+    const hasAny =
+      vitalDraft.pr ||
+      vitalDraft.rr ||
+      vitalDraft.bp_systolic ||
+      vitalDraft.bp_diastolic ||
+      vitalDraft.temp_c ||
+      vitalDraft.weight_kg ||
+      vitalDraft.height_cm;
+    if (!hasAny) return;
     const entry = { id: newId(), ...vitalDraft };
     setVitalsLog((list) => [entry, ...list]);
-    setVitalDraft({
-      date: new Date().toISOString().slice(0, 10),
-      bp_systolic: '',
-      bp_diastolic: '',
-      pr: '',
-      weight_kg: '',
-      height_cm: '',
-      rr: '',
-      temp_c: '',
-      protein: 'none',
-      glucose: 'none',
-    });
+    setVitalDraft(emptyVitalsDraft());
     setShowLogVitals(false);
   };
 
-  const addScan = () => {
-    if (!scanDraft.date && !scanDraft.ga_weeks && !scanDraft.notes) return;
-    setScansLog((list) => [...list, { id: newId(), ...scanDraft }]);
-    setScanDraft({ date: '', ga_weeks: '', notes: '' });
-    setShowAddScan(false);
-  };
+  const buildReviewPayload = () => {
+    const inv = investigations;
+    const pcvNum = inv.pcv !== '' && inv.pcv != null ? Number(inv.pcv) : undefined;
+    const ussEga =
+      inv.uss_ega_weeks !== '' && inv.uss_ega_weeks != null
+        ? Number(inv.uss_ega_weeks)
+        : undefined;
 
-  const buildReviewPayload = () => ({
-    vitals_log: vitalsLog,
-    drugs_vaccines: {
-      medications: medications || null,
-      ipt: iptDoses.filter((d) => d.dose || d.ga_weeks),
-      tt: ttDoses.filter((d) => d.dose || d.ga_weeks),
-    },
-    scans_log: scansLog,
-    examination: exam,
-    important_remarks: importantRemarks || null,
-    // Keep latest USS fields in sync with most recent scan
-    ...(scansLog.length
-      ? {
-          uss_date: scansLog[scansLog.length - 1].date || undefined,
-          uss_ega_weeks:
-            scansLog[scansLog.length - 1].ga_weeks !== ''
-              ? Number(scansLog[scansLog.length - 1].ga_weeks)
-              : undefined,
-          uss_notes: scansLog[scansLog.length - 1].notes || undefined,
-        }
-      : {}),
-    // Keep string IPT/TT history readable
-    ipt_history: iptDoses
-      .filter((d) => d.dose)
-      .map((d) => `${d.dose}${d.ga_weeks ? ` @ ${d.ga_weeks}w` : ''}`)
-      .join('; ') || undefined,
-    tetanus_history: ttDoses
-      .filter((d) => d.dose)
-      .map((d) => `${d.dose}${d.ga_weeks ? ` @ ${d.ga_weeks}w` : ''}`)
-      .join('; ') || undefined,
-  });
+    return {
+      vitals_log: vitalsLog,
+      important_remarks: consultationNotes || null,
+      blood_group: inv.blood_group || null,
+      genotype: inv.genotype || null,
+      rhesus: inv.rhesus || null,
+      rvd_status: inv.rvd_status || null,
+      vdrl: inv.vdrl || null,
+      pcv: pcvNum != null && !Number.isNaN(pcvNum) ? pcvNum : null,
+      hep_b: inv.hep_b || null,
+      hep_c: inv.hep_c || null,
+      malaria_parasite: inv.malaria_parasite || null,
+      urinalysis: inv.urinalysis || null,
+      rbg: inv.rbg || null,
+      ogtt: inv.ogtt || null,
+      tetanus_history: inv.tetanus_history || null,
+      ipt_history: inv.ipt_history || null,
+      uss_date: inv.uss_date || null,
+      uss_ega_weeks: ussEga != null && !Number.isNaN(ussEga) ? ussEga : null,
+      uss_notes: inv.uss_notes || null,
+    };
+  };
 
   const handleSaveReview = async () => {
     setSaving(true);
@@ -475,29 +440,19 @@ const PatientDetailPanel = () => {
         const payload = buildReviewPayload();
         Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
         await updateDoctorPregnancy(passedPatient.id, payload);
-        // Also attach remarks snapshot to the visit if opened from queue
-        if (appointment_id && importantRemarks.trim()) {
+        if (appointment_id && consultationNotes.trim()) {
           try {
-            await saveVisitNotes(appointment_id, importantRemarks, { complete: false });
+            await saveVisitNotes(appointment_id, consultationNotes, { complete: false });
           } catch {
             /* non-blocking */
           }
         }
         await reloadPatient();
       }
-      // Local draft backup
       try {
         localStorage.setItem(
           `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({
-            vitalsLog,
-            medications,
-            iptDoses,
-            ttDoses,
-            scansLog,
-            exam,
-            importantRemarks,
-          })
+          JSON.stringify({ vitalsLog, investigations, consultationNotes })
         );
       } catch {
         /* ignore */
@@ -507,15 +462,7 @@ const PatientDetailPanel = () => {
       try {
         localStorage.setItem(
           `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({
-            vitalsLog,
-            medications,
-            iptDoses,
-            ttDoses,
-            scansLog,
-            exam,
-            importantRemarks,
-          })
+          JSON.stringify({ vitalsLog, investigations, consultationNotes })
         );
       } catch {
         /* ignore */
@@ -535,7 +482,7 @@ const PatientDetailPanel = () => {
       await handleSaveReview();
       await saveVisitNotes(
         appointment_id,
-        importantRemarks.trim() || 'Appointment completed.',
+        consultationNotes.trim() || 'Appointment completed.',
         { complete: true }
       );
       navigate('/provider');
@@ -544,29 +491,23 @@ const PatientDetailPanel = () => {
     }
   };
 
+  const invFilledCount = Object.values(investigations).filter(
+    (v) => v != null && String(v).trim() !== ''
+  ).length;
+
   return (
-    <div className="bg-background text-on-surface font-body-md min-h-screen flex justify-end overflow-hidden">
-      <div className="grain-overlay" />
+    <div className="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
+      <div className="grain-overlay pointer-events-none" />
 
-      <main className="hidden md:flex flex-col flex-1 p-12 opacity-20 grayscale pointer-events-none">
-        <header className="flex justify-between items-center mb-12">
-          <h1 className="font-display-xl text-display-xl">Provider Dashboard</h1>
-        </header>
-        <div className="grid grid-cols-3 gap-8">
-          <div className="h-64 rounded-xl bg-surface-container" />
-          <div className="h-64 rounded-xl bg-surface-container" />
-          <div className="h-64 rounded-xl bg-surface-container" />
-        </div>
-      </main>
-
-      <aside className="w-full md:w-[500px] bg-surface h-screen shadow-2xl flex flex-col relative z-50 border-l border-outline-variant">
-        {/* Header */}
-        <header className="bg-[#1A1A18] text-white p-6 shrink-0">
+      {/* Patient header — full width on all breakpoints */}
+      <header className="bg-[#1A1A18] text-white shrink-0">
+        <div className="max-w-4xl mx-auto w-full p-5 sm:p-6">
           <div className="flex justify-between items-start mb-4">
             <button
               type="button"
               onClick={() => navigate('/provider')}
               className="text-white/60 hover:text-white transition-colors"
+              aria-label="Close"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -587,8 +528,8 @@ const PatientDetailPanel = () => {
             <div className="w-16 h-16 rounded-2xl bg-amber-900/50 flex items-center justify-center shrink-0 border border-amber-400/20">
               <span className="font-bold text-xl text-white">{initials}</span>
             </div>
-            <div>
-              <h2 className="font-headline-lg text-2xl mb-0.5">{name}</h2>
+            <div className="min-w-0">
+              <h2 className="font-headline-lg text-2xl mb-0.5 truncate">{name}</h2>
               <p className="font-body-md text-white/70">
                 Age {age || '—'} · {gpStr || 'G—P—'}
                 {weeks != null ? ` · ${formatEgaLabel(weeks)}` : isReal ? '' : ` · ${MOCK.ega}`}
@@ -611,102 +552,283 @@ const PatientDetailPanel = () => {
               </div>
             ))}
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4">
-          {/* AI Pre-Consult Summary */}
-          <section>
-            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
-              AI Pre-Consult Summary
-            </h3>
-            <div className="bg-surface-container-low border-l-4 border-primary p-4 rounded-r-lg shadow-sm">
-              {loadingSummary ? (
-                <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
-              ) : (
-                <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                  {aiSummary || fallbackSummary}
-                </p>
-              )}
-            </div>
-          </section>
+      {/* Main content — full-width container (desktop + mobile) */}
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 py-5 space-y-4 pb-36">
+        {/* AI Pre-Consult Summary */}
+        <section>
+          <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">
+            AI Pre-Consult Summary
+          </h3>
+          <div className="bg-white border-l-4 border-primary p-4 rounded-r-lg shadow-sm border border-outline-variant/30 border-l-primary">
+            {loadingSummary ? (
+              <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
+            ) : (
+              <p className="font-body-md text-on-surface leading-relaxed text-sm">
+                {aiSummary || fallbackSummary}
+              </p>
+            )}
+          </div>
+        </section>
 
-          {/* ── Booking history (appointments) ───────────────────────────── */}
-          <ClinicSection
-            title="Booking History"
-            open={openSection === 'bookings'}
-            onToggle={() => toggle('bookings')}
-            badge={bookingHistory.length ? `${bookingHistory.length}` : null}
-          >
-            <div className="pt-3 space-y-2">
-              {bookingHistory.length === 0 ? (
-                <p className="font-body-md text-sm text-on-surface-variant italic">
-                  No appointments booked yet.
-                </p>
-              ) : (
-                bookingHistory.map((b) => {
-                  const statusKey = String(b.status || '').toLowerCase();
-                  const statusCls =
-                    BOOKING_STATUS_STYLE[statusKey] ||
-                    'bg-surface-container text-on-surface-variant';
-                  return (
-                    <div
-                      key={b.id || b.slot_start}
-                      className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-body-md text-sm font-medium text-on-surface">
-                            {formatDisplayDateTime(b.slot_start)}
-                          </p>
-                          <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
-                            {b.doctor?.name ? `with ${b.doctor.name}` : 'Doctor —'}
-                            {b.slot_end
-                              ? ` · ends ${formatDisplayDateTime(b.slot_end).split(', ').pop() || ''}`
-                              : ''}
-                          </p>
-                        </div>
-                        <span
-                          className={`shrink-0 px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase tracking-wide ${statusCls}`}
-                        >
-                          {formatBookingStatus(b.status)}
-                        </span>
-                      </div>
-                      {b.notes ? (
-                        <p className="font-body-md text-xs text-on-surface-variant mt-2 border-t border-outline-variant/20 pt-2">
-                          {b.notes}
+        {/* 1. Booking History */}
+        <ClinicSection
+          title="Booking History"
+          open={openSection === 'bookings'}
+          onToggle={() => toggle('bookings')}
+          badge={bookingHistory.length ? `${bookingHistory.length}` : null}
+        >
+          <div className="pt-3 space-y-2">
+            {bookingHistory.length === 0 ? (
+              <p className="font-body-md text-sm text-on-surface-variant italic">
+                No appointments booked yet.
+              </p>
+            ) : (
+              bookingHistory.map((b) => {
+                const statusKey = String(b.status || '').toLowerCase();
+                const statusCls =
+                  BOOKING_STATUS_STYLE[statusKey] ||
+                  'bg-surface-container text-on-surface-variant';
+                return (
+                  <div
+                    key={b.id || b.slot_start}
+                    className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-body-md text-sm font-medium text-on-surface">
+                          {formatDisplayDateTime(b.slot_start)}
                         </p>
-                      ) : null}
+                        <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
+                          {b.doctor?.name ? `with ${b.doctor.name}` : 'Doctor —'}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase tracking-wide ${statusCls}`}
+                      >
+                        {formatBookingStatus(b.status)}
+                      </span>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </ClinicSection>
+                    {b.notes ? (
+                      <p className="font-body-md text-xs text-on-surface-variant mt-2 border-t border-outline-variant/20 pt-2">
+                        {b.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ClinicSection>
 
-          {/* ── Vitals ───────────────────────────────────────────────────── */}
-          <ClinicSection
-            title="Vitals"
-            open={openSection === 'vitals'}
-            onToggle={() => toggle('vitals')}
-            badge={vitalsLog.length ? `${vitalsLog.length}` : null}
-          >
-            <div className="pt-3 overflow-x-auto">
-              {vitalsLog.length === 0 ? (
-                <p className="font-body-md text-sm text-on-surface-variant italic mb-2">
-                  No vitals logged yet.
-                </p>
-              ) : (
-                <table className="w-full text-xs border-collapse min-w-[480px]">
+        {/* 2. Investigations done */}
+        <ClinicSection
+          title="Investigations done"
+          open={openSection === 'investigations'}
+          onToggle={() => toggle('investigations')}
+          badge={invFilledCount ? `${invFilledCount}` : null}
+        >
+          <div className="pt-3 space-y-1">
+            <p className="font-body-md text-xs text-on-surface-variant mb-2">
+              Edit lab results, blood work, and ultrasound findings for this patient.
+            </p>
+            <FieldRow label="Blood group">
+              <input
+                className={inputCls}
+                value={investigations.blood_group}
+                onChange={(e) => setInv('blood_group', e.target.value)}
+                placeholder="e.g. O+"
+              />
+            </FieldRow>
+            <FieldRow label="Genotype">
+              <input
+                className={inputCls}
+                value={investigations.genotype}
+                onChange={(e) => setInv('genotype', e.target.value)}
+                placeholder="e.g. AA"
+              />
+            </FieldRow>
+            <FieldRow label="Rhesus">
+              <input
+                className={inputCls}
+                value={investigations.rhesus}
+                onChange={(e) => setInv('rhesus', e.target.value)}
+                placeholder="e.g. Positive"
+              />
+            </FieldRow>
+            <FieldRow label="RVD status">
+              <input
+                className={inputCls}
+                value={investigations.rvd_status}
+                onChange={(e) => setInv('rvd_status', e.target.value)}
+                placeholder="e.g. Negative"
+              />
+            </FieldRow>
+            <FieldRow label="VDRL">
+              <input
+                className={inputCls}
+                value={investigations.vdrl}
+                onChange={(e) => setInv('vdrl', e.target.value)}
+                placeholder="e.g. Non-reactive"
+              />
+            </FieldRow>
+            <FieldRow label="PCV">
+              <input
+                type="number"
+                className={inputCls}
+                value={investigations.pcv}
+                onChange={(e) => setInv('pcv', e.target.value)}
+                placeholder="e.g. 32"
+              />
+            </FieldRow>
+            <FieldRow label="Hep B">
+              <input
+                className={inputCls}
+                value={investigations.hep_b}
+                onChange={(e) => setInv('hep_b', e.target.value)}
+                placeholder="e.g. Negative"
+              />
+            </FieldRow>
+            <FieldRow label="Hep C">
+              <input
+                className={inputCls}
+                value={investigations.hep_c}
+                onChange={(e) => setInv('hep_c', e.target.value)}
+                placeholder="e.g. Negative"
+              />
+            </FieldRow>
+            <FieldRow label="Malaria parasite">
+              <input
+                className={inputCls}
+                value={investigations.malaria_parasite}
+                onChange={(e) => setInv('malaria_parasite', e.target.value)}
+                placeholder="e.g. Negative"
+              />
+            </FieldRow>
+            <FieldRow label="Urinalysis">
+              <input
+                className={inputCls}
+                value={investigations.urinalysis}
+                onChange={(e) => setInv('urinalysis', e.target.value)}
+                placeholder="e.g. NAD"
+              />
+            </FieldRow>
+            <FieldRow label="RBG">
+              <input
+                className={inputCls}
+                value={investigations.rbg}
+                onChange={(e) => setInv('rbg', e.target.value)}
+                placeholder="e.g. 5.2"
+              />
+            </FieldRow>
+            <FieldRow label="OGTT">
+              <input
+                className={inputCls}
+                value={investigations.ogtt}
+                onChange={(e) => setInv('ogtt', e.target.value)}
+                placeholder="Result"
+              />
+            </FieldRow>
+            <FieldRow label="TT history">
+              <input
+                className={inputCls}
+                value={investigations.tetanus_history}
+                onChange={(e) => setInv('tetanus_history', e.target.value)}
+                placeholder="e.g. TT2 @ 20w"
+              />
+            </FieldRow>
+            <FieldRow label="IPT history">
+              <input
+                className={inputCls}
+                value={investigations.ipt_history}
+                onChange={(e) => setInv('ipt_history', e.target.value)}
+                placeholder="e.g. IPT1 @ 16w"
+              />
+            </FieldRow>
+            <div className="pt-2 border-t border-outline-variant/25 mt-2">
+              <p className="font-label-sm text-on-surface-variant text-xs uppercase mb-2">
+                Ultrasound
+              </p>
+              <FieldRow label="USS date">
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={investigations.uss_date}
+                  onChange={(e) => setInv('uss_date', e.target.value)}
+                />
+              </FieldRow>
+              <FieldRow label="USS EGA (weeks)">
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={investigations.uss_ega_weeks}
+                  onChange={(e) => setInv('uss_ega_weeks', e.target.value)}
+                  placeholder="weeks"
+                />
+              </FieldRow>
+              <FieldRow label="USS notes">
+                <input
+                  className={inputCls}
+                  value={investigations.uss_notes}
+                  onChange={(e) => setInv('uss_notes', e.target.value)}
+                  placeholder="Findings…"
+                />
+              </FieldRow>
+            </div>
+          </div>
+        </ClinicSection>
+
+        {/* 3. Consultation notes */}
+        <ClinicSection
+          title="Consultation notes"
+          open={openSection === 'notes'}
+          onToggle={() => toggle('notes')}
+          badge={consultationNotes.trim() ? 'saved' : null}
+        >
+          <div className="pt-3">
+            <p className="font-body-md text-xs text-on-surface-variant mb-2">
+              Clinical notes for this patient. Once saved, they reappear on later consultations.
+            </p>
+            <textarea
+              value={consultationNotes}
+              onChange={(e) => setConsultationNotes(e.target.value)}
+              rows={6}
+              placeholder="Start typing clinical notes…"
+              className="w-full bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
+            />
+          </div>
+        </ClinicSection>
+
+        {/* 4. Vitals (end of list) */}
+        <ClinicSection
+          title="Vitals"
+          open={openSection === 'vitals'}
+          onToggle={() => toggle('vitals')}
+          badge={vitalsLog.length ? `${vitalsLog.length}` : null}
+        >
+          <div className="pt-3 space-y-3">
+            <p className="font-body-md text-xs text-on-surface-variant">
+              Pulse rate, respiratory rate, blood pressure, temperature, weight, and height.
+            </p>
+
+            {vitalsLog.length === 0 ? (
+              <p className="font-body-md text-sm text-on-surface-variant italic">
+                No vitals logged yet.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse min-w-[520px]">
                   <thead>
                     <tr className="text-on-surface-variant text-left border-b border-outline-variant/40">
                       <th className="py-2 pr-2 font-label-sm">Date</th>
-                      <th className="py-2 pr-2 font-label-sm">BP/PR</th>
-                      <th className="py-2 pr-2 font-label-sm">Wt</th>
-                      <th className="py-2 pr-2 font-label-sm">Ht</th>
+                      <th className="py-2 pr-2 font-label-sm">PR</th>
                       <th className="py-2 pr-2 font-label-sm">RR</th>
+                      <th className="py-2 pr-2 font-label-sm">BP</th>
                       <th className="py-2 pr-2 font-label-sm">Temp</th>
-                      <th className="py-2 font-label-sm">Urinalysis</th>
+                      <th className="py-2 pr-2 font-label-sm">Wt</th>
+                      <th className="py-2 font-label-sm">Ht</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -714,45 +836,67 @@ const PatientDetailPanel = () => {
                       <tr key={v.id || v.date} className="border-b border-outline-variant/20">
                         <td className="py-2 pr-2 whitespace-nowrap">{formatDisplayDate(v.date)}</td>
                         <td className="py-2 pr-2">
-                          {v.bp_systolic || v.bp_diastolic
-                            ? `${v.bp_systolic || '—'}/${v.bp_diastolic || '—'} mmHg`
-                            : '—'}
-                          {v.pr ? (
-                            <span className="block text-on-surface-variant">{v.pr} bpm</span>
-                          ) : null}
+                          {v.pr != null && v.pr !== '' ? `${v.pr} bpm` : '—'}
                         </td>
-                        <td className="py-2 pr-2">{v.weight_kg != null && v.weight_kg !== '' ? `${v.weight_kg}` : '—'}</td>
-                        <td className="py-2 pr-2">{v.height_cm != null && v.height_cm !== '' ? `${v.height_cm}` : '—'}</td>
-                        <td className="py-2 pr-2">{v.rr != null && v.rr !== '' ? `${v.rr}` : '—'}</td>
-                        <td className="py-2 pr-2">{v.temp_c != null && v.temp_c !== '' ? `${v.temp_c}` : '—'}</td>
+                        <td className="py-2 pr-2">
+                          {v.rr != null && v.rr !== '' ? `${v.rr}` : '—'}
+                        </td>
+                        <td className="py-2 pr-2">
+                          {v.bp_systolic || v.bp_diastolic
+                            ? `${v.bp_systolic || '—'}/${v.bp_diastolic || '—'}`
+                            : '—'}
+                        </td>
+                        <td className="py-2 pr-2">
+                          {v.temp_c != null && v.temp_c !== '' ? `${v.temp_c}°C` : '—'}
+                        </td>
+                        <td className="py-2 pr-2">
+                          {v.weight_kg != null && v.weight_kg !== '' ? `${v.weight_kg} kg` : '—'}
+                        </td>
                         <td className="py-2">
-                          <span className="block">G: {v.glucose || '—'}</span>
-                          <span className="block">P: {v.protein || '—'}</span>
+                          {v.height_cm != null && v.height_cm !== '' ? `${v.height_cm} cm` : '—'}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              )}
-            </div>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={() => setShowLogVitals((s) => !s)}
-              className="w-full mt-2 bg-primary/10 text-primary border border-primary/30 py-2.5 rounded-lg font-label-sm text-xs hover:bg-primary/15 transition-all flex items-center justify-center gap-1"
+              className="w-full bg-primary/10 text-primary border border-primary/30 py-2.5 rounded-lg font-label-sm text-xs hover:bg-primary/15 transition-all flex items-center justify-center gap-1"
             >
               <span className="material-symbols-outlined text-sm">add</span>
-              Log vitals
+              Log vital signs
             </button>
 
             {showLogVitals && (
-              <div className="mt-2 p-3 bg-surface-container-low rounded-lg border border-outline-variant/30 space-y-1">
-                <FieldRow label="Date done">
+              <div className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30 space-y-1">
+                <FieldRow label="Date">
                   <input
                     type="date"
                     className={inputCls}
                     value={vitalDraft.date}
                     onChange={(e) => setVitalDraft((d) => ({ ...d, date: e.target.value }))}
+                  />
+                </FieldRow>
+                <FieldRow label="Pulse rate (bpm)">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    placeholder="e.g. 86"
+                    value={vitalDraft.pr}
+                    onChange={(e) => setVitalDraft((d) => ({ ...d, pr: e.target.value }))}
+                  />
+                </FieldRow>
+                <FieldRow label="Respiratory rate">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    placeholder="e.g. 18"
+                    value={vitalDraft.rr}
+                    onChange={(e) => setVitalDraft((d) => ({ ...d, rr: e.target.value }))}
                   />
                 </FieldRow>
                 <FieldRow label="BP systolic">
@@ -773,43 +917,7 @@ const PatientDetailPanel = () => {
                     onChange={(e) => setVitalDraft((d) => ({ ...d, bp_diastolic: e.target.value }))}
                   />
                 </FieldRow>
-                <FieldRow label="PR (bpm)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="86"
-                    value={vitalDraft.pr}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, pr: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Wt (kg)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="80"
-                    value={vitalDraft.weight_kg}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, weight_kg: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Ht (cm)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="169"
-                    value={vitalDraft.height_cm}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, height_cm: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="RR (cpm)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="18"
-                    value={vitalDraft.rr}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, rr: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Temp (°C)">
+                <FieldRow label="Temperature (°C)">
                   <input
                     type="number"
                     step="0.1"
@@ -819,314 +927,52 @@ const PatientDetailPanel = () => {
                     onChange={(e) => setVitalDraft((d) => ({ ...d, temp_c: e.target.value }))}
                   />
                 </FieldRow>
-                <FieldRow label="Protein">
-                  <select
+                <FieldRow label="Weight (kg)">
+                  <input
+                    type="number"
                     className={inputCls}
-                    value={vitalDraft.protein}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, protein: e.target.value }))}
-                  >
-                    {DIPSTICK.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="80"
+                    value={vitalDraft.weight_kg}
+                    onChange={(e) => setVitalDraft((d) => ({ ...d, weight_kg: e.target.value }))}
+                  />
                 </FieldRow>
-                <FieldRow label="Glucose">
-                  <select
+                <FieldRow label="Height (cm)">
+                  <input
+                    type="number"
                     className={inputCls}
-                    value={vitalDraft.glucose}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, glucose: e.target.value }))}
-                  >
-                    {DIPSTICK.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="169"
+                    value={vitalDraft.height_cm}
+                    onChange={(e) => setVitalDraft((d) => ({ ...d, height_cm: e.target.value }))}
+                  />
                 </FieldRow>
                 <button
                   type="button"
                   onClick={addVital}
                   className="w-full mt-2 bg-primary text-white py-2 rounded-lg font-label-sm text-xs"
                 >
-                  Add to vitals table
+                  Add vital signs
                 </button>
               </div>
             )}
-          </ClinicSection>
+          </div>
+        </ClinicSection>
 
-          {/* ── Drugs and vaccination ────────────────────────────────────── */}
-          <ClinicSection
-            title="Drugs and vaccination given"
-            open={openSection === 'drugs'}
-            onToggle={() => toggle('drugs')}
+        {saveMsg && (
+          <p
+            className={`font-label-sm text-xs text-center ${
+              saveMsg.includes('saved') || saveMsg.includes('Saved')
+                ? 'text-primary'
+                : 'text-secondary'
+            }`}
           >
-            <div className="pt-3 space-y-3">
-              <div>
-                <p className="font-label-sm text-on-surface-variant text-xs uppercase mb-1">
-                  All prescribed medications
-                </p>
-                <textarea
-                  value={medications}
-                  onChange={(e) => setMedications(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Labetalol 200 mg BD, Folic acid, FeSO4…"
-                  className="w-full bg-surface-container-low border border-outline rounded-lg p-3 font-body-md text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-                />
-              </div>
+            {saveMsg}
+          </p>
+        )}
+      </main>
 
-              <div>
-                <p className="font-label-sm text-on-surface-variant text-xs uppercase mb-2">
-                  IPT (malaria) — dose & GA received
-                </p>
-                {iptDoses.map((row, i) => (
-                  <div key={`ipt-${i}`} className="flex gap-2 mb-2">
-                    <input
-                      className={`${inputCls} text-left`}
-                      placeholder="e.g. IPT1"
-                      value={row.dose}
-                      onChange={(e) => {
-                        const next = [...iptDoses];
-                        next[i] = { ...next[i], dose: e.target.value };
-                        setIptDoses(next);
-                      }}
-                    />
-                    <input
-                      type="number"
-                      className={`${inputCls} w-24 shrink-0`}
-                      placeholder="GA wks"
-                      value={row.ga_weeks}
-                      onChange={(e) => {
-                        const next = [...iptDoses];
-                        next[i] = { ...next[i], ga_weeks: e.target.value };
-                        setIptDoses(next);
-                      }}
-                    />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setIptDoses((d) => [...d, { dose: '', ga_weeks: '' }])}
-                  className="text-primary font-label-sm text-xs underline"
-                >
-                  + Add IPT dose
-                </button>
-              </div>
-
-              <div>
-                <p className="font-label-sm text-on-surface-variant text-xs uppercase mb-2">
-                  Tetanus toxoid (TT) — dose & GA received
-                </p>
-                {ttDoses.map((row, i) => (
-                  <div key={`tt-${i}`} className="flex gap-2 mb-2">
-                    <input
-                      className={`${inputCls} text-left`}
-                      placeholder="e.g. TT2"
-                      value={row.dose}
-                      onChange={(e) => {
-                        const next = [...ttDoses];
-                        next[i] = { ...next[i], dose: e.target.value };
-                        setTtDoses(next);
-                      }}
-                    />
-                    <input
-                      type="number"
-                      className={`${inputCls} w-24 shrink-0`}
-                      placeholder="GA wks"
-                      value={row.ga_weeks}
-                      onChange={(e) => {
-                        const next = [...ttDoses];
-                        next[i] = { ...next[i], ga_weeks: e.target.value };
-                        setTtDoses(next);
-                      }}
-                    />
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setTtDoses((d) => [...d, { dose: '', ga_weeks: '' }])}
-                  className="text-primary font-label-sm text-xs underline"
-                >
-                  + Add TT dose
-                </button>
-              </div>
-            </div>
-          </ClinicSection>
-
-          {/* ── Scans ────────────────────────────────────────────────────── */}
-          <ClinicSection
-            title="Scans done during pregnancy"
-            open={openSection === 'scans'}
-            onToggle={() => toggle('scans')}
-            badge={scansLog.length ? `${scansLog.length}` : null}
-          >
-            <div className="pt-3 space-y-2">
-              {scansLog.length === 0 ? (
-                <p className="font-body-md text-sm text-on-surface-variant italic">No scans recorded.</p>
-              ) : (
-                scansLog.map((s) => (
-                  <div
-                    key={s.id || `${s.date}-${s.ga_weeks}`}
-                    className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30"
-                  >
-                    <div className="flex justify-between gap-2 text-sm">
-                      <span className="font-medium">{formatDisplayDate(s.date)}</span>
-                      <span className="text-on-surface-variant">
-                        {s.ga_weeks != null && s.ga_weeks !== '' ? `GA ${s.ga_weeks} wks` : 'GA —'}
-                      </span>
-                    </div>
-                    {s.notes ? (
-                      <p className="font-body-md text-xs text-on-surface-variant mt-1">{s.notes}</p>
-                    ) : null}
-                  </div>
-                ))
-              )}
-
-              <button
-                type="button"
-                onClick={() => setShowAddScan((s) => !s)}
-                className="w-full bg-primary/10 text-primary border border-primary/30 py-2.5 rounded-lg font-label-sm text-xs"
-              >
-                + Add scan
-              </button>
-
-              {showAddScan && (
-                <div className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30 space-y-1">
-                  <FieldRow label="Date scan done">
-                    <input
-                      type="date"
-                      className={inputCls}
-                      value={scanDraft.date}
-                      onChange={(e) => setScanDraft((d) => ({ ...d, date: e.target.value }))}
-                    />
-                  </FieldRow>
-                  <FieldRow label="Gestational age">
-                    <input
-                      type="number"
-                      className={inputCls}
-                      placeholder="weeks"
-                      value={scanDraft.ga_weeks}
-                      onChange={(e) => setScanDraft((d) => ({ ...d, ga_weeks: e.target.value }))}
-                    />
-                  </FieldRow>
-                  <FieldRow label="Notes">
-                    <input
-                      className={inputCls}
-                      placeholder="Findings…"
-                      value={scanDraft.notes}
-                      onChange={(e) => setScanDraft((d) => ({ ...d, notes: e.target.value }))}
-                    />
-                  </FieldRow>
-                  <button
-                    type="button"
-                    onClick={addScan}
-                    className="w-full mt-2 bg-primary text-white py-2 rounded-lg font-label-sm text-xs"
-                  >
-                    Save scan
-                  </button>
-                </div>
-              )}
-            </div>
-          </ClinicSection>
-
-          {/* ── Examination ──────────────────────────────────────────────── */}
-          <ClinicSection
-            title="Examination"
-            open={openSection === 'exam'}
-            onToggle={() => toggle('exam')}
-          >
-            <div className="pt-3 space-y-1">
-              <FieldRow label="Lie">
-                <select
-                  className={inputCls}
-                  value={exam.lie}
-                  onChange={(e) => setExam((x) => ({ ...x, lie: e.target.value }))}
-                >
-                  <option value="">—</option>
-                  {LIE_OPTS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
-              <FieldRow label="Presentation">
-                <select
-                  className={inputCls}
-                  value={exam.presentation}
-                  onChange={(e) => setExam((x) => ({ ...x, presentation: e.target.value }))}
-                >
-                  <option value="">—</option>
-                  {PRES_OPTS.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </FieldRow>
-              <FieldRow label="SFH">
-                <input
-                  className={inputCls}
-                  placeholder="e.g. 28 cm"
-                  value={exam.sfh}
-                  onChange={(e) => setExam((x) => ({ ...x, sfh: e.target.value }))}
-                />
-              </FieldRow>
-              <FieldRow label="Fetal heart">
-                <input
-                  className={inputCls}
-                  placeholder="e.g. 148 bpm"
-                  value={exam.fetal_heart}
-                  onChange={(e) => setExam((x) => ({ ...x, fetal_heart: e.target.value }))}
-                />
-              </FieldRow>
-            </div>
-          </ClinicSection>
-
-          {/* ── Important Remarks ────────────────────────────────────────── */}
-          <ClinicSection
-            title="Important Remarks"
-            open={openSection === 'remarks'}
-            onToggle={() => toggle('remarks')}
-            badge={importantRemarks.trim() ? 'saved' : null}
-          >
-            <div className="pt-3">
-              <p className="font-body-md text-xs text-on-surface-variant mb-2">
-                Additional notes on review. Once entered, these appear at every consultation and stay editable.
-              </p>
-              <textarea
-                value={importantRemarks}
-                onChange={(e) => setImportantRemarks(e.target.value)}
-                rows={5}
-                placeholder="Start typing important remarks…"
-                className="w-full bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-              />
-            </div>
-          </ClinicSection>
-
-          {saveMsg && (
-            <p
-              className={`font-label-sm text-xs text-center ${
-                saveMsg.includes('saved') || saveMsg.includes('Saved')
-                  ? 'text-primary'
-                  : 'text-secondary'
-              }`}
-            >
-              {saveMsg}
-            </p>
-          )}
-        </div>
-
-        {/* Action Footer */}
-        <footer className="p-5 bg-surface border-t border-outline-variant grid grid-cols-2 gap-3 shrink-0">
-          <button
-            type="button"
-            className="col-span-2 bg-secondary text-white py-4 rounded-lg font-label-sm text-sm hover:brightness-95 transition-all flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">emergency_share</span>
-            ESCALATE TO EMERGENCY
-          </button>
+      {/* Sticky footer — no Escalate / Refer */}
+      <footer className="fixed bottom-0 inset-x-0 bg-surface/95 backdrop-blur border-t border-outline-variant z-40">
+        <div className="max-w-4xl mx-auto w-full p-4 sm:p-5 grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={handleSaveReview}
@@ -1138,18 +984,21 @@ const PatientDetailPanel = () => {
           <button
             type="button"
             onClick={handleMarkSeen}
-            className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20"
+            className="col-span-2 sm:col-span-1 bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm hover:bg-surface-container-highest transition-all border border-outline/20"
           >
             {appointment_id ? 'Mark as Seen' : 'Back'}
           </button>
-          <button
-            type="button"
-            className="bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm border border-outline/20"
-          >
-            Refer to Specialist
-          </button>
-        </footer>
-      </aside>
+          {appointment_id ? (
+            <button
+              type="button"
+              onClick={() => navigate('/provider')}
+              className="col-span-2 sm:col-span-1 bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm border border-outline/20"
+            >
+              Back to queue
+            </button>
+          ) : null}
+        </div>
+      </footer>
     </div>
   );
 };

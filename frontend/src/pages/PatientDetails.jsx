@@ -75,6 +75,37 @@ const formatDisplayDate = (raw) => {
   }
 };
 
+const formatDisplayDateTime = (raw) => {
+  if (!raw) return '—';
+  try {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    return d.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return String(raw);
+  }
+};
+
+const BOOKING_STATUS_STYLE = {
+  booked: 'bg-amber-100 text-amber-800',
+  completed: 'bg-primary/15 text-primary',
+  cancelled: 'bg-surface-container text-on-surface-variant',
+  no_show: 'bg-secondary/15 text-secondary',
+};
+
+const formatBookingStatus = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s === 'no_show') return 'No show';
+  if (!s) return '—';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 const ans = (map, key) => {
   const v = map[key];
   if (v == null) return null;
@@ -288,6 +319,28 @@ const PatientDetailPanel = () => {
 
   // ── Derived display ──────────────────────────────────────────────────────
   const preg = fullPatient?.pregnancies?.[0] || {};
+  const bookingHistory = isReal
+    ? Array.isArray(fullPatient?.booking_history)
+      ? fullPatient.booking_history
+      : []
+    : [
+        {
+          id: 'demo-b1',
+          slot_start: '2026-08-10T09:00:00',
+          slot_end: '2026-08-10T09:30:00',
+          status: 'completed',
+          doctor: { name: 'Dr. Adebayo' },
+          notes: 'ANC review — BP stable',
+        },
+        {
+          id: 'demo-b2',
+          slot_start: '2026-08-17T10:00:00',
+          slot_end: '2026-08-17T10:30:00',
+          status: 'booked',
+          doctor: { name: 'Dr. Adebayo' },
+          notes: null,
+        },
+      ];
   const intakeMap = {};
   (fullPatient?.intake_responses || []).forEach((r) => {
     if (r?.question_key) intakeMap[r.question_key] = r.answer;
@@ -577,6 +630,59 @@ const PatientDetailPanel = () => {
               )}
             </div>
           </section>
+
+          {/* ── Booking history (appointments) ───────────────────────────── */}
+          <ClinicSection
+            title="Booking History"
+            open={openSection === 'bookings'}
+            onToggle={() => toggle('bookings')}
+            badge={bookingHistory.length ? `${bookingHistory.length}` : null}
+          >
+            <div className="pt-3 space-y-2">
+              {bookingHistory.length === 0 ? (
+                <p className="font-body-md text-sm text-on-surface-variant italic">
+                  No appointments booked yet.
+                </p>
+              ) : (
+                bookingHistory.map((b) => {
+                  const statusKey = String(b.status || '').toLowerCase();
+                  const statusCls =
+                    BOOKING_STATUS_STYLE[statusKey] ||
+                    'bg-surface-container text-on-surface-variant';
+                  return (
+                    <div
+                      key={b.id || b.slot_start}
+                      className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-body-md text-sm font-medium text-on-surface">
+                            {formatDisplayDateTime(b.slot_start)}
+                          </p>
+                          <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
+                            {b.doctor?.name ? `with ${b.doctor.name}` : 'Doctor —'}
+                            {b.slot_end
+                              ? ` · ends ${formatDisplayDateTime(b.slot_end).split(', ').pop() || ''}`
+                              : ''}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase tracking-wide ${statusCls}`}
+                        >
+                          {formatBookingStatus(b.status)}
+                        </span>
+                      </div>
+                      {b.notes ? (
+                        <p className="font-body-md text-xs text-on-surface-variant mt-2 border-t border-outline-variant/20 pt-2">
+                          {b.notes}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ClinicSection>
 
           {/* ── Vitals ───────────────────────────────────────────────────── */}
           <ClinicSection

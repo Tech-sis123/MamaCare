@@ -371,6 +371,19 @@ export const providersController = {
           risk_assessments: { orderBy: { created_at: 'desc' }, take: 5 },
           symptoms: { orderBy: { reported_at: 'desc' }, take: 10 },
           intake_responses: true,
+          // Booking history for doctor pre-consult (newest first)
+          appointments: {
+            orderBy: { slot_start: 'desc' },
+            take: 50,
+            include: {
+              doctor: { select: { id: true, name: true } },
+              visits: {
+                orderBy: { created_at: 'desc' },
+                take: 1,
+                select: { id: true, doctor_notes: true, created_at: true },
+              },
+            },
+          },
         },
       });
 
@@ -385,8 +398,26 @@ export const providersController = {
         return { ...preg, current_ega_weeks: liveWeeks };
       });
 
+      const booking_history = (patient.appointments || []).map((apt) => ({
+        id: apt.id,
+        slot_start: apt.slot_start,
+        slot_end: apt.slot_end,
+        status: apt.status,
+        created_at: apt.created_at,
+        doctor: apt.doctor
+          ? { id: apt.doctor.id, name: apt.doctor.name }
+          : null,
+        notes: apt.visits?.[0]?.doctor_notes ?? null,
+      }));
+
       const patient_code = `MC-${patient.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
-      res.status(200).json({ patient: { ...patient, pregnancies, patient_code } });
+      // Omit raw appointments relation; expose shaped booking_history instead
+      const { appointments: _apts, ...patientRest } = patient as typeof patient & {
+        appointments: unknown;
+      };
+      res.status(200).json({
+        patient: { ...patientRest, pregnancies, patient_code, booking_history },
+      });
     } catch (err) {
       next(err);
     }

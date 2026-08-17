@@ -175,6 +175,8 @@ function buildSlides(sectionId, data) {
       { id: 'age',           question: 'How old are you?',                           field: 'age',           type: 'number',  required: true,  placeholder: 'e.g. 28', min: 12, max: 55,
         hint: 'Your age is used in your risk assessment — please confirm it is correct.' },
       { id: 'occupation',    question: 'What is your occupation?',                   field: 'occupation',    type: 'text',    required: false, placeholder: 'e.g. Trader, Teacher, Nurse' },
+      { id: 'education',     question: 'What is your level of education?',           field: 'education',     type: 'chips',   required: false,
+        options: ['Primary', 'Secondary', 'Tertiary (University, Polytechnic)', 'None'] },
       { id: 'marital',       question: 'What is your marital status?',               field: 'marital',       type: 'chips',   required: false,
         options: ['Single', 'Married', 'Widowed', 'Divorced'] },
       { id: 'address',       question: 'What is your home address?',                  field: null,            type: 'address', required: false },
@@ -243,12 +245,6 @@ function buildSlides(sectionId, data) {
       { id: 'menarche',      question: 'At what age did you first see your period?',    field: 'menarche',       type: 'number',  required: false, placeholder: 'e.g. 13', min: 7, max: 20, hint: 'This is called your menarche age.' },
       { id: 'cycleLength',   question: 'How many days is your menstrual cycle?',        field: 'cycleLength',    type: 'number',  required: false, placeholder: 'e.g. 28', min: 14, max: 60, hint: 'Count from the first day of one period to the first day of the next.' },
       { id: 'flowDays',      question: 'How many days do you bleed for?',               field: 'flowDays',       type: 'number',  required: false, placeholder: 'e.g. 5',  min: 1,  max: 14 },
-      { id: 'dysmenorrhea',  question: 'Do you experience pain during your periods?',   field: 'dysmenorrhea',   type: 'yes_no',  required: false },
-      { id: 'missedPeriod',  question: 'Have you ever missed your period when you were not pregnant?', field: 'missedPeriod', type: 'yes_no', required: false },
-      { id: 'heavyBleeding', question: 'Do you usually have heavy periods?',                    field: 'heavyBleeding',  type: 'yes_no',  required: false, hint: 'Heavy bleeding during periods' },
-      { id: 'intermenstrual',question: 'Do you bleed between your periods?',            field: 'intermenstrual', type: 'yes_no',  required: false },
-      { id: 'postcoital',    question: 'Do you bleed after sex?',                       field: 'postcoital',     type: 'yes_no',  required: false },
-      { id: 'dyspareunia',   question: 'Do you have pain during sex?',                  field: 'dyspareunia',    type: 'yes_no',  required: false },
       { id: 'contraAware',   question: 'Do you know about contraceptives (family planning)?',             field: 'contraAware',    type: 'yes_no',  required: false },
       { id: 'contraUsed',    question: 'Have you ever used contraceptives?',            field: 'contraUsed',     type: 'yes_no',  required: false, condition: d => d.contraAware === true },
       { id: 'contraType',    question: 'Which type of contraceptive did you use?',      field: 'contraType',     type: 'chips',   required: false,
@@ -407,7 +403,7 @@ function sectionProgress(sectionId, data) {
 // ── Initial data ──────────────────────────────────────────────────────────────
 const INIT = {
   // Biodata
-  name: '', age: '', occupation: '', marital: null,
+  name: '', age: '', occupation: '', education: null, marital: null,
   addrHouse: '', addrStreet: '', addrCity: '', addrState: '',
   religion: null, christianDenom: null, tribe: '',
   lmpKnown: null, lmpDate: '', lmpMonth: '', lmpYear: '',
@@ -421,8 +417,6 @@ const INIT = {
   children: [],
   // Gynae
   menarche: '', cycleLength: '', flowDays: '',
-  dysmenorrhea: null, missedPeriod: null, heavyBleeding: null,
-  intermenstrual: null, postcoital: null, dyspareunia: null,
   contraAware: null, contraUsed: null, contraType: null, contraStartDate: '', contraRemoved: null,
   papSmearAware: null, papSmearDone: null,
   topDone: null, topCount: '', topYear: '', topMethod: null, topComplications: null,
@@ -903,6 +897,20 @@ const IntakeQuestionnaire = () => {
           name: prof?.name || prev.name,
           age: prof?.age || prev.age,
           occupation: prof?.occupation || prev.occupation,
+          education: (() => {
+            const raw = prof?.education_level;
+            if (!raw) return prev.education;
+            const s = String(raw);
+            // Normalise stored values back to chip labels
+            const lower = s.toLowerCase();
+            if (lower === 'primary') return 'Primary';
+            if (lower === 'secondary') return 'Secondary';
+            if (lower === 'none') return 'None';
+            if (lower.includes('tertiary') || lower.includes('university') || lower.includes('polytechnic')) {
+              return 'Tertiary (University, Polytechnic)';
+            }
+            return s;
+          })(),
           marital: prof?.marital_status ? prof.marital_status.charAt(0).toUpperCase() + prof.marital_status.slice(1) : prev.marital,
           addrHouse: addrParts[0] || prev.addrHouse,
           addrStreet: addrParts[1] || prev.addrStreet,
@@ -946,10 +954,6 @@ const IntakeQuestionnaire = () => {
           menarche: map['menarche_age'] || prev.menarche,
           cycleLength: map['cycle_days'] || prev.cycleLength,
           flowDays: map['flow_days'] || prev.flowDays,
-          dysmenorrhea: map['dysmenorrhea'] === 'yes' ? true : map['dysmenorrhea'] === 'no' ? false : prev.dysmenorrhea,
-          heavyBleeding: map['heavy_bleeding'] === 'yes' ? true : map['heavy_bleeding'] === 'no' ? false : prev.heavyBleeding,
-          intermenstrual: map['intermenstrual'] === 'yes' ? true : map['intermenstrual'] === 'no' ? false : prev.intermenstrual,
-          postcoital: map['postcoital'] === 'yes' ? true : map['postcoital'] === 'no' ? false : prev.postcoital,
           contraUsed: map['contraceptive'] === 'yes' ? true : map['contraceptive'] === 'no' ? false : prev.contraUsed,
           contraAware: map['contraceptive'] ? true : prev.contraAware,
           contraType: map['contraceptive_type'] || prev.contraType,
@@ -1123,6 +1127,7 @@ const IntakeQuestionnaire = () => {
           name: data.name || undefined,
           age: !isNaN(ageNum) && ageNum > 0 ? ageNum : undefined,
           occupation: data.occupation || undefined,
+          education_level: data.education || undefined,
           marital_status: data.marital?.toLowerCase() || undefined,
           address: [data.addrHouse, data.addrStreet, data.addrCity, data.addrState].filter(Boolean).join(', ') || undefined,
           religion: data.religion?.toLowerCase() || undefined,
@@ -1447,7 +1452,7 @@ const IntakeQuestionnaire = () => {
         )}
         {slide?.type === 'child_card' && (
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Tell us about each of your previous children</h2>
+            <h2 className="text-2xl font-bold text-slate-800">Tell us about each of your previous delivery</h2>
           </div>
         )}
         {slide?.type === 'surgery_card' && (
@@ -1528,10 +1533,6 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'menarche_age',    answer: data.menarche || '' },
       { question_key: 'cycle_days',      answer: data.cycleLength || '' },
       { question_key: 'flow_days',       answer: data.flowDays || '' },
-      { question_key: 'dysmenorrhea',    answer: data.dysmenorrhea ? 'yes' : 'no' },
-      { question_key: 'heavy_bleeding',  answer: data.heavyBleeding ? 'yes' : 'no' },
-      { question_key: 'intermenstrual',  answer: data.intermenstrual ? 'yes' : 'no' },
-      { question_key: 'postcoital',      answer: data.postcoital ? 'yes' : 'no' },
       { question_key: 'contraceptive',   answer: data.contraUsed ? 'yes' : 'no' },
       { question_key: 'contraceptive_type', answer: data.contraType || '' },
       { question_key: 'contraceptive_start_date', answer: data.contraStartDate || '' },

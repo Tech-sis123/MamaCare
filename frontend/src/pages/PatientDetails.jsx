@@ -60,48 +60,6 @@ const toDateInput = (raw) => {
   }
 };
 
-const formatDisplayDate = (raw) => {
-  if (!raw) return '—';
-  try {
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return String(raw);
-    return d.toLocaleDateString('en-GB');
-  } catch {
-    return String(raw);
-  }
-};
-
-const formatDisplayDateTime = (raw) => {
-  if (!raw) return '—';
-  try {
-    const d = new Date(raw);
-    if (Number.isNaN(d.getTime())) return String(raw);
-    return d.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch {
-    return String(raw);
-  }
-};
-
-const BOOKING_STATUS_STYLE = {
-  booked: 'bg-amber-100 text-amber-800',
-  completed: 'bg-primary/15 text-primary',
-  cancelled: 'bg-surface-container text-on-surface-variant',
-  no_show: 'bg-secondary/15 text-secondary',
-};
-
-const formatBookingStatus = (status) => {
-  const s = String(status || '').toLowerCase();
-  if (s === 'no_show') return 'No show';
-  if (!s) return '—';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-};
-
 const ans = (map, key) => {
   const v = map[key];
   if (v == null) return null;
@@ -109,26 +67,21 @@ const ans = (map, key) => {
   return String(v);
 };
 
-const newId = () =>
-  typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `id-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-const emptyVitalsDraft = () => ({
-  date: new Date().toISOString().slice(0, 10),
-  pr: '',
-  rr: '',
-  bp_systolic: '',
-  bp_diastolic: '',
-  temp_c: '',
-  weight_kg: '',
-  height_cm: '',
-});
-
-const emptyInvestigations = () => ({
+const emptyBooking = () => ({
+  booking_weight: '',
+  booking_height: '',
+  booking_bp_systolic: '',
+  booking_bp_diastolic: '',
   blood_group: '',
   genotype: '',
   rhesus: '',
+  booking_ga_weeks: '',
+  booked_anc: null,
+  booked_anc_facility: '',
+  booking_date: '',
+});
+
+const emptyInvestigations = () => ({
   rvd_status: '',
   vdrl: '',
   pcv: '',
@@ -145,28 +98,39 @@ const emptyInvestigations = () => ({
   uss_notes: '',
 });
 
+const bookingHasAnyValue = (b) => {
+  if (!b) return false;
+  return Object.entries(b).some(([k, v]) => {
+    if (k === 'booked_anc') return v === true || v === false;
+    return v != null && String(v).trim() !== '';
+  });
+};
+
 /** Expandable clinic section */
-const ClinicSection = ({ title, open, onToggle, children, badge }) => (
+const ClinicSection = ({ title, open, onToggle, children, badge, headerRight }) => (
   <div className="bg-white border border-outline-variant/40 rounded-xl overflow-hidden shadow-sm">
-    <button
-      type="button"
-      onClick={onToggle}
-      className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-container-low transition-colors"
-    >
-      <span className="font-label-sm text-on-surface font-semibold text-sm flex items-center gap-2">
-        {title}
-        {badge != null && badge !== '' && (
-          <span className="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-            {badge}
-          </span>
-        )}
-      </span>
-      <span
-        className={`material-symbols-outlined text-on-surface-variant transition-transform ${open ? 'rotate-180' : ''}`}
+    <div className="flex items-center gap-2 pr-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex-1 flex items-center justify-between p-4 text-left hover:bg-surface-container-low transition-colors min-w-0"
       >
-        expand_more
-      </span>
-    </button>
+        <span className="font-label-sm text-on-surface font-semibold text-sm flex items-center gap-2">
+          {title}
+          {badge != null && badge !== '' && (
+            <span className="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+              {badge}
+            </span>
+          )}
+        </span>
+        <span
+          className={`material-symbols-outlined text-on-surface-variant transition-transform ${open ? 'rotate-180' : ''}`}
+        >
+          expand_more
+        </span>
+      </button>
+      {headerRight ? <div className="shrink-0 pr-2">{headerRight}</div> : null}
+    </div>
     {open && (
       <div className="px-4 pb-4 border-t border-outline-variant/25 space-y-3">
         {children}
@@ -177,15 +141,22 @@ const ClinicSection = ({ title, open, onToggle, children, badge }) => (
 
 const FieldRow = ({ label, children }) => (
   <div className="flex items-center justify-between gap-3 py-1.5">
-    <label className="font-label-sm text-on-surface-variant text-xs uppercase shrink-0 max-w-[40%]">
+    <label className="font-label-sm text-on-surface-variant text-xs uppercase shrink-0 max-w-[45%]">
       {label}
     </label>
-    <div className="w-[60%] flex justify-end">{children}</div>
+    <div className="w-[55%] flex justify-end">{children}</div>
   </div>
 );
 
 const inputCls =
   'bg-surface-container-low text-sm px-2 py-1.5 rounded-lg w-full text-right text-on-surface border border-outline/20 focus:border-primary outline-none';
+
+const ynBtnCls = (active) =>
+  `px-3 py-1.5 rounded-lg text-xs font-label-sm border transition-colors ${
+    active
+      ? 'bg-primary text-white border-primary'
+      : 'bg-surface-container-low text-on-surface border-outline/20 hover:border-primary/40'
+  }`;
 
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
@@ -203,9 +174,8 @@ const PatientDetailPanel = () => {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
-  const [vitalsLog, setVitalsLog] = useState([]);
-  const [showLogVitals, setShowLogVitals] = useState(false);
-  const [vitalDraft, setVitalDraft] = useState(emptyVitalsDraft);
+  const [booking, setBooking] = useState(emptyBooking);
+  const [showBookingForm, setShowBookingForm] = useState(false);
 
   const [investigations, setInvestigations] = useState(emptyInvestigations);
   const [consultationNotes, setConsultationNotes] = useState('');
@@ -235,23 +205,24 @@ const PatientDetailPanel = () => {
   useEffect(() => {
     if (!fullPatient) {
       if (!isReal) {
-        setVitalsLog([
-          {
-            id: 'demo-1',
-            date: '2026-07-06',
-            bp_systolic: 110,
-            bp_diastolic: 80,
-            pr: 86,
-            weight_kg: 80,
-            height_cm: 169,
-            rr: 18,
-            temp_c: 37,
-          },
-        ]);
-        setInvestigations({
-          ...emptyInvestigations(),
+        const demo = {
+          ...emptyBooking(),
+          booking_weight: '68',
+          booking_height: '162',
+          booking_bp_systolic: '110',
+          booking_bp_diastolic: '70',
           blood_group: 'O+',
           genotype: 'AA',
+          rhesus: 'Positive',
+          booking_ga_weeks: '16',
+          booked_anc: false,
+          booked_anc_facility: '',
+          booking_date: '2026-04-12',
+        };
+        setBooking(demo);
+        setShowBookingForm(true);
+        setInvestigations({
+          ...emptyInvestigations(),
           pcv: '32',
           rvd_status: 'Negative',
         });
@@ -261,12 +232,23 @@ const PatientDetailPanel = () => {
     }
 
     const pr = fullPatient.pregnancies?.[0] || {};
-    setVitalsLog(Array.isArray(pr.vitals_log) ? pr.vitals_log : []);
-
-    setInvestigations({
+    const nextBooking = {
+      booking_weight: pr.booking_weight != null ? String(pr.booking_weight) : '',
+      booking_height: pr.booking_height != null ? String(pr.booking_height) : '',
+      booking_bp_systolic: pr.booking_bp_systolic != null ? String(pr.booking_bp_systolic) : '',
+      booking_bp_diastolic: pr.booking_bp_diastolic != null ? String(pr.booking_bp_diastolic) : '',
       blood_group: pr.blood_group || '',
       genotype: pr.genotype || '',
       rhesus: pr.rhesus || '',
+      booking_ga_weeks: pr.booking_ga_weeks != null ? String(pr.booking_ga_weeks) : '',
+      booked_anc: typeof pr.booked_anc === 'boolean' ? pr.booked_anc : null,
+      booked_anc_facility: pr.booked_anc_facility || '',
+      booking_date: toDateInput(pr.booking_date),
+    };
+    setBooking(nextBooking);
+    setShowBookingForm(bookingHasAnyValue(nextBooking));
+
+    setInvestigations({
       rvd_status: pr.rvd_status || '',
       vdrl: pr.vdrl || '',
       pcv: pr.pcv != null && pr.pcv !== '' ? String(pr.pcv) : '',
@@ -288,28 +270,6 @@ const PatientDetailPanel = () => {
 
   // ── Derived display ──────────────────────────────────────────────────────
   const preg = fullPatient?.pregnancies?.[0] || {};
-  const bookingHistory = isReal
-    ? Array.isArray(fullPatient?.booking_history)
-      ? fullPatient.booking_history
-      : []
-    : [
-        {
-          id: 'demo-b1',
-          slot_start: '2026-08-10T09:00:00',
-          slot_end: '2026-08-10T09:30:00',
-          status: 'completed',
-          doctor: { name: 'Dr. Adebayo' },
-          notes: 'ANC review — BP stable',
-        },
-        {
-          id: 'demo-b2',
-          slot_start: '2026-08-17T10:00:00',
-          slot_end: '2026-08-17T10:30:00',
-          status: 'booked',
-          doctor: { name: 'Dr. Adebayo' },
-          notes: null,
-        },
-      ];
 
   const intakeMap = {};
   (fullPatient?.intake_responses || []).forEach((r) => {
@@ -367,7 +327,7 @@ const PatientDetailPanel = () => {
     ? new Date(preg.edd_computed).toLocaleDateString('en-GB')
     : passedPatient?.edd || (isReal ? '—' : MOCK.edd);
   const bloodType =
-    investigations.blood_group ||
+    booking.blood_group ||
     preg.blood_group ||
     passedPatient?.bloodType ||
     passedPatient?.blood_group ||
@@ -382,23 +342,19 @@ const PatientDetailPanel = () => {
 
   const toggle = (key) => setOpenSection((o) => (o === key ? null : key));
 
+  const setBook = (field, value) => setBooking((prev) => ({ ...prev, [field]: value }));
   const setInv = (field, value) =>
     setInvestigations((prev) => ({ ...prev, [field]: value }));
 
-  const addVital = () => {
-    const hasAny =
-      vitalDraft.pr ||
-      vitalDraft.rr ||
-      vitalDraft.bp_systolic ||
-      vitalDraft.bp_diastolic ||
-      vitalDraft.temp_c ||
-      vitalDraft.weight_kg ||
-      vitalDraft.height_cm;
-    if (!hasAny) return;
-    const entry = { id: newId(), ...vitalDraft };
-    setVitalsLog((list) => [entry, ...list]);
-    setVitalDraft(emptyVitalsDraft());
-    setShowLogVitals(false);
+  const handleAddBooking = () => {
+    setOpenSection('bookings');
+    setShowBookingForm(true);
+  };
+
+  const numOrNull = (v) => {
+    if (v === '' || v == null) return null;
+    const n = Number(v);
+    return Number.isNaN(n) ? null : n;
   };
 
   const buildReviewPayload = () => {
@@ -410,11 +366,21 @@ const PatientDetailPanel = () => {
         : undefined;
 
     return {
-      vitals_log: vitalsLog,
+      // ANC booking (Booking History)
+      booking_weight: numOrNull(booking.booking_weight),
+      booking_height: numOrNull(booking.booking_height),
+      booking_bp_systolic: numOrNull(booking.booking_bp_systolic),
+      booking_bp_diastolic: numOrNull(booking.booking_bp_diastolic),
+      blood_group: booking.blood_group || null,
+      genotype: booking.genotype || null,
+      rhesus: booking.rhesus || null,
+      booking_ga_weeks: numOrNull(booking.booking_ga_weeks),
+      booked_anc: booking.booked_anc,
+      booked_anc_facility:
+        booking.booked_anc === true ? booking.booked_anc_facility || null : null,
+      booking_date: booking.booking_date || null,
+      // Investigations
       important_remarks: consultationNotes || null,
-      blood_group: inv.blood_group || null,
-      genotype: inv.genotype || null,
-      rhesus: inv.rhesus || null,
       rvd_status: inv.rvd_status || null,
       vdrl: inv.vdrl || null,
       pcv: pcvNum != null && !Number.isNaN(pcvNum) ? pcvNum : null,
@@ -452,7 +418,7 @@ const PatientDetailPanel = () => {
       try {
         localStorage.setItem(
           `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({ vitalsLog, investigations, consultationNotes })
+          JSON.stringify({ booking, investigations, consultationNotes })
         );
       } catch {
         /* ignore */
@@ -462,7 +428,7 @@ const PatientDetailPanel = () => {
       try {
         localStorage.setItem(
           `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({ vitalsLog, investigations, consultationNotes })
+          JSON.stringify({ booking, investigations, consultationNotes })
         );
       } catch {
         /* ignore */
@@ -494,6 +460,7 @@ const PatientDetailPanel = () => {
   const invFilledCount = Object.values(investigations).filter(
     (v) => v != null && String(v).trim() !== ''
   ).length;
+  const bookingFilled = bookingHasAnyValue(booking);
 
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
@@ -573,52 +540,144 @@ const PatientDetailPanel = () => {
           </div>
         </section>
 
-        {/* 1. Booking History */}
+        {/* 1. Booking History — ANC booking form (not appointment list) */}
         <ClinicSection
           title="Booking History"
           open={openSection === 'bookings'}
           onToggle={() => toggle('bookings')}
-          badge={bookingHistory.length ? `${bookingHistory.length}` : null}
+          badge={bookingFilled ? 'saved' : null}
+          headerRight={
+            <button
+              type="button"
+              onClick={handleAddBooking}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-white font-label-sm text-xs hover:opacity-90 transition-opacity"
+            >
+              <span className="material-symbols-outlined text-sm">add</span>
+              Add Booking
+            </button>
+          }
         >
-          <div className="pt-3 space-y-2">
-            {bookingHistory.length === 0 ? (
+          <div className="pt-3 space-y-1">
+            {!showBookingForm ? (
               <p className="font-body-md text-sm text-on-surface-variant italic">
-                No appointments booked yet.
+                No ANC booking recorded yet. Tap <span className="font-semibold">Add Booking</span> to
+                enter booking details.
               </p>
             ) : (
-              bookingHistory.map((b) => {
-                const statusKey = String(b.status || '').toLowerCase();
-                const statusCls =
-                  BOOKING_STATUS_STYLE[statusKey] ||
-                  'bg-surface-container text-on-surface-variant';
-                return (
-                  <div
-                    key={b.id || b.slot_start}
-                    className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="font-body-md text-sm font-medium text-on-surface">
-                          {formatDisplayDateTime(b.slot_start)}
-                        </p>
-                        <p className="font-body-md text-xs text-on-surface-variant mt-0.5">
-                          {b.doctor?.name ? `with ${b.doctor.name}` : 'Doctor —'}
-                        </p>
-                      </div>
-                      <span
-                        className={`shrink-0 px-2 py-0.5 rounded-full font-label-sm text-[10px] uppercase tracking-wide ${statusCls}`}
-                      >
-                        {formatBookingStatus(b.status)}
-                      </span>
-                    </div>
-                    {b.notes ? (
-                      <p className="font-body-md text-xs text-on-surface-variant mt-2 border-t border-outline-variant/20 pt-2">
-                        {b.notes}
-                      </p>
-                    ) : null}
+              <>
+                <FieldRow label="Booking Weight">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={booking.booking_weight}
+                    onChange={(e) => setBook('booking_weight', e.target.value)}
+                    placeholder="kg"
+                  />
+                </FieldRow>
+                <FieldRow label="Booking Height">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={booking.booking_height}
+                    onChange={(e) => setBook('booking_height', e.target.value)}
+                    placeholder="cm"
+                  />
+                </FieldRow>
+                <FieldRow label="Booking BP">
+                  <div className="flex items-center gap-1 w-full justify-end">
+                    <input
+                      type="number"
+                      className={`${inputCls} max-w-[72px]`}
+                      value={booking.booking_bp_systolic}
+                      onChange={(e) => setBook('booking_bp_systolic', e.target.value)}
+                      placeholder="Sys"
+                    />
+                    <span className="text-on-surface-variant text-sm">/</span>
+                    <input
+                      type="number"
+                      className={`${inputCls} max-w-[72px]`}
+                      value={booking.booking_bp_diastolic}
+                      onChange={(e) => setBook('booking_bp_diastolic', e.target.value)}
+                      placeholder="Dia"
+                    />
                   </div>
-                );
-              })
+                </FieldRow>
+                <FieldRow label="Blood Group">
+                  <input
+                    className={inputCls}
+                    value={booking.blood_group}
+                    onChange={(e) => setBook('blood_group', e.target.value)}
+                    placeholder="e.g. O+"
+                  />
+                </FieldRow>
+                <FieldRow label="Genotype">
+                  <input
+                    className={inputCls}
+                    value={booking.genotype}
+                    onChange={(e) => setBook('genotype', e.target.value)}
+                    placeholder="e.g. AA"
+                  />
+                </FieldRow>
+                <FieldRow label="Rhesus">
+                  <input
+                    className={inputCls}
+                    value={booking.rhesus}
+                    onChange={(e) => setBook('rhesus', e.target.value)}
+                    placeholder="e.g. Positive"
+                  />
+                </FieldRow>
+                <FieldRow label="Gestational Age at Booking">
+                  <input
+                    type="number"
+                    className={inputCls}
+                    value={booking.booking_ga_weeks}
+                    onChange={(e) => setBook('booking_ga_weeks', e.target.value)}
+                    placeholder="weeks"
+                  />
+                </FieldRow>
+                <FieldRow label="Previously booked ANC?">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className={ynBtnCls(booking.booked_anc === true)}
+                      onClick={() => setBook('booked_anc', true)}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      className={ynBtnCls(booking.booked_anc === false)}
+                      onClick={() => {
+                        setBooking((prev) => ({
+                          ...prev,
+                          booked_anc: false,
+                          booked_anc_facility: '',
+                        }));
+                      }}
+                    >
+                      No
+                    </button>
+                  </div>
+                </FieldRow>
+                {booking.booked_anc === true && (
+                  <FieldRow label="If Yes, which facility?">
+                    <input
+                      className={inputCls}
+                      value={booking.booked_anc_facility}
+                      onChange={(e) => setBook('booked_anc_facility', e.target.value)}
+                      placeholder="Facility name"
+                    />
+                  </FieldRow>
+                )}
+                <FieldRow label="Booking Date">
+                  <input
+                    type="date"
+                    className={inputCls}
+                    value={booking.booking_date}
+                    onChange={(e) => setBook('booking_date', e.target.value)}
+                  />
+                </FieldRow>
+              </>
             )}
           </div>
         </ClinicSection>
@@ -632,32 +691,8 @@ const PatientDetailPanel = () => {
         >
           <div className="pt-3 space-y-1">
             <p className="font-body-md text-xs text-on-surface-variant mb-2">
-              Edit lab results, blood work, and ultrasound findings for this patient.
+              Edit lab results and ultrasound findings for this patient.
             </p>
-            <FieldRow label="Blood group">
-              <input
-                className={inputCls}
-                value={investigations.blood_group}
-                onChange={(e) => setInv('blood_group', e.target.value)}
-                placeholder="e.g. O+"
-              />
-            </FieldRow>
-            <FieldRow label="Genotype">
-              <input
-                className={inputCls}
-                value={investigations.genotype}
-                onChange={(e) => setInv('genotype', e.target.value)}
-                placeholder="e.g. AA"
-              />
-            </FieldRow>
-            <FieldRow label="Rhesus">
-              <input
-                className={inputCls}
-                value={investigations.rhesus}
-                onChange={(e) => setInv('rhesus', e.target.value)}
-                placeholder="e.g. Positive"
-              />
-            </FieldRow>
             <FieldRow label="RVD status">
               <input
                 className={inputCls}
@@ -801,162 +836,6 @@ const PatientDetailPanel = () => {
           </div>
         </ClinicSection>
 
-        {/* 4. Vitals (end of list) */}
-        <ClinicSection
-          title="Vitals"
-          open={openSection === 'vitals'}
-          onToggle={() => toggle('vitals')}
-          badge={vitalsLog.length ? `${vitalsLog.length}` : null}
-        >
-          <div className="pt-3 space-y-3">
-            <p className="font-body-md text-xs text-on-surface-variant">
-              Pulse rate, respiratory rate, blood pressure, temperature, weight, and height.
-            </p>
-
-            {vitalsLog.length === 0 ? (
-              <p className="font-body-md text-sm text-on-surface-variant italic">
-                No vitals logged yet.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs border-collapse min-w-[520px]">
-                  <thead>
-                    <tr className="text-on-surface-variant text-left border-b border-outline-variant/40">
-                      <th className="py-2 pr-2 font-label-sm">Date</th>
-                      <th className="py-2 pr-2 font-label-sm">PR</th>
-                      <th className="py-2 pr-2 font-label-sm">RR</th>
-                      <th className="py-2 pr-2 font-label-sm">BP</th>
-                      <th className="py-2 pr-2 font-label-sm">Temp</th>
-                      <th className="py-2 pr-2 font-label-sm">Wt</th>
-                      <th className="py-2 font-label-sm">Ht</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {vitalsLog.map((v) => (
-                      <tr key={v.id || v.date} className="border-b border-outline-variant/20">
-                        <td className="py-2 pr-2 whitespace-nowrap">{formatDisplayDate(v.date)}</td>
-                        <td className="py-2 pr-2">
-                          {v.pr != null && v.pr !== '' ? `${v.pr} bpm` : '—'}
-                        </td>
-                        <td className="py-2 pr-2">
-                          {v.rr != null && v.rr !== '' ? `${v.rr}` : '—'}
-                        </td>
-                        <td className="py-2 pr-2">
-                          {v.bp_systolic || v.bp_diastolic
-                            ? `${v.bp_systolic || '—'}/${v.bp_diastolic || '—'}`
-                            : '—'}
-                        </td>
-                        <td className="py-2 pr-2">
-                          {v.temp_c != null && v.temp_c !== '' ? `${v.temp_c}°C` : '—'}
-                        </td>
-                        <td className="py-2 pr-2">
-                          {v.weight_kg != null && v.weight_kg !== '' ? `${v.weight_kg} kg` : '—'}
-                        </td>
-                        <td className="py-2">
-                          {v.height_cm != null && v.height_cm !== '' ? `${v.height_cm} cm` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setShowLogVitals((s) => !s)}
-              className="w-full bg-primary/10 text-primary border border-primary/30 py-2.5 rounded-lg font-label-sm text-xs hover:bg-primary/15 transition-all flex items-center justify-center gap-1"
-            >
-              <span className="material-symbols-outlined text-sm">add</span>
-              Log vital signs
-            </button>
-
-            {showLogVitals && (
-              <div className="p-3 bg-surface-container-low rounded-lg border border-outline-variant/30 space-y-1">
-                <FieldRow label="Date">
-                  <input
-                    type="date"
-                    className={inputCls}
-                    value={vitalDraft.date}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, date: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Pulse rate (bpm)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="e.g. 86"
-                    value={vitalDraft.pr}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, pr: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Respiratory rate">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="e.g. 18"
-                    value={vitalDraft.rr}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, rr: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="BP systolic">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="110"
-                    value={vitalDraft.bp_systolic}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, bp_systolic: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="BP diastolic">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="80"
-                    value={vitalDraft.bp_diastolic}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, bp_diastolic: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Temperature (°C)">
-                  <input
-                    type="number"
-                    step="0.1"
-                    className={inputCls}
-                    placeholder="37"
-                    value={vitalDraft.temp_c}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, temp_c: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Weight (kg)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="80"
-                    value={vitalDraft.weight_kg}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, weight_kg: e.target.value }))}
-                  />
-                </FieldRow>
-                <FieldRow label="Height (cm)">
-                  <input
-                    type="number"
-                    className={inputCls}
-                    placeholder="169"
-                    value={vitalDraft.height_cm}
-                    onChange={(e) => setVitalDraft((d) => ({ ...d, height_cm: e.target.value }))}
-                  />
-                </FieldRow>
-                <button
-                  type="button"
-                  onClick={addVital}
-                  className="w-full mt-2 bg-primary text-white py-2 rounded-lg font-label-sm text-xs"
-                >
-                  Add vital signs
-                </button>
-              </div>
-            )}
-          </div>
-        </ClinicSection>
-
         {saveMsg && (
           <p
             className={`font-label-sm text-xs text-center ${
@@ -970,7 +849,7 @@ const PatientDetailPanel = () => {
         )}
       </main>
 
-      {/* Sticky footer — no Escalate / Refer */}
+      {/* Sticky footer */}
       <footer className="fixed bottom-0 inset-x-0 bg-surface/95 backdrop-blur border-t border-outline-variant z-40">
         <div className="max-w-4xl mx-auto w-full p-4 sm:p-5 grid grid-cols-2 gap-3">
           <button

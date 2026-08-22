@@ -125,34 +125,82 @@ const AIChatPanel = ({ onClose }) => {
   );
 };
 
+const trimesterLabel = (weeks) => {
+  if (weeks == null || Number.isNaN(Number(weeks))) return null;
+  const w = Number(weeks);
+  if (w <= 12) return 'First trimester';
+  if (w <= 27) return 'Second trimester';
+  return 'Third trimester';
+};
+
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const [dashData, setDashData] = useState(null);
   const [patientData, setPatientData] = useState(getPatientData());
   const [showAI, setShowAI] = useState(false);
+  const [loadingEga, setLoadingEga] = useState(true);
 
   useEffect(() => {
     if (!isPatientAuthenticated()) {
       navigate('/register');
       return;
     }
+    let pending = 2;
+    const done = () => {
+      pending -= 1;
+      if (pending <= 0) setLoadingEga(false);
+    };
     getPatientDashboard()
       .then(r => setDashData(r.data))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(done);
     getPatientMe()
       .then(r => setPatientData(r.data))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(done);
   }, [navigate]);
 
   const firstName = patientData?.name?.split(' ')[0] || 'Mama';
-  const ega = dashData?.gestational_age || dashData?.ega;
-  const weeks = ega?.weeks ?? 12;
-  const trimester = weeks <= 12 ? 'First trimester' : weeks <= 27 ? 'Second trimester' : 'Third trimester';
-  const riskTier = (dashData?.risk_tier || dashData?.latest_risk_tier || 'LOW').toUpperCase();
+  const pregnancy =
+    patientData?.pregnancies?.[0] ||
+    patientData?.pregnancy_record ||
+    patientData?.latest_pregnancy;
+  // API returns current_ega on both /dashboard and /me — never invent Week 12
+  const ega =
+    dashData?.current_ega ||
+    dashData?.gestational_age ||
+    dashData?.ega ||
+    patientData?.current_ega ||
+    null;
+  const weeksRaw =
+    ega?.weeks ??
+    pregnancy?.current_ega_weeks ??
+    pregnancy?.gestational_age?.weeks ??
+    null;
+  const weeks =
+    weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
+  const trimester = trimesterLabel(weeks);
+  const progressPct =
+    weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
+
+  const riskTier = (
+    dashData?.risk?.tier ||
+    dashData?.risk_tier ||
+    dashData?.latest_risk_tier ||
+    patientData?.risk_tier ||
+    'LOW'
+  )
+    .toString()
+    .toUpperCase()
+    .replace(/\s*RISK\s*/i, '')
+    .trim() || 'LOW';
   const riskColor = riskTier === 'HIGH' ? 'bg-[#F8D7DA]' : riskTier === 'MEDIUM' ? 'bg-[#FFF3CD]' : 'bg-[#D4E6D8]';
   const riskLabel = riskTier === 'HIGH' ? 'HIGH RISK' : riskTier === 'MEDIUM' ? 'MEDIUM RISK' : 'LOW RISK';
   const nextAppt = dashData?.next_appointment;
-  const eduModule = dashData?.educational_module || dashData?.recommended_module;
+  const eduModule =
+    dashData?.education_module ||
+    dashData?.educational_module ||
+    dashData?.recommended_module;
   // Show complete-profile CTA only when intake is not finished (not a full retake)
   const intakeStatus =
     patientData?.intake_status ||
@@ -160,6 +208,25 @@ const PatientDashboard = () => {
     getPatientData()?.intake_status ||
     'not_started';
   const needsProfileCompletion = intakeStatus !== 'submitted';
+
+  const nextApptLabel = (() => {
+    if (!nextAppt) return null;
+    const raw = nextAppt.slot_start || nextAppt.date;
+    if (!raw) return null;
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    const datePart = d.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+    });
+    const timePart = d.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    return `${datePart} · ${timePart}`;
+  })();
+
   return (
     <div className="min-h-screen text-on-surface font-body-md selection:bg-secondary/20">
       {/* Navbar & Header Cluster */}
@@ -177,7 +244,21 @@ const PatientDashboard = () => {
           </nav>
           <div className="space-y-1">
             <h1 className="font-headline-md text-headline-md text-white">Hello, {firstName} 👋</h1>
-            <p className="font-body-md text-white/80">Week {weeks} · {trimester}</p>
+            {loadingEga ? (
+              <div className="flex items-center gap-2 text-white/80 pt-1">
+                <span
+                  className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                  aria-hidden
+                />
+                <span className="font-body-md text-sm">Loading pregnancy week…</span>
+              </div>
+            ) : (
+              <p className="font-body-md text-white/80">
+                {weeks != null
+                  ? `Week ${weeks}${trimester ? ` · ${trimester}` : ''}`
+                  : 'Pregnancy week unavailable'}
+              </p>
+            )}
           </div>
         </div>
       </header>
@@ -216,37 +297,64 @@ const PatientDashboard = () => {
 
         {/* Pregnancy Progress Card */}
         <section className="bg-surface-container-lowest rounded-xl p-6 card-shadow border border-surface-container">
-          <h3 className="font-headline-md text-body-lg text-primary mb-6">Week {weeks} of 40</h3>
-          <div className="relative pt-1">
-            <div className="overflow-hidden h-2 mb-8 text-xs flex rounded-full bg-surface-container">
-              <div
-                className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"
-                style={{ width: `${Math.round((weeks / 40) * 100)}%` }}
-              ></div>
+          {loadingEga ? (
+            <div className="flex flex-col items-center justify-center py-8 gap-3" role="status" aria-live="polite">
+              <span
+                className="inline-block w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin"
+                aria-hidden
+              />
+              <p className="font-body-md text-sm text-on-surface-variant">Loading pregnancy progress…</p>
             </div>
-            <div className="flex justify-between relative">
-              <div className="text-center">
-                <div className="w-3 h-3 bg-primary rounded-full mx-auto mb-2"></div>
-                <p className="text-[10px] font-label-sm text-outline">
-                  Week 1<br />Start
-                </p>
-              </div>
-              <div className="text-center absolute -translate-x-1/2" style={{ left: `${Math.round((weeks / 40) * 100)}%` }}>
-                <div className="w-5 h-5 bg-primary rounded-full mx-auto mb-1 flex items-center justify-center ring-4 ring-secondary/20">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+          ) : weeks == null ? (
+            <div className="py-4">
+              <h3 className="font-headline-md text-body-lg text-primary mb-2">Pregnancy progress</h3>
+              <p className="font-body-md text-sm text-on-surface-variant">
+                We need your LMP date to calculate your week. Complete your health profile to see progress.
+              </p>
+              {needsProfileCompletion && (
+                <button
+                  onClick={() => navigate('/intake')}
+                  className="mt-3 text-sm font-bold text-primary underline underline-offset-4"
+                >
+                  Complete health profile →
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              <h3 className="font-headline-md text-body-lg text-primary mb-6">Week {weeks} of 40</h3>
+              <div className="relative pt-1">
+                <div className="overflow-hidden h-2 mb-8 text-xs flex rounded-full bg-surface-container">
+                  <div
+                    className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary"
+                    style={{ width: `${progressPct}%` }}
+                  ></div>
                 </div>
-                <p className="text-[10px] font-label-sm text-primary">
-                  Week {weeks}<br />You are here
-                </p>
+                <div className="flex justify-between relative">
+                  <div className="text-center">
+                    <div className="w-3 h-3 bg-primary rounded-full mx-auto mb-2"></div>
+                    <p className="text-[10px] font-label-sm text-outline">
+                      Week 1<br />Start
+                    </p>
+                  </div>
+                  <div className="text-center absolute -translate-x-1/2" style={{ left: `${progressPct}%` }}>
+                    <div className="w-5 h-5 bg-primary rounded-full mx-auto mb-1 flex items-center justify-center ring-4 ring-secondary/20">
+                      <div className="w-2 h-2 bg-white rounded-full"></div>
+                    </div>
+                    <p className="text-[10px] font-label-sm text-primary">
+                      Week {weeks}<br />You are here
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="w-3 h-3 bg-surface-container rounded-full mx-auto mb-2"></div>
+                    <p className="text-[10px] font-label-sm text-outline">
+                      Week 40<br />Due date
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="w-3 h-3 bg-surface-container rounded-full mx-auto mb-2"></div>
-                <p className="text-[10px] font-label-sm text-outline">
-                  Week 40<br />Due date
-                </p>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </section>
 
         {/* Next Appointment Card */}
@@ -258,20 +366,25 @@ const PatientDashboard = () => {
             <div>
               <h3 className="font-label-sm text-outline uppercase mb-1">Next Appointment</h3>
               <p className="font-headline-md text-lg text-primary">
-                {nextAppt?.date
-                  ? new Date(nextAppt.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }) +
-                    (nextAppt.time ? ` · ${nextAppt.time}` : '')
-                  : 'Tuesday, 14 May · 10:30 AM'}
+                {nextApptLabel || 'No upcoming appointment'}
               </p>
             </div>
           </div>
           <div className="space-y-1 mb-6 pl-16">
-            <p className="font-body-md text-on-surface">{nextAppt?.doctor || 'Dr. Adaeze Nwankwo'}</p>
-            <p className="font-body-md text-on-surface-variant text-sm">{nextAppt?.location || 'ANC Clinic B'}</p>
+            <p className="font-body-md text-on-surface">
+              {nextAppt?.doctor?.name || nextAppt?.doctor || (nextApptLabel ? 'Your clinician' : '—')}
+            </p>
+            <p className="font-body-md text-on-surface-variant text-sm">
+              {nextAppt?.location || (nextApptLabel ? 'ANC Clinic' : 'Book a visit when you are ready')}
+            </p>
           </div>
           <div className="flex gap-3 pl-16">
-            <button className="px-4 py-2 border border-outline rounded-lg text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors">
-              Reschedule
+            <button
+              type="button"
+              onClick={() => navigate('/appointments')}
+              className="px-4 py-2 border border-outline rounded-lg text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors"
+            >
+              {nextApptLabel ? 'Reschedule' : 'Book appointment'}
             </button>
             <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-label-sm hover:opacity-90 transition-opacity">
               Get directions
@@ -283,7 +396,13 @@ const PatientDashboard = () => {
         <section className="bg-primary rounded-xl p-6 card-shadow relative overflow-hidden">
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-white/70 font-label-sm text-xs mb-2">
-              <span>Week {weeks} tip</span>
+              <span>
+                {loadingEga
+                  ? 'Weekly tip'
+                  : weeks != null
+                    ? `Week ${weeks} tip`
+                    : 'Pregnancy tip'}
+              </span>
               <BookOpen className="w-3 h-3" />
             </div>
             <h3 className="font-headline-md text-xl text-white mb-4 max-w-[200px]">

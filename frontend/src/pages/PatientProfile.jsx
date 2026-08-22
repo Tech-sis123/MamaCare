@@ -25,6 +25,7 @@ const PatientProfile = () => {
   const [saveLoading, setSaveLoading] = useState(false);
   const [toast, setToast] = useState(null); // { type: 'success' | 'error', message: string }
   const [needsPassword, setNeedsPassword] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Password Modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -63,7 +64,8 @@ const PatientProfile = () => {
           }
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProfileLoading(false));
   }, []);
 
   const handlePasswordSubmit = async (e) => {
@@ -213,11 +215,28 @@ const PatientProfile = () => {
   };
 
   const pregnancy = patient?.pregnancies?.[0] || patient?.pregnancy_record || patient?.latest_pregnancy;
-  const weeks = patient?.current_ega?.weeks ?? pregnancy?.current_ega_weeks ?? pregnancy?.gestational_age?.weeks ?? 12;
+  const weeksRaw =
+    patient?.current_ega?.weeks ??
+    pregnancy?.current_ega_weeks ??
+    pregnancy?.gestational_age?.weeks ??
+    null;
+  const weeks =
+    weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
   const eddVal = pregnancy?.edd_computed || pregnancy?.edd;
-  const edd = eddVal ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Nov 12, 2025';
+  const edd = eddVal
+    ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
   const riskTier = patient?.risk_tier || 'Low Risk';
-  const progress = Math.round((weeks / 40) * 100);
+  const progress =
+    weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
+  const trimesterText =
+    weeks == null
+      ? null
+      : weeks <= 12
+        ? 'First'
+        : weeks <= 27
+          ? 'Second'
+          : 'Third';
 
   const InfoRow = ({ label, value, icon }) => (
     <div className="flex items-center justify-between py-4 border-b border-outline-variant/20 last:border-0">
@@ -292,22 +311,43 @@ const PatientProfile = () => {
           </div>
         )}
         {/* Pregnancy Status */}
-        <section className="bg-primary rounded-xl p-6 text-white relative overflow-hidden">
+        <section className="bg-primary rounded-xl p-6 text-white relative overflow-hidden min-h-[148px]">
           <div className="absolute right-4 top-4 opacity-10">
             <span className="material-symbols-outlined text-[80px]">pregnant_woman</span>
           </div>
           <p className="font-label-sm text-xs uppercase tracking-widest opacity-70 mb-2">Current Pregnancy</p>
-          <h3 className="font-headline-md text-2xl mb-1">Week {weeks} of 40</h3>
-          <p className="font-body-md text-white/80 text-sm">
-            {weeks <= 12 ? 'First' : weeks <= 27 ? 'Second' : 'Third'} Trimester · {riskTier}
-          </p>
-          <div className="mt-4 bg-white/10 rounded-full h-1.5">
-            <div className="bg-white/80 h-1.5 rounded-full" style={{ width: `${progress}%` }} />
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className="font-label-sm text-[10px] opacity-60">Week 1</span>
-            <span className="font-label-sm text-[10px] opacity-90">EDD: {edd}</span>
-          </div>
+          {profileLoading ? (
+            <div className="flex flex-col items-start gap-3 py-4" role="status" aria-live="polite">
+              <span
+                className="inline-block w-7 h-7 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                aria-hidden
+              />
+              <p className="font-body-md text-white/80 text-sm">Loading pregnancy week…</p>
+            </div>
+          ) : weeks == null ? (
+            <>
+              <h3 className="font-headline-md text-2xl mb-1">Week unavailable</h3>
+              <p className="font-body-md text-white/80 text-sm">
+                Add your LMP in intake to calculate gestational age · {riskTier}
+              </p>
+            </>
+          ) : (
+            <>
+              <h3 className="font-headline-md text-2xl mb-1">Week {weeks} of 40</h3>
+              <p className="font-body-md text-white/80 text-sm">
+                {trimesterText} Trimester · {riskTier}
+              </p>
+              <div className="mt-4 bg-white/10 rounded-full h-1.5">
+                <div className="bg-white/80 h-1.5 rounded-full" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="font-label-sm text-[10px] opacity-60">Week 1</span>
+                <span className="font-label-sm text-[10px] opacity-90">
+                  {edd ? `EDD: ${edd}` : 'EDD: —'}
+                </span>
+              </div>
+            </>
+          )}
         </section>
 
         {/* Personal Info */}

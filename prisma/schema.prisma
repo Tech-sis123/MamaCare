@@ -90,6 +90,8 @@ model Pregnancy {
   booked_anc_facility  String?
   /// Gestational age at booking (weeks)
   booking_ga_weeks     Int?
+  /// Date of ANC booking visit
+  booking_date         DateTime?
   /// Free-text booking / ANC history notes (doctor-entered)
   booking_history      String?
   /// Hepatitis C result

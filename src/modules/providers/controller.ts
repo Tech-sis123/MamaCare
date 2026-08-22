@@ -447,6 +447,10 @@ export const providersController = {
       const currentEgaWeeks = lmpDate ? calculateEGAWeeks(lmpDate) : undefined;
       const ussDate =
         data.uss_date && !isNaN(Date.parse(data.uss_date)) ? new Date(data.uss_date) : undefined;
+      const bookingDate =
+        data.booking_date && !isNaN(Date.parse(data.booking_date))
+          ? new Date(data.booking_date)
+          : undefined;
 
       const setIf = <T,>(key: string, value: T | null | undefined, transform?: (v: T) => unknown) => {
         if (value === undefined) return {};
@@ -480,6 +484,10 @@ export const providersController = {
         ...setIf('booked_anc', data.booked_anc),
         ...setIf('booked_anc_facility', data.booked_anc_facility),
         ...setIf('booking_ga_weeks', data.booking_ga_weeks),
+        ...setIf(
+          'booking_date',
+          bookingDate ?? (data.booking_date === null ? null : undefined)
+        ),
         ...setIf('booking_history', data.booking_history),
         ...setIf('hep_c', data.hep_c),
         ...setIf('rbg', data.rbg),

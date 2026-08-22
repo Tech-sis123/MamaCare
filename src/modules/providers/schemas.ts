@@ -51,6 +51,11 @@ export const doctorPregnancyUpdateSchema = z.object({
   booked_anc: z.boolean().optional().nullable(),
   booked_anc_facility: z.string().optional().nullable(),
   booking_ga_weeks: z.coerce.number().int().min(0).max(45).optional().nullable(),
+  booking_date: z
+    .string()
+    .refine((val) => !val || !isNaN(Date.parse(val)), 'Invalid booking date')
+    .optional()
+    .nullable(),
   booking_history: z.string().max(10000).optional().nullable(),
   hep_c: z.string().optional().nullable(),
   rbg: z.string().optional().nullable(),

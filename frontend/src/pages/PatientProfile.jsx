@@ -226,7 +226,18 @@ const PatientProfile = () => {
   const edd = eddVal
     ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
-  const riskTier = patient?.risk_tier || 'Low Risk';
+  const riskNorm = String(patient?.risk_tier || '')
+    .toUpperCase()
+    .replace(/\s*RISK\s*/i, '')
+    .trim();
+  const riskTier =
+    riskNorm === 'HIGH'
+      ? 'High Risk'
+      : riskNorm === 'MEDIUM'
+        ? 'Medium Risk'
+        : riskNorm === 'LOW'
+          ? 'Low Risk'
+          : patient?.risk_tier || 'Risk not assessed';
   const progress =
     weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
   const trimesterText =

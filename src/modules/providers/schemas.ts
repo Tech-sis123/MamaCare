@@ -66,6 +66,15 @@ export const doctorPregnancyUpdateSchema = z.object({
       glucose: z.string().optional().nullable(),
       additional_test: z.string().optional().nullable(),
       additional_result: z.string().optional().nullable(),
+      additional: z
+        .array(
+          z.object({
+            test: z.string().optional().nullable(),
+            result: z.string().optional().nullable(),
+          })
+        )
+        .optional()
+        .nullable(),
       request_investigation: z.string().optional().nullable(),
       notes: z.string().optional().nullable(),
     })

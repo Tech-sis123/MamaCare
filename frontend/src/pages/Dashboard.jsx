@@ -133,6 +133,51 @@ const trimesterLabel = (weeks) => {
   return 'Third trimester';
 };
 
+const normalizeRiskTier = (raw) => {
+  const t = String(raw || '')
+    .toUpperCase()
+    .replace(/\s*RISK\s*/i, '')
+    .trim();
+  if (t === 'HIGH' || t === 'MEDIUM' || t === 'LOW') return t;
+  return 'LOW';
+};
+
+const RISK_CARD = {
+  HIGH: {
+    card: 'bg-[#F8D7DA]',
+    badge: 'bg-secondary',
+    iconWrap: 'text-secondary',
+    title: 'Needs close follow-up',
+    Icon: AlertTriangle,
+  },
+  MEDIUM: {
+    card: 'bg-[#FFF3CD]',
+    badge: 'bg-amber-700',
+    iconWrap: 'text-amber-800',
+    title: 'Some monitoring needed',
+    Icon: AlertTriangle,
+  },
+  LOW: {
+    card: 'bg-[#D4E6D8]',
+    badge: 'bg-primary',
+    iconWrap: 'text-primary',
+    title: 'Safe & Stable',
+    Icon: CheckCircle2,
+  },
+};
+
+const formatAssessedAt = (raw) => {
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const PatientDashboard = () => {
   const navigate = useNavigate();
   const [dashData, setDashData] = useState(null);
@@ -183,19 +228,16 @@ const PatientDashboard = () => {
   const progressPct =
     weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
 
-  const riskTier = (
+  const riskTier = normalizeRiskTier(
     dashData?.risk?.tier ||
-    dashData?.risk_tier ||
-    dashData?.latest_risk_tier ||
-    patientData?.risk_tier ||
-    'LOW'
-  )
-    .toString()
-    .toUpperCase()
-    .replace(/\s*RISK\s*/i, '')
-    .trim() || 'LOW';
-  const riskColor = riskTier === 'HIGH' ? 'bg-[#F8D7DA]' : riskTier === 'MEDIUM' ? 'bg-[#FFF3CD]' : 'bg-[#D4E6D8]';
+      dashData?.risk_tier ||
+      dashData?.latest_risk_tier ||
+      patientData?.risk_tier
+  );
+  const riskCard = RISK_CARD[riskTier] || RISK_CARD.LOW;
+  const RiskIcon = riskCard.Icon;
   const riskLabel = riskTier === 'HIGH' ? 'HIGH RISK' : riskTier === 'MEDIUM' ? 'MEDIUM RISK' : 'LOW RISK';
+  const assessedLabel = formatAssessedAt(dashData?.risk?.assessed_at || dashData?.risk?.created_at);
   const nextAppt = dashData?.next_appointment;
   const eduModule =
     dashData?.education_module ||
@@ -265,21 +307,25 @@ const PatientDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-[640px] mx-auto px-4 -mt-6 pb-32 space-y-6">
-        {/* Risk Level Card */}
-        <section className={`${riskColor} rounded-xl p-6 flex justify-between items-center card-shadow`}>
+        {/* Risk Level Card — headline matches the assessed tier */}
+        <section className={`${riskCard.card} rounded-xl p-6 flex justify-between items-center card-shadow`}>
           <div className="space-y-3">
-            <div className="inline-flex items-center px-3 py-1 bg-primary text-white rounded-full font-label-sm text-[10px]">
+            <div
+              className={`inline-flex items-center px-3 py-1 ${riskCard.badge} text-white rounded-full font-label-sm text-[10px]`}
+            >
               {riskLabel}
             </div>
             <div>
               <h3 className="font-label-sm text-primary uppercase opacity-60">Your risk level</h3>
               <div className="flex items-center gap-2 mt-1">
-                <CheckCircle2 className="w-8 h-8 text-primary" />
-                <p className="font-body-md text-primary/80">Safe &amp; Stable</p>
+                <RiskIcon className={`w-8 h-8 ${riskCard.iconWrap}`} aria-hidden />
+                <p className={`font-body-md ${riskCard.iconWrap}`}>{riskCard.title}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 pt-1">
-              <span className="text-xs text-primary/60">Last assessed: Today</span>
+              <span className="text-xs text-primary/60">
+                {assessedLabel ? `Last assessed: ${assessedLabel}` : 'Last assessed: not yet recorded'}
+              </span>
               {needsProfileCompletion && (
                 <button
                   onClick={() => navigate('/intake')}

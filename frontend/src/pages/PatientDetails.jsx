@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   getPatientSummary,
@@ -6,6 +6,25 @@ import {
   getDoctorPatientDetail,
   updateDoctorPregnancy,
 } from '../lib/api';
+import { readConsultationDraft, writeConsultationDraft } from '../lib/consultationDraft';
+import {
+  emptyInvestigations,
+  mapPregnancyToInvestigations,
+  migrateInvestigationsDraft,
+  buildInvestigationsPayload,
+  countFilledInvestigations,
+  splitAboRh,
+  formatBloodType,
+} from '../lib/investigations';
+import BookingInvestigations from './BookingInvestigations';
+import ConsultationNotes from './ConsultationNotes';
+import {
+  emptyConsult,
+  mapPregnancyToConsult,
+  migrateConsultDraft,
+  buildConsultPayload,
+  countFilledConsult,
+} from '../lib/consultationNotes';
 
 /** Short unique code shown to doctors for search (MC-XXXXXX). */
 const formatPatientCode = (id) =>
@@ -45,8 +64,13 @@ const formatGP = (G, P, alive) => {
   const p = Number(P);
   if (Number.isNaN(g) || Number.isNaN(p)) return null;
   let s = `G${g}P${p}`;
-  if (alive != null && !Number.isNaN(Number(alive))) s += `(${Number(alive)}A)`;
+  if (alive != null && !Number.isNaN(Number(alive))) s += ` (${Number(alive)}A)`;
   return s;
+};
+
+const withGpAlive = (text, gp) => {
+  if (!text || !gp) return text;
+  return text.replace(/G\??\d*\s*P\??\d*(?:\s*\(\d+A\))?/, gp);
 };
 
 const toDateInput = (raw) => {
@@ -81,23 +105,6 @@ const emptyBooking = () => ({
   booking_date: '',
 });
 
-const emptyInvestigations = () => ({
-  rvd_status: '',
-  vdrl: '',
-  pcv: '',
-  hep_b: '',
-  hep_c: '',
-  malaria_parasite: '',
-  urinalysis: '',
-  rbg: '',
-  ogtt: '',
-  tetanus_history: '',
-  ipt_history: '',
-  uss_date: '',
-  uss_ega_weeks: '',
-  uss_notes: '',
-});
-
 const bookingHasAnyValue = (b) => {
   if (!b) return false;
   return Object.entries(b).some(([k, v]) => {
@@ -106,7 +113,31 @@ const bookingHasAnyValue = (b) => {
   });
 };
 
+const numOrNull = (v) => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+};
+
 /** Expandable clinic section */
+const ClinicLinkRow = ({ title, badge, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full bg-white border border-outline-variant/40 rounded-xl overflow-hidden shadow-sm flex items-center justify-between p-4 text-left hover:bg-surface-container-low transition-colors"
+  >
+    <span className="font-label-sm text-on-surface font-semibold text-sm flex items-center gap-2">
+      {title}
+      {badge != null && badge !== '' && (
+        <span className="font-label-sm text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+          {badge}
+        </span>
+      )}
+    </span>
+    <span className="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+  </button>
+);
+
 const ClinicSection = ({ title, open, onToggle, children, badge, headerRight }) => (
   <div className="bg-white border border-outline-variant/40 rounded-xl overflow-hidden shadow-sm">
     <div className="flex items-center gap-2 pr-2">
@@ -171,14 +202,23 @@ const PatientDetailPanel = () => {
   const [aiSummary, setAiSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [openSection, setOpenSection] = useState('bookings');
+  const [clinicScreen, setClinicScreen] = useState('chart');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
+  const [hydrated, setHydrated] = useState(false);
 
   const [booking, setBooking] = useState(emptyBooking);
   const [showBookingForm, setShowBookingForm] = useState(false);
 
   const [investigations, setInvestigations] = useState(emptyInvestigations);
-  const [consultationNotes, setConsultationNotes] = useState('');
+  const [consult, setConsult] = useState(emptyConsult);
+
+  const patientKey = passedPatient?.id || 'demo';
+  const skipNextPersist = useRef(true);
+  const persistInFlight = useRef(false);
+  const persistToServerRef = useRef(async () => {});
+  const stateRef = useRef({ booking, investigations, consult });
+  stateRef.current = { booking, investigations, consult };
 
   const reloadPatient = useCallback(() => {
     if (!isReal) return Promise.resolve();
@@ -201,72 +241,101 @@ const PatientDetailPanel = () => {
       .finally(() => setLoadingSummary(false));
   }, [isReal, passedPatient?.id]);
 
-  // Hydrate from pregnancy + intake
+  // Hydrate from pregnancy + local draft (draft wins so outages don't drop work)
   useEffect(() => {
+    const applyDraft = (serverBooking, serverInv, serverConsult) => {
+      const draft = readConsultationDraft(patientKey);
+      let nextBooking = serverBooking;
+      let nextInv = migrateInvestigationsDraft(serverInv);
+      let nextConsult = migrateConsultDraft(serverConsult);
+      let draftDiffers = false;
+      if (draft?.data) {
+        if (draft.data.booking) nextBooking = { ...serverBooking, ...draft.data.booking };
+        if (draft.data.investigations) {
+          nextInv = migrateInvestigationsDraft({ ...serverInv, ...draft.data.investigations });
+        }
+        if (draft.data.consult) {
+          nextConsult = migrateConsultDraft(
+            { ...serverConsult, ...draft.data.consult },
+            draft.data.consultationNotes
+          );
+        } else if (typeof draft.data.consultationNotes === 'string') {
+          nextConsult = { ...nextConsult, important_remarks: draft.data.consultationNotes };
+        }
+        draftDiffers =
+          JSON.stringify({
+            b: draft.data.booking,
+            i: draft.data.investigations,
+            c: draft.data.consult || draft.data.consultationNotes,
+          }) !==
+          JSON.stringify({ b: serverBooking, i: serverInv, c: serverConsult });
+      }
+      setBooking(nextBooking);
+      setShowBookingForm(bookingHasAnyValue(nextBooking));
+      setInvestigations(nextInv);
+      setConsult(nextConsult);
+      skipNextPersist.current = !draftDiffers;
+      setHydrated(true);
+    };
+
     if (!fullPatient) {
       if (!isReal) {
+        const abo = splitAboRh('O+', 'Positive');
         const demo = {
           ...emptyBooking(),
           booking_weight: '68',
           booking_height: '162',
           booking_bp_systolic: '110',
           booking_bp_diastolic: '70',
-          blood_group: 'O+',
+          blood_group: abo.blood_group,
           genotype: 'AA',
-          rhesus: 'Positive',
+          rhesus: abo.rhesus || '+',
           booking_ga_weeks: '16',
           booked_anc: false,
           booked_anc_facility: '',
           booking_date: '2026-04-12',
         };
-        setBooking(demo);
-        setShowBookingForm(true);
-        setInvestigations({
-          ...emptyInvestigations(),
-          pcv: '32',
-          rvd_status: 'Negative',
-        });
-        setConsultationNotes('');
+        applyDraft(
+          demo,
+          { ...emptyInvestigations(), pcv: '32', hiv: 'Negative' },
+          mapPregnancyToConsult({
+            vitals_log: [
+              {
+                date: '2026-07-06',
+                bp_systolic: '110',
+                bp_diastolic: '80',
+                pr: '86',
+                weight_kg: '68',
+                height_cm: '162',
+                rr: '18',
+                temp_c: '36.7',
+                protein: 'none',
+                glucose: 'none',
+              },
+            ],
+          })
+        );
       }
       return;
     }
 
     const pr = fullPatient.pregnancies?.[0] || {};
+    const abo = splitAboRh(pr.blood_group || '', pr.rhesus || '');
     const nextBooking = {
       booking_weight: pr.booking_weight != null ? String(pr.booking_weight) : '',
       booking_height: pr.booking_height != null ? String(pr.booking_height) : '',
       booking_bp_systolic: pr.booking_bp_systolic != null ? String(pr.booking_bp_systolic) : '',
       booking_bp_diastolic: pr.booking_bp_diastolic != null ? String(pr.booking_bp_diastolic) : '',
-      blood_group: pr.blood_group || '',
+      blood_group: abo.blood_group,
       genotype: pr.genotype || '',
-      rhesus: pr.rhesus || '',
+      rhesus: abo.rhesus,
       booking_ga_weeks: pr.booking_ga_weeks != null ? String(pr.booking_ga_weeks) : '',
       booked_anc: typeof pr.booked_anc === 'boolean' ? pr.booked_anc : null,
       booked_anc_facility: pr.booked_anc_facility || '',
       booking_date: toDateInput(pr.booking_date),
     };
-    setBooking(nextBooking);
-    setShowBookingForm(bookingHasAnyValue(nextBooking));
-
-    setInvestigations({
-      rvd_status: pr.rvd_status || '',
-      vdrl: pr.vdrl || '',
-      pcv: pr.pcv != null && pr.pcv !== '' ? String(pr.pcv) : '',
-      hep_b: pr.hep_b || '',
-      hep_c: pr.hep_c || '',
-      malaria_parasite: pr.malaria_parasite || '',
-      urinalysis: pr.urinalysis || '',
-      rbg: pr.rbg || '',
-      ogtt: pr.ogtt || '',
-      tetanus_history: pr.tetanus_history || '',
-      ipt_history: pr.ipt_history || '',
-      uss_date: toDateInput(pr.uss_date),
-      uss_ega_weeks: pr.uss_ega_weeks != null ? String(pr.uss_ega_weeks) : '',
-      uss_notes: pr.uss_notes || '',
-    });
-
-    setConsultationNotes(pr.important_remarks || '');
-  }, [fullPatient, isReal]);
+    applyDraft(nextBooking, mapPregnancyToInvestigations(pr), mapPregnancyToConsult(pr));
+  }, [fullPatient, isReal, patientKey]);
 
   // ── Derived display ──────────────────────────────────────────────────────
   const preg = fullPatient?.pregnancies?.[0] || {};
@@ -327,8 +396,8 @@ const PatientDetailPanel = () => {
     ? new Date(preg.edd_computed).toLocaleDateString('en-GB')
     : passedPatient?.edd || (isReal ? '—' : MOCK.edd);
   const bloodType =
-    booking.blood_group ||
-    preg.blood_group ||
+    formatBloodType(booking.blood_group, booking.rhesus) ||
+    formatBloodType(preg.blood_group, preg.rhesus) ||
     passedPatient?.bloodType ||
     passedPatient?.blood_group ||
     (isReal ? '—' : MOCK.bloodType);
@@ -343,101 +412,106 @@ const PatientDetailPanel = () => {
   const toggle = (key) => setOpenSection((o) => (o === key ? null : key));
 
   const setBook = (field, value) => setBooking((prev) => ({ ...prev, [field]: value }));
-  const setInv = (field, value) =>
-    setInvestigations((prev) => ({ ...prev, [field]: value }));
 
   const handleAddBooking = () => {
     setOpenSection('bookings');
     setShowBookingForm(true);
   };
 
-  const numOrNull = (v) => {
-    if (v === '' || v == null) return null;
-    const n = Number(v);
-    return Number.isNaN(n) ? null : n;
-  };
-
-  const buildReviewPayload = () => {
-    const inv = investigations;
-    const pcvNum = inv.pcv !== '' && inv.pcv != null ? Number(inv.pcv) : undefined;
-    const ussEga =
-      inv.uss_ega_weeks !== '' && inv.uss_ega_weeks != null
-        ? Number(inv.uss_ega_weeks)
-        : undefined;
-
+  const buildReviewPayload = useCallback((snap) => {
+    const b = snap.booking;
+    const inv = snap.investigations;
+    const abo = splitAboRh(b.blood_group, b.rhesus);
     return {
-      // ANC booking (Booking History)
-      booking_weight: numOrNull(booking.booking_weight),
-      booking_height: numOrNull(booking.booking_height),
-      booking_bp_systolic: numOrNull(booking.booking_bp_systolic),
-      booking_bp_diastolic: numOrNull(booking.booking_bp_diastolic),
-      blood_group: booking.blood_group || null,
-      genotype: booking.genotype || null,
-      rhesus: booking.rhesus || null,
-      booking_ga_weeks: numOrNull(booking.booking_ga_weeks),
-      booked_anc: booking.booked_anc,
-      booked_anc_facility:
-        booking.booked_anc === true ? booking.booked_anc_facility || null : null,
-      booking_date: booking.booking_date || null,
-      // Investigations
-      important_remarks: consultationNotes || null,
-      rvd_status: inv.rvd_status || null,
-      vdrl: inv.vdrl || null,
-      pcv: pcvNum != null && !Number.isNaN(pcvNum) ? pcvNum : null,
-      hep_b: inv.hep_b || null,
-      hep_c: inv.hep_c || null,
-      malaria_parasite: inv.malaria_parasite || null,
-      urinalysis: inv.urinalysis || null,
-      rbg: inv.rbg || null,
-      ogtt: inv.ogtt || null,
-      tetanus_history: inv.tetanus_history || null,
-      ipt_history: inv.ipt_history || null,
-      uss_date: inv.uss_date || null,
-      uss_ega_weeks: ussEga != null && !Number.isNaN(ussEga) ? ussEga : null,
-      uss_notes: inv.uss_notes || null,
+      booking_weight: numOrNull(b.booking_weight),
+      booking_height: numOrNull(b.booking_height),
+      booking_bp_systolic: numOrNull(b.booking_bp_systolic),
+      booking_bp_diastolic: numOrNull(b.booking_bp_diastolic),
+      booking_ga_weeks: numOrNull(b.booking_ga_weeks),
+      booked_anc: b.booked_anc,
+      booked_anc_facility: b.booked_anc === true ? b.booked_anc_facility || null : null,
+      booking_date: b.booking_date || null,
+      ...buildInvestigationsPayload(inv, { ...b, blood_group: abo.blood_group, rhesus: abo.rhesus }),
+      ...buildConsultPayload(snap.consult),
     };
-  };
+  }, []);
 
-  const handleSaveReview = async () => {
-    setSaving(true);
-    setSaveMsg('');
-    try {
-      if (isReal) {
-        const payload = buildReviewPayload();
+  const persistToServer = useCallback(
+    async ({ manual = false, reload = false } = {}) => {
+      const snap = stateRef.current;
+      writeConsultationDraft(patientKey, snap);
+      if (!isReal) {
+        if (manual) setSaveMsg('Review saved');
+        return true;
+      }
+      if (persistInFlight.current && !manual) return false;
+      persistInFlight.current = true;
+      if (manual) {
+        setSaving(true);
+        setSaveMsg('');
+      }
+      try {
+        const payload = buildReviewPayload(snap);
         Object.keys(payload).forEach((k) => payload[k] === undefined && delete payload[k]);
         await updateDoctorPregnancy(passedPatient.id, payload);
-        if (appointment_id && consultationNotes.trim()) {
+        if (manual && appointment_id && String(snap.consult?.important_remarks || '').trim()) {
           try {
-            await saveVisitNotes(appointment_id, consultationNotes, { complete: false });
+            await saveVisitNotes(appointment_id, snap.consult.important_remarks, { complete: false });
           } catch {
             /* non-blocking */
           }
         }
-        await reloadPatient();
-      }
-      try {
-        localStorage.setItem(
-          `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({ booking, investigations, consultationNotes })
+        writeConsultationDraft(patientKey, snap);
+        setSaveMsg(manual ? 'Review saved' : 'Saved');
+        if (reload) {
+          skipNextPersist.current = true;
+          await reloadPatient();
+        }
+        return true;
+      } catch (e) {
+        setSaveMsg(
+          e?.response?.data?.error || e?.message || 'Draft saved locally — will sync when online'
         );
-      } catch {
-        /* ignore */
+        return false;
+      } finally {
+        persistInFlight.current = false;
+        if (manual) setSaving(false);
       }
-      setSaveMsg('Review saved');
-    } catch (e) {
-      try {
-        localStorage.setItem(
-          `mamacare_review_${passedPatient?.id || 'demo'}`,
-          JSON.stringify({ booking, investigations, consultationNotes })
-        );
-      } catch {
-        /* ignore */
-      }
-      setSaveMsg(e?.response?.data?.error || e?.message || 'Save failed — draft kept locally');
-    } finally {
-      setSaving(false);
+    },
+    [isReal, patientKey, passedPatient?.id, appointment_id, reloadPatient, buildReviewPayload]
+  );
+  persistToServerRef.current = persistToServer;
+
+  useEffect(() => {
+    if (!hydrated) return;
+    writeConsultationDraft(patientKey, stateRef.current);
+    if (skipNextPersist.current) {
+      skipNextPersist.current = false;
+      return;
     }
-  };
+    const t = setTimeout(() => {
+      void persistToServerRef.current({ manual: false });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [booking, investigations, consult, hydrated, patientKey]);
+
+  useEffect(() => {
+    const flush = () => {
+      writeConsultationDraft(patientKey, stateRef.current);
+      if (hydrated) void persistToServerRef.current({ manual: false });
+    };
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onHide);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onHide);
+    };
+  }, [hydrated, patientKey]);
+
+  const handleSaveReview = () => persistToServer({ manual: true, reload: true });
 
   const handleMarkSeen = async () => {
     if (!appointment_id) {
@@ -448,7 +522,7 @@ const PatientDetailPanel = () => {
       await handleSaveReview();
       await saveVisitNotes(
         appointment_id,
-        consultationNotes.trim() || 'Appointment completed.',
+        (consult.important_remarks || '').trim() || 'Appointment completed.',
         { complete: true }
       );
       navigate('/provider');
@@ -457,10 +531,39 @@ const PatientDetailPanel = () => {
     }
   };
 
-  const invFilledCount = Object.values(investigations).filter(
-    (v) => v != null && String(v).trim() !== ''
-  ).length;
+  const invFilledCount = countFilledInvestigations(investigations, booking);
+  const notesFilledCount = countFilledConsult(consult);
   const bookingFilled = bookingHasAnyValue(booking);
+
+  if (clinicScreen === 'investigations') {
+    return (
+      <BookingInvestigations
+        patientName={name}
+        booking={booking}
+        setBook={setBook}
+        investigations={investigations}
+        setInvestigations={setInvestigations}
+        saveMsg={saveMsg}
+        saving={saving}
+        onBack={() => setClinicScreen('chart')}
+        onSave={handleSaveReview}
+      />
+    );
+  }
+
+  if (clinicScreen === 'notes') {
+    return (
+      <ConsultationNotes
+        patientName={name}
+        consult={consult}
+        setConsult={setConsult}
+        saveMsg={saveMsg}
+        saving={saving}
+        onBack={() => setClinicScreen('chart')}
+        onSave={handleSaveReview}
+      />
+    );
+  }
 
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
@@ -534,7 +637,7 @@ const PatientDetailPanel = () => {
               <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
             ) : (
               <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                {aiSummary || fallbackSummary}
+                {withGpAlive(aiSummary || fallbackSummary, gpStr)}
               </p>
             )}
           </div>
@@ -682,159 +785,19 @@ const PatientDetailPanel = () => {
           </div>
         </ClinicSection>
 
-        {/* 2. Investigations done */}
-        <ClinicSection
+        {/* 2. Investigations done — opens Booking Investigations screen */}
+        <ClinicLinkRow
           title="Investigations done"
-          open={openSection === 'investigations'}
-          onToggle={() => toggle('investigations')}
           badge={invFilledCount ? `${invFilledCount}` : null}
-        >
-          <div className="pt-3 space-y-1">
-            <p className="font-body-md text-xs text-on-surface-variant mb-2">
-              Edit lab results and ultrasound findings for this patient.
-            </p>
-            <FieldRow label="RVD status">
-              <input
-                className={inputCls}
-                value={investigations.rvd_status}
-                onChange={(e) => setInv('rvd_status', e.target.value)}
-                placeholder="e.g. Negative"
-              />
-            </FieldRow>
-            <FieldRow label="VDRL">
-              <input
-                className={inputCls}
-                value={investigations.vdrl}
-                onChange={(e) => setInv('vdrl', e.target.value)}
-                placeholder="e.g. Non-reactive"
-              />
-            </FieldRow>
-            <FieldRow label="PCV">
-              <input
-                type="number"
-                className={inputCls}
-                value={investigations.pcv}
-                onChange={(e) => setInv('pcv', e.target.value)}
-                placeholder="e.g. 32"
-              />
-            </FieldRow>
-            <FieldRow label="Hep B">
-              <input
-                className={inputCls}
-                value={investigations.hep_b}
-                onChange={(e) => setInv('hep_b', e.target.value)}
-                placeholder="e.g. Negative"
-              />
-            </FieldRow>
-            <FieldRow label="Hep C">
-              <input
-                className={inputCls}
-                value={investigations.hep_c}
-                onChange={(e) => setInv('hep_c', e.target.value)}
-                placeholder="e.g. Negative"
-              />
-            </FieldRow>
-            <FieldRow label="Malaria parasite">
-              <input
-                className={inputCls}
-                value={investigations.malaria_parasite}
-                onChange={(e) => setInv('malaria_parasite', e.target.value)}
-                placeholder="e.g. Negative"
-              />
-            </FieldRow>
-            <FieldRow label="Urinalysis">
-              <input
-                className={inputCls}
-                value={investigations.urinalysis}
-                onChange={(e) => setInv('urinalysis', e.target.value)}
-                placeholder="e.g. NAD"
-              />
-            </FieldRow>
-            <FieldRow label="RBG">
-              <input
-                className={inputCls}
-                value={investigations.rbg}
-                onChange={(e) => setInv('rbg', e.target.value)}
-                placeholder="e.g. 5.2"
-              />
-            </FieldRow>
-            <FieldRow label="OGTT">
-              <input
-                className={inputCls}
-                value={investigations.ogtt}
-                onChange={(e) => setInv('ogtt', e.target.value)}
-                placeholder="Result"
-              />
-            </FieldRow>
-            <FieldRow label="TT history">
-              <input
-                className={inputCls}
-                value={investigations.tetanus_history}
-                onChange={(e) => setInv('tetanus_history', e.target.value)}
-                placeholder="e.g. TT2 @ 20w"
-              />
-            </FieldRow>
-            <FieldRow label="IPT history">
-              <input
-                className={inputCls}
-                value={investigations.ipt_history}
-                onChange={(e) => setInv('ipt_history', e.target.value)}
-                placeholder="e.g. IPT1 @ 16w"
-              />
-            </FieldRow>
-            <div className="pt-2 border-t border-outline-variant/25 mt-2">
-              <p className="font-label-sm text-on-surface-variant text-xs uppercase mb-2">
-                Ultrasound
-              </p>
-              <FieldRow label="USS date">
-                <input
-                  type="date"
-                  className={inputCls}
-                  value={investigations.uss_date}
-                  onChange={(e) => setInv('uss_date', e.target.value)}
-                />
-              </FieldRow>
-              <FieldRow label="USS EGA (weeks)">
-                <input
-                  type="number"
-                  className={inputCls}
-                  value={investigations.uss_ega_weeks}
-                  onChange={(e) => setInv('uss_ega_weeks', e.target.value)}
-                  placeholder="weeks"
-                />
-              </FieldRow>
-              <FieldRow label="USS notes">
-                <input
-                  className={inputCls}
-                  value={investigations.uss_notes}
-                  onChange={(e) => setInv('uss_notes', e.target.value)}
-                  placeholder="Findings…"
-                />
-              </FieldRow>
-            </div>
-          </div>
-        </ClinicSection>
+          onClick={() => setClinicScreen('investigations')}
+        />
 
-        {/* 3. Consultation notes */}
-        <ClinicSection
+        {/* 3. Consultation notes — vitals table, drugs, scans, exam, remarks */}
+        <ClinicLinkRow
           title="Consultation notes"
-          open={openSection === 'notes'}
-          onToggle={() => toggle('notes')}
-          badge={consultationNotes.trim() ? 'saved' : null}
-        >
-          <div className="pt-3">
-            <p className="font-body-md text-xs text-on-surface-variant mb-2">
-              Clinical notes for this patient. Once saved, they reappear on later consultations.
-            </p>
-            <textarea
-              value={consultationNotes}
-              onChange={(e) => setConsultationNotes(e.target.value)}
-              rows={6}
-              placeholder="Start typing clinical notes…"
-              className="w-full bg-surface-container-low border border-outline rounded-lg p-4 font-body-md text-sm focus:ring-2 focus:ring-primary outline-none resize-none"
-            />
-          </div>
-        </ClinicSection>
+          badge={notesFilledCount ? `${notesFilledCount}` : null}
+          onClick={() => setClinicScreen('notes')}
+        />
 
         {saveMsg && (
           <p

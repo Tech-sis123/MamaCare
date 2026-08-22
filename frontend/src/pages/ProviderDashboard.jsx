@@ -289,32 +289,42 @@ const PatientsView = ({ navigate }) => {
   const [riskFilter, setRiskFilter] = useState('All');
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     const delay = search.trim() ? 400 : 0;
+    let cancelled = false;
     const t = setTimeout(() => {
       setLoading(true);
+      setLoadError('');
       searchPatients(search)
         .then(({ data }) => {
+          if (cancelled) return;
           const list = Array.isArray(data) ? data : data?.patients || [];
           setPatients(list.map(toPatientRow));
         })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+        .catch((err) => {
+          if (cancelled) return;
+          setPatients([]);
+          const status = err.response?.status;
+          setLoadError(
+            status === 401
+              ? 'Session expired. Please sign in again.'
+              : 'Could not load patients. Check that the API is running, then try again.'
+          );
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
     }, delay);
-    return () => clearTimeout(t);
-  }, [search]);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [search, reloadTick]);
 
-  const filtered = patients.filter(p => {
-    const q = search.toLowerCase().trim();
-    const matchSearch =
-      !q ||
-      p.name.toLowerCase().includes(q) ||
-      (p.code && p.code.toLowerCase().includes(q)) ||
-      (p.code && p.code.toLowerCase().replace(/^mc-/, '').includes(q.replace(/^mc-/, '')));
-    const matchRisk = riskFilter === 'All' || p.risk === riskFilter;
-    return matchSearch && matchRisk;
-  });
+  const filtered = patients.filter(p => riskFilter === 'All' || p.risk === riskFilter);
 
   return (
     <div className="space-y-6">
@@ -352,7 +362,20 @@ const PatientsView = ({ navigate }) => {
         {loading && (
           <div className="text-center py-8 text-on-surface-variant font-body-md text-sm">Loading patients…</div>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && loadError && (
+          <div className="text-center py-16 text-on-surface-variant">
+            <span className="material-symbols-outlined text-4xl block mb-2">error</span>
+            <p className="font-body-md">{loadError}</p>
+            <button
+              type="button"
+              onClick={() => setReloadTick((n) => n + 1)}
+              className="mt-4 px-5 py-2 rounded-full bg-primary text-white font-label-sm text-xs"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {!loading && !loadError && filtered.length === 0 && (
           <div className="text-center py-16 text-on-surface-variant">
             <span className="material-symbols-outlined text-4xl block mb-2">person_search</span>
             <p className="font-body-md">No patients found</p>

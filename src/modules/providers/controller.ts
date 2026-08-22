@@ -223,8 +223,18 @@ export const providersController = {
             }
           : {},
         include: {
-          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
-          pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+          risk_assessments: {
+            orderBy: { created_at: 'desc' },
+            take: 1,
+            select: { tier: true },
+          },
+          // Only lmp_date is needed for EGA — avoid selecting clinic columns
+          // that may not exist yet (P2022 on search looks like an empty list).
+          pregnancies: {
+            orderBy: { id: 'desc' },
+            take: 1,
+            select: { lmp_date: true },
+          },
         },
         orderBy: { name: 'asc' },
         take: looksLikeCode ? 200 : 50,

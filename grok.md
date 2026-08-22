@@ -1,6 +1,6 @@
 # MamaCare session context (Grok Build)
 
-Last updated: 2026-08-22  
+Last updated: 2026-08-22 (consultation notes)  
 Purpose: keep continuity after chat compaction. Read this before continuing doctor UI / patient homepage work.
 
 ---
@@ -38,7 +38,7 @@ When a patient’s name is clicked, show **only 3 clinic sections** (not 4):
 2. **Investigations done**
 3. **Consultation notes**
 
-**Removed from this screen:** Vitals section (was the 4th).
+**Removed from this screen:** Vitals as a 4th top-level section (vitals now live **inside Consultation notes**).
 
 **Booking History** is **not** an appointment list anymore. It is the **ANC booking form**:
 
@@ -71,7 +71,7 @@ Backend wired in: `src/modules/providers/schemas.ts`, `controller.ts`, `prisma/s
 
 AI Pre-Consult Summary + patient header still show above the 3 sections.
 
-Investigations / Consultation notes left largely as-is for now (labs minus blood group/genotype/rhesus) — **user will send more Figma for those next**.
+Investigations / Consultation notes were left as accordions until the next Figma batch (now implemented — see below).
 
 ### Patient homepage weeks + profile loading
 
@@ -85,6 +85,42 @@ Investigations / Consultation notes left largely as-is for now (labs minus blood
 Also tightened dashboard next-appointment / risk / education key reads (`slot_start`, `risk.tier`, `education_module`).
 
 **No SQL** for this part.
+
+### Patient home — risk card copy (HIGH vs Safe & Stable)
+
+`Dashboard.jsx` badge was live (`HIGH RISK`) but the headline was hardcoded **Safe & Stable**. HIGH now shows **Needs close follow-up** (warning icon); MEDIUM **Some monitoring needed**; LOW keeps **Safe & Stable**. Last assessed uses `risk.assessed_at` instead of always “Today”. Profile pregnancy card normalizes `HIGH` / `Low Risk` to the same labels.
+
+**No SQL.**
+
+### Doctor patient chart — Investigations done batch
+
+**Investigations done** is no longer an accordion. Tapping it opens a full **Booking Investigations** screen (`frontend/src/pages/BookingInvestigations.jsx`) and Back returns to the 3-row chart.
+
+Fields (chip selects unless noted):
+
+- Blood group: O / A / B / AB
+- Rhesus: + / −
+- Genotype: AA / AS / SS / AC / others (others → text field)
+- PCV: number
+- Malaria parasite: + / ++ / +++ / None
+- VDRL, HIV, HCV, HBV: Positive / Negative
+- Urinalysis: protein and glucose each + / ++ / +++ / none
+- RBG: text
+- OGTT: blank text field
+- Add investigation: Test done + Result (blank; can add more rows)
+- Request investigation: Routine investigations / others
+
+HIV → `rvd_status`; HBV → `hep_b`; HCV → `hep_c`. Protein/glucose/additional/request live in `pregnancies.extra_labs` (JSON). Urinalysis string is composed as `protein: …; glucose: …`.
+
+Blood group / genotype / rhesus still exist on **Booking History** and share the same pregnancy columns — the investigations chips write those same fields (ABO and rhesus stored separately, header shows combined e.g. O+).
+
+TT / IPT / USS were removed from this investigations UI (columns kept; PATCH omits them so they are not wiped).
+
+**Auto-save (outage safety):** versioned local draft `mamacare_consult:v1:<patientId>` written on every change; debounced PATCH (~1.5s) plus flush on tab hide. If the network fails, copy is “Draft saved locally — will sync when online”. Draft overlays server data on reload.
+
+**No SQL** — `extra_labs` already exists. Zod now accepts `extra_labs.additional[]`.
+
+Files: `frontend/src/pages/BookingInvestigations.jsx`, `frontend/src/lib/investigations.js`, `frontend/src/lib/consultationDraft.js`, `frontend/src/pages/PatientDetails.jsx`, `src/modules/providers/schemas.ts`.
 
 ### Earlier (prior segments — still relevant)
 
@@ -109,16 +145,35 @@ Unused / legacy: `frontend/src/pages/PatientDashboard.jsx` is **not** routed (`A
 
 ---
 
+### Doctor patient chart — Consultation notes batch
+
+**Consultation notes** is no longer a free-text accordion. Tapping it opens a screen with 5 clickable items:
+
+1. **Vitals** — dated table (Date, BP/PR, Wt, Ht, RR, Temp, Urinalysis glucose/protein) plus **Log vitals** dropdown (fields + protein/glucose chips)
+2. **Drugs and vaccination given** — prescribed medications; IPT dose + GA; TT dose + GA
+3. **Scans done during pregnancy** — date, GA, notes (add more)
+4. **Examination** — Lie (Transverse/Oblique/Longitudinal/Indeterminate); Presentation (Cephalic/Breech/Face/Shoulder/Indeterminate); SFH; fetal heart
+5. **Important Remarks** — persistent textarea
+
+The vitals **table** is inside Consultation notes (not a top-level chart section). Symptom timeline / escalate stay off this screen.
+
+AI summary + header obstetric line use **G2P1 (1A)** (children alive). Backend summary generator updated the same way.
+
+Persists via existing JSON columns: `vitals_log`, `drugs_vaccines`, `scans_log`, `examination`, `important_remarks`. Auto-save draft still applies.
+
+**No SQL.**
+
+Files: `frontend/src/pages/ConsultationNotes.jsx`, `frontend/src/lib/consultationNotes.js`, `frontend/src/pages/PatientDetails.jsx`, `src/services/summary-generator.ts`.
+
+---
+
 ## Waiting on user (next)
 
-1. **More Figma screenshots** for remaining doctor chart work — especially:
-   - **Investigations done** layout / fields / Add flow
-   - **Consultation notes** if it changes
-   - Any other moved components (vitals elsewhere?, remove AI summary?, ProviderDashboard moves)
-2. Confirm whether **AI Pre-Consult Summary** should stay above the 3 sections (Image 1 only called out the 3 accordions).
-3. Later: **doctor notified of user’s next visit** — channel, timing, copy TBD. Hooks already exist: appointments, queue, patient SMS reminder job (`src/jobs/appointmentReminder.ts`) — doctor-facing notify not built yet.
-4. User should run **`booking_date` SQL** on Supabase if not done.
-5. Redeploy frontend (and API if `booking_date` + provider patch need to be live).
+1. **More Figma** if anything else on the doctor chart should move (AI summary stay/go, ProviderDashboard).
+2. Confirm whether **AI Pre-Consult Summary** should stay above the 3 sections (it still does).
+3. Later: **doctor notified of user’s next visit** — channel, timing, copy TBD.
+4. **`booking_date` SQL applied** on the Supabase DB this local API uses. Search 500 is fixed; All Patients no longer treats a failed fetch as “No patients found”.
+5. Redeploy **frontend + API** (summary G2P1 (1A) is generated on the API).
 
 ---
 
@@ -145,11 +200,8 @@ Unused / legacy: `frontend/src/pages/PatientDashboard.jsx` is **not** routed (`A
 
 ## Files touched in latest work (expect in upcoming commit)
 
-- `frontend/src/pages/PatientDetails.jsx` — 3 sections + ANC Booking History
-- `frontend/src/pages/Dashboard.jsx` — live EGA + loading
-- `frontend/src/pages/PatientProfile.jsx` — loading instead of Week 12 flash
-- `prisma/schema.prisma` — `booking_date`
-- `prisma/migrations/manual_booking_date.sql`
-- `src/modules/providers/schemas.ts` — `booking_date`
-- `src/modules/providers/controller.ts` — persist `booking_date`
+- `frontend/src/pages/ConsultationNotes.jsx` — 5-section consultation notes + vitals table
+- `frontend/src/lib/consultationNotes.js` — map / payload
+- `frontend/src/pages/PatientDetails.jsx` — notes opens a screen; G2P1 (1A)
+- `src/services/summary-generator.ts` — children alive in pre-consult summary
 - `grok.md` — this continuity doc

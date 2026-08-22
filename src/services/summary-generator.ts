@@ -5,7 +5,7 @@
  * for doctors to review before a patient consultation.
  *
  * Format:
- * "Mrs. {name}, {age}, G{g}P{p}, currently {ega} weeks.
+ * "Mrs. {name}, {age}, G{g}P{p} ({a}A), currently {ega} weeks.
  *  Presenting with {symptoms}. {chronic}. Risk: {tier}. Last BP: {bp}."
  */
 
@@ -14,7 +14,7 @@ export interface SummaryInput {
   age: number | null;
   gravidity: number | null;
   parity: number | null;
-  /** Number of children currently alive — shown as G2P1(1A) */
+  /** Number of children currently alive — shown as G2P1 (1A) */
   children_alive: number | null;
   ega_weeks: number | null;
   recent_symptoms: string[];
@@ -57,10 +57,14 @@ export function generatePreConsultSummary(input: SummaryInput): string {
   let gp = 'G?P?';
   if (input.gravidity != null && input.parity != null) {
     gp = `G${input.gravidity}P${input.parity}`;
-    // Children alive: G2P1(1A)
-    if (input.children_alive != null && !Number.isNaN(Number(input.children_alive))) {
-      gp += `(${Number(input.children_alive)}A)`;
-    }
+  } else if (input.gravidity != null) {
+    gp = `G${input.gravidity}P?`;
+  } else if (input.parity != null) {
+    gp = `G?P${input.parity}`;
+  }
+  // Children alive: G2P1 (1A)
+  if (input.children_alive != null && !Number.isNaN(Number(input.children_alive))) {
+    gp += ` (${Number(input.children_alive)}A)`;
   }
   const ega = input.ega_weeks != null ? `${input.ega_weeks} weeks` : 'EGA unknown';
 

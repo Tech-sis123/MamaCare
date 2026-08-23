@@ -647,21 +647,9 @@ const PatientDetailPanel = () => {
             {loadingSummary ? (
               <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
             ) : (
-              <>
-                <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                  {withGpAlive(aiSummary || fallbackSummary, gpStr)}
-                </p>
-                <div className="mt-3 pt-3 border-t border-primary/10 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setClinicScreen('self_reported')}
-                    className="font-label-sm text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
-                  >
-                    View patient's health report
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                  </button>
-                </div>
-              </>
+              <p className="font-body-md text-on-surface leading-relaxed text-sm">
+                {withGpAlive(aiSummary || fallbackSummary, gpStr)}
+              </p>
             )}
           </div>
         </section>
@@ -684,6 +672,22 @@ const PatientDetailPanel = () => {
           }
         >
           <div className="pt-3 space-y-1">
+            {/* Self-Reported Data Link inserted here, keeping Booking functions below intact */}
+            <div className="mb-4 pb-4 border-b border-outline-variant/30 flex justify-between items-center">
+              <div>
+                <p className="font-label-sm text-sm text-on-surface font-semibold">Patient Self-Reported Data</p>
+                <p className="text-[11px] text-on-surface-variant">View symptoms and biodata submitted by patient</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClinicScreen('self_reported')}
+                className="font-label-sm text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity bg-primary/5 px-3 py-1.5 rounded-lg"
+              >
+                View report
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+
             {!showBookingForm ? (
               <p className="font-body-md text-sm text-on-surface-variant italic">
                 No ANC booking recorded yet. Tap <span className="font-semibold">Add Booking</span> to

@@ -35,10 +35,13 @@ export const providersController = {
 
       const dayStart = new Date(`${dateStr}T00:00:00`);
       const dayEnd = new Date(`${dateStr}T23:59:59`);
+      const slotFilter = req.query.date
+        ? { gte: dayStart, lte: dayEnd }
+        : { gte: dayStart };
 
       const appointments = await prisma.appointment.findMany({
         where: {
-          slot_start: { gte: dayStart, lte: dayEnd },
+          slot_start: slotFilter,
           status: { in: ['booked', 'completed'] },
         },
         include: {

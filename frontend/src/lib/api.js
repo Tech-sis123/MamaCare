@@ -173,6 +173,9 @@ export const bookAppointment = (doctor_id, slot_start) =>
     { headers: { 'Idempotency-Key': crypto.randomUUID() } }
   );
 
+export const rescheduleAppointment = (appointment_id, slot_start) =>
+  patientApi.patch(`/appointments/${appointment_id}/reschedule`, { slot_start });
+
 // ── Education ─────────────────────────────────────────────────────────────────
 
 export const getEducationModules = () => patientApi.get('/education/modules');

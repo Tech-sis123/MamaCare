@@ -513,7 +513,7 @@ const PatientProfile = () => {
             <div>
               <p className="font-body-md font-bold text-on-surface">ANC Clinic B</p>
               <p className="font-body-md text-on-surface-variant text-sm">Partner Hospitals</p>
-              <p className="font-label-sm text-outline text-xs mt-1">Dr. Adaeze Nwankwo · Obstetrician</p>
+              <p className="font-label-sm text-outline text-xs mt-1">{patient?.primary_doctor?.name || 'Dr. Adaeze Nwankwo'} · Obstetrician</p>
             </div>
           </div>
         </section>

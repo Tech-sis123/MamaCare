@@ -221,6 +221,7 @@ export const patientsController = {
           slot_start: { gte: new Date() },
         },
         orderBy: { slot_start: 'asc' },
+        include: { doctor: { select: { name: true } } },
       });
 
       // Latest risk tier
@@ -246,6 +247,7 @@ export const patientsController = {
               slot_start: nextAppointment.slot_start,
               slot_end: nextAppointment.slot_end,
               doctor_id: nextAppointment.doctor_id,
+              doctor: { name: nextAppointment.doctor?.name },
             }
           : null,
         risk: latestRisk

@@ -5,7 +5,7 @@ import {
   Info, AlertTriangle, ShieldCheck, Calendar, MapPin,
   CheckCircle2, PlusCircle, CheckCircle, Home,
 } from 'lucide-react';
-import { bookAppointment, getProviders, getPatientMe } from '../lib/api';
+import { bookAppointment, getProviders, getPatientMe, rescheduleAppointment, getPatientDashboard } from '../lib/api';
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -71,9 +71,35 @@ const BookAppointment = () => {
   const [apiError, setApiError] = useState('');
   const [bookingRef, setBookingRef] = useState('');
   const [defaultDoctorId, setDefaultDoctorId] = useState(null);
+  // Track existing appointment for reschedule
+  const [existingAppointment, setExistingAppointment] = useState(null);
 
   useEffect(() => {
-    if (location.state?.doctor_id) return;
+    // If appointment_id was passed via state, use it directly
+    if (location.state?.appointment_id) {
+      setExistingAppointment({
+        id: location.state.appointment_id,
+        doctor_id: location.state.doctor_id,
+      });
+    }
+
+    // Always fetch the patient's dashboard to find their current booked appointment
+    getPatientDashboard().then(({ data }) => {
+      if (data?.next_appointment?.id) {
+        setExistingAppointment(prev => prev || {
+          id: data.next_appointment.id,
+          doctor_id: data.next_appointment.doctor_id,
+        });
+        if (!location.state?.doctor_id) {
+          setDefaultDoctorId(data.next_appointment.doctor_id);
+        }
+      }
+    }).catch(() => {});
+
+    if (location.state?.doctor_id) {
+      setDefaultDoctorId(location.state.doctor_id);
+      return;
+    }
     getProviders()
       .then(({ data }) => {
         if (data.doctors?.length > 0) setDefaultDoctorId(data.doctors[0].id);
@@ -86,6 +112,8 @@ const BookAppointment = () => {
           .catch(() => {});
       });
   }, []);
+
+  const isReschedule = !!existingAppointment?.id;
 
   const dates = generateCalendar(calYear, calMonth);
 
@@ -121,12 +149,22 @@ const BookAppointment = () => {
     try {
       const slot_start = buildSlotStart(calYear, calMonth, selectedDate, selectedTime);
       const doctor_id = location.state?.doctor_id || defaultDoctorId;
-      if (!doctor_id) {
-        setApiError('No doctor available. Please try again later.');
-        setLoading(false);
-        return;
+
+      let data;
+      if (isReschedule) {
+        // Update existing appointment instead of creating a new one
+        const res = await rescheduleAppointment(existingAppointment.id, slot_start);
+        data = res.data;
+      } else {
+        if (!doctor_id) {
+          setApiError('No doctor available. Please try again later.');
+          setLoading(false);
+          return;
+        }
+        const res = await bookAppointment(doctor_id, slot_start);
+        data = res.data;
       }
-      const { data } = await bookAppointment(doctor_id, slot_start);
+
       setBookingRef(data?.appointment?.id || data?.id || '');
       setShowSuccess(true);
     } catch (err) {
@@ -149,7 +187,9 @@ const BookAppointment = () => {
         <button onClick={() => navigate(-1)} className="hover:bg-primary-container/20 p-2 rounded-full transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="font-headline-md text-headline-md tracking-tight">Book Appointment</h1>
+        <h1 className="font-headline-md text-headline-md tracking-tight">
+          {isReschedule ? 'Reschedule Appointment' : 'Book Appointment'}
+        </h1>
       </header>
 
       <main className="max-w-[600px] mx-auto px-6 py-12 pb-28 space-y-12">
@@ -306,7 +346,7 @@ const BookAppointment = () => {
             disabled={loading || !selectedDate}
             className="w-full bg-primary text-on-primary font-headline-md text-xl py-6 rounded-xl shadow-xl hover:bg-primary/95 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-60"
           >
-            {loading ? 'Booking…' : 'Confirm appointment'}
+            {loading ? (isReschedule ? 'Rescheduling…' : 'Booking…') : (isReschedule ? 'Confirm reschedule' : 'Confirm appointment')}
             {!loading && <ArrowRight className="w-5 h-5" />}
           </button>
         </section>

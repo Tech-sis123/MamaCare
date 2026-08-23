@@ -36,19 +36,29 @@ const RESOURCES = [
 const patientCode = (id) =>
   id ? `MC-${String(id).replace(/-/g, '').slice(0, 6).toUpperCase()}` : '';
 
-const toQueuePatient = (apt) => ({
-  id: apt.patient.id,
-  appointment_id: apt.appointment_id,
-  name: apt.patient.name || '—',
-  code: apt.patient.patient_code || patientCode(apt.patient.id),
-  age: apt.patient.age || '—',
-  weeks: apt.patient.ega_weeks || '—',
-  risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
-  flags: [],
-  time: new Date(apt.slot_start).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-  status: apt.status === 'completed' ? 'DONE' : 'QUEUED',
-  initials: (apt.patient.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
-});
+const toQueuePatient = (apt) => {
+  const slotDate = new Date(apt.slot_start);
+  const today = new Date();
+  const isToday = slotDate.toDateString() === today.toDateString();
+  const dateLabel = isToday
+    ? 'Today'
+    : slotDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  return {
+    id: apt.patient.id,
+    appointment_id: apt.appointment_id,
+    name: apt.patient.name || '—',
+    code: apt.patient.patient_code || patientCode(apt.patient.id),
+    age: apt.patient.age || '—',
+    weeks: apt.patient.ega_weeks || '—',
+    risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
+    flags: [],
+    time: slotDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+    dateLabel,
+    isToday,
+    status: apt.status === 'completed' ? 'DONE' : 'QUEUED',
+    initials: (apt.patient.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+  };
+};
 
 const toPatientRow = (p) => ({
   id: p.id,
@@ -125,10 +135,10 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Today',  value: queue.length,                                          bg: 'bg-white border border-amber-50',                        fg: 'text-primary' },
+          { label: 'Total',       value: queue.length,                                          bg: 'bg-white border border-amber-50',                        fg: 'text-primary' },
           { label: 'High Risk',    value: highCount,                                              bg: 'bg-secondary/5 border border-secondary/10',              fg: 'text-secondary' },
           { label: 'Pending',      value: queue.filter(p => p.status === 'QUEUED').length,        bg: 'bg-amber-50 border border-amber-200',                    fg: 'text-amber-800' },
-          { label: 'Seen Today',   value: queue.filter(p => p.status === 'DONE').length,          bg: 'bg-primary/5 border border-primary/10',                  fg: 'text-primary' },
+          { label: 'Seen',         value: queue.filter(p => p.status === 'DONE').length,          bg: 'bg-primary/5 border border-primary/10',                  fg: 'text-primary' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl p-6 custom-shadow`}>
             <p className={`font-label-sm text-xs uppercase mb-1 ${s.fg} opacity-70`}>{s.label}</p>
@@ -183,7 +193,8 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${rc.badge}`}>
                   {p.initials}
                 </div>
-                <div className="text-center w-12 hidden sm:block">
+                <div className="text-center w-16 hidden sm:block">
+                  <p className={`font-label-sm text-[10px] ${p.isToday ? rc.text : 'text-outline'}`}>{p.dateLabel}</p>
                   <p className={`font-label-sm text-xs ${rc.text}`}>{p.time}</p>
                 </div>
                 <div>

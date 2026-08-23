@@ -92,6 +92,23 @@ Also tightened dashboard next-appointment / risk / education key reads (`slot_st
 
 **No SQL.**
 
+### Rescheduling & Dynamic Doctor Names
+
+**Problem:** Patient dashboard Reschedule button just created new bookings instead of updating existing ones. The BookAppointment page relied on `location.state` for the `appointment_id`, which gets lost when the user navigates via the bottom nav bar. Also, Provider Dashboard only showed today's appointments so future bookings were invisible to doctors.
+
+**Fixes:**
+- Added `rescheduleAppointment` to `frontend/src/lib/api.js` — calls `PATCH /appointments/:id/reschedule`.
+- `BookAppointment.jsx` now **always** fetches the patient's dashboard on mount to discover their existing booked appointment. If one exists, the page automatically enters **reschedule mode** (updates the existing record) instead of creating duplicates. Falls back to new-booking mode only for first-time bookings.
+- `Dashboard.jsx` passes `appointment_id` + `doctor_id` when the Reschedule button is clicked (as a fast-path; BookAppointment also self-discovers it).
+- Provider queue (`providers/controller.ts` `getQueue`) now shows **all upcoming appointments** (today + future) by default. Only filters to a single day when `?date=` query param is explicitly passed.
+- `ProviderDashboard.jsx` `toQueuePatient` now includes `dateLabel` and `isToday` so each row shows "Today", "Thu, 28 Aug", etc.
+- Stats cards renamed from "Total Today"/"Seen Today" to "Total"/"Seen".
+- Cleaned up 2 duplicate Ayomide appointments created by the old broken flow.
+- Removed hardcoded 'Dr. Adaeze Nwankwo' from `PatientProfile.jsx` — now dynamic.
+- Updated `frontend/.env` to point to `http://localhost:3000`.
+
+**No SQL.**
+
 ### Doctor patient chart — Investigations done batch
 
 **Investigations done** is no longer an accordion. Tapping it opens a full **Booking Investigations** screen (`frontend/src/pages/BookingInvestigations.jsx`) and Back returns to the 3-row chart.

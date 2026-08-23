@@ -427,7 +427,7 @@ const PatientDashboard = () => {
           <div className="flex gap-3 pl-16">
             <button
               type="button"
-              onClick={() => navigate('/appointments')}
+              onClick={() => navigate('/appointments', { state: { appointment_id: nextAppt?.id, doctor_id: nextAppt?.doctor_id } })}
               className="px-4 py-2 border border-outline rounded-lg text-sm font-label-sm text-on-surface-variant hover:bg-surface-container transition-colors"
             >
               {nextApptLabel ? 'Reschedule' : 'Book appointment'}

@@ -18,6 +18,7 @@ import {
 } from '../lib/investigations';
 import BookingInvestigations from './BookingInvestigations';
 import ConsultationNotes from './ConsultationNotes';
+import PatientSelfReported from './PatientSelfReported';
 import {
   emptyConsult,
   mapPregnancyToConsult,
@@ -565,6 +566,16 @@ const PatientDetailPanel = () => {
     );
   }
 
+  if (clinicScreen === 'self_reported') {
+    return (
+      <PatientSelfReported
+        patientName={name}
+        fullPatient={fullPatient}
+        onBack={() => setClinicScreen('chart')}
+      />
+    );
+  }
+
   return (
     <div className="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
       <div className="grain-overlay pointer-events-none" />
@@ -797,6 +808,12 @@ const PatientDetailPanel = () => {
           title="Consultation notes"
           badge={notesFilledCount ? `${notesFilledCount}` : null}
           onClick={() => setClinicScreen('notes')}
+        />
+
+        {/* 4. Patient Self-Reported Data — symptoms and biodata/intake */}
+        <ClinicLinkRow
+          title="Patient Self-Reported Data"
+          onClick={() => setClinicScreen('self_reported')}
         />
 
         {saveMsg && (

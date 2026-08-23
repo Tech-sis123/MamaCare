@@ -647,9 +647,21 @@ const PatientDetailPanel = () => {
             {loadingSummary ? (
               <p className="font-body-md text-on-surface-variant text-sm italic">Generating summary…</p>
             ) : (
-              <p className="font-body-md text-on-surface leading-relaxed text-sm">
-                {withGpAlive(aiSummary || fallbackSummary, gpStr)}
-              </p>
+              <>
+                <p className="font-body-md text-on-surface leading-relaxed text-sm">
+                  {withGpAlive(aiSummary || fallbackSummary, gpStr)}
+                </p>
+                <div className="mt-3 pt-3 border-t border-primary/10 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setClinicScreen('self_reported')}
+                    className="font-label-sm text-xs text-primary font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+                  >
+                    View patient's health report
+                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
         </section>
@@ -808,12 +820,6 @@ const PatientDetailPanel = () => {
           title="Consultation notes"
           badge={notesFilledCount ? `${notesFilledCount}` : null}
           onClick={() => setClinicScreen('notes')}
-        />
-
-        {/* 4. Patient Self-Reported Data — symptoms and biodata/intake */}
-        <ClinicLinkRow
-          title="Patient Self-Reported Data"
-          onClick={() => setClinicScreen('self_reported')}
         />
 
         {saveMsg && (

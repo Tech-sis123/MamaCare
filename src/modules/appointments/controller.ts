@@ -120,6 +120,30 @@ export const appointmentsController = {
         },
       });
 
+      // Send SSE Booking Alert to the Doctor
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        select: { name: true },
+      });
+
+      const alertPayload = {
+        id: `booking-${appointment.id}`,
+        type: 'booking',
+        patient_name: patient?.name || 'A patient',
+        message: `New booking for ${slotStartDate.toLocaleDateString()} at ${slotStartDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+        timestamp: new Date().toISOString(),
+      };
+
+      const alertJson = JSON.stringify(alertPayload);
+      
+      // Notify all doctors in the clinic
+      const doctors = await prisma.doctor.findMany({ select: { id: true } });
+      for (const doc of doctors) {
+        await redis.lpush(`doctor:${doc.id}:active_alerts`, alertJson);
+        await redis.ltrim(`doctor:${doc.id}:active_alerts`, 0, 49);
+        await redis.publish(`doctor:${doc.id}:alerts`, alertJson);
+      }
+
       const responsePayload = { appointment };
       await redis.set(cacheKey, JSON.stringify(responsePayload), 'EX', 86400);
 

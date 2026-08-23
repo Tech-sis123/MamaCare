@@ -38,7 +38,6 @@ export const providersController = {
 
       const appointments = await prisma.appointment.findMany({
         where: {
-          doctor_id: doctorId,
           slot_start: { gte: dayStart, lte: dayEnd },
           status: { in: ['booked', 'completed'] },
         },

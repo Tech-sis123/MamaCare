@@ -87,20 +87,28 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
     <div className="space-y-6">
       {/* SSE alert toasts */}
       <div className="fixed top-24 right-6 z-[60] flex flex-col gap-3 max-w-sm w-full">
-        {(sseAlerts || []).map((alert, i) => (
-          <div key={alert.id || i} className="bg-secondary text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 border border-secondary/50 animate-slide-up">
-            <span className="material-symbols-outlined flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-            <div className="flex-1 min-w-0">
-              <p className="font-label-sm text-xs uppercase tracking-wide">Critical Alert</p>
-              <p className="font-body-md font-bold text-sm truncate">
-                {alert.patient_name || alert.message || 'New high-risk alert'}
-              </p>
+        {(sseAlerts || []).map((alert, i) => {
+          const isBooking = alert.type === 'booking';
+          const bgClass = isBooking ? 'bg-primary' : 'bg-secondary';
+          const borderClass = isBooking ? 'border-primary/50' : 'border-secondary/50';
+          const icon = isBooking ? 'event_available' : 'warning';
+          const title = isBooking ? 'New Booking' : 'Critical Alert';
+          
+          return (
+            <div key={alert.id || i} className={`${bgClass} text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 border ${borderClass} animate-slide-up`}>
+              <span className="material-symbols-outlined flex-shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-label-sm text-xs uppercase tracking-wide">{title}</p>
+                <p className="font-body-md font-bold text-sm truncate">
+                  {isBooking ? `${alert.patient_name}: ${alert.message}` : (alert.patient_name || alert.message || 'New high-risk alert')}
+                </p>
+              </div>
+              <button onClick={() => onDismiss(alert)} className="ml-1 text-white/60 hover:text-white shrink-0">
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
             </div>
-            <button onClick={() => onDismiss(alert)} className="ml-1 text-white/60 hover:text-white shrink-0">
-              <span className="material-symbols-outlined text-sm">close</span>
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {highCount > 0 && (
@@ -922,8 +930,9 @@ const ProviderDashboard = () => {
     if (!loggedIn) return;
     const token = localStorage.getItem('mc_doctor_token');
     if (!token) return;
+    const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
     const es = new EventSource(
-      `https://mamacare-api.onrender.com/alerts/subscribe?token=${token}`
+      `${BASE}/alerts/subscribe?token=${token}`
     );
     es.onmessage = (e) => {
       try {

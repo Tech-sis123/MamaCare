@@ -1,6 +1,6 @@
 # MamaCare session context (Grok Build)
 
-Last updated: 2026-08-22 (consultation notes)  
+Last updated: 2026-08-22 (clerking report)  
 Purpose: keep continuity after chat compaction. Read this before continuing doctor UI / patient homepage work.
 
 ---
@@ -181,6 +181,24 @@ Persists via existing JSON columns: `vitals_log`, `drugs_vaccines`, `scans_log`,
 **No SQL.**
 
 Files: `frontend/src/pages/ConsultationNotes.jsx`, `frontend/src/lib/consultationNotes.js`, `frontend/src/pages/PatientDetails.jsx`, `src/services/summary-generator.ts`.
+
+### Doctor patient chart — printable clerking report
+
+**View report** (Patient Self-Reported Data) is now a tabulated antenatal clerking record, not chat bubbles / truncated prose. Ordered like `q_clerk.md`:
+
+1. Biodata  
+2. Index pregnancy  
+3. Obstetric history (deliveries table)  
+4. Gynaecological history  
+5. Past medical  
+6. Past surgical  
+7. Allergies  
+8. Family and social  
+9. Review of systems / symptoms  
+
+Label/value tables, print button, print CSS. Sketch image was content-only — not a layout to copy.
+
+Files: `frontend/src/pages/PatientSelfReported.jsx`, `frontend/src/pages/PatientDetails.jsx`, `frontend/src/index.css`.
 
 ---
 

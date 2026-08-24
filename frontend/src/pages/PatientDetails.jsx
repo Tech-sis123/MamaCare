@@ -571,6 +571,8 @@ const PatientDetailPanel = () => {
       <PatientSelfReported
         patientName={name}
         fullPatient={fullPatient}
+        summary={withGpAlive(aiSummary || fallbackSummary, gpStr)}
+        loading={isReal && !fullPatient}
         onBack={() => setClinicScreen('chart')}
       />
     );

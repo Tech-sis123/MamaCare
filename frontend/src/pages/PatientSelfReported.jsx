@@ -34,11 +34,6 @@ const CONTRA = {
   other: 'Other',
 };
 
-const MARRIAGE = {
-  monogamous: 'Monogamous',
-  polygamous: 'Polygamous',
-};
-
 const asText = (v) => {
   if (v == null || v === '') return DASH;
   if (typeof v === 'boolean') return v ? 'Yes' : 'No';
@@ -460,24 +455,7 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
               />
             </ReportSection>
 
-            <ReportSection num="8" title="Family and social history">
-              <FieldTable
-                rows={[
-                  { label: 'Type of marriage', value: mapped(map.husband_marriage, MARRIAGE) },
-                  { label: "Husband / partner's occupation", value: get(map, 'husband_occupation') },
-                  { label: "Husband / partner's education", value: asText(map.husband_education) },
-                  { label: "Husband / partner's age", value: asText(map.husband_age) },
-                  { label: "Husband / partner's genotype", value: asText(map.husband_genotype) },
-                  { label: "Husband / partner's blood group", value: asText(map.husband_blood_group) },
-                  { label: 'Patient smokes', value: get(map, 'patient_smokes') },
-                  { label: 'Patient drinks alcohol', value: get(map, 'patient_drinks') },
-                  { label: 'Herbal concoctions', value: get(map, 'patient_herbal') },
-                  { label: 'Partner supportive of pregnancy', value: get(map, 'supportive') },
-                ]}
-              />
-            </ReportSection>
-
-            <ReportSection num="9" title="Review of systems / reported symptoms">
+            <ReportSection num="8" title="Review of systems / reported symptoms">
               {systemFlags.length ? (
                 <p className="text-[13px] mb-2">
                   <span className="text-stone-500">Intake flags: </span>

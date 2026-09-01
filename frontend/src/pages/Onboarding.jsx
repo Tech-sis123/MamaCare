@@ -163,7 +163,6 @@ const SECTION_META = [
   { id: 'obstetric',      label: 'Obstetric History',      icon: 'child_care', desc: 'Previous pregnancies & births' },
   { id: 'gynae',          label: 'Gynaecological History', icon: 'water_drop', desc: 'Menstrual & gynaecological' },
   { id: 'medical',        label: 'Medical History',        icon: 'medication', desc: 'Conditions, drugs, allergies' },
-  { id: 'family_social',  label: 'Family & Social',        icon: 'family_restroom', desc: 'Partner and home life' },
   { id: 'systems',        label: 'Review of Systems',      icon: 'stethoscope', desc: 'Current symptoms by system' },
 ];
 
@@ -289,23 +288,6 @@ function buildSlides(sectionId, data) {
       ];
     }
 
-    case 'family_social': return [
-      { id: 'husbandOccupation', question: "What is your husband or partner's occupation?", field: 'husbandOccupation', type: 'text', required: false, placeholder: 'e.g. Driver, Civil Servant, Farmer' },
-        { id: 'husbandEducation', question: "What is your husband or partner's level of education?", field: 'husbandEducation', type: 'chips', required: false,
-          options: ['Primary', 'Secondary', 'Tertiary (University or Polytechnic)', 'None'] },
-      { id: 'husbandAge',    question: "How old is your husband or partner?",            field: 'husbandAge',     type: 'number',  required: false, placeholder: 'e.g. 34', min: 15, max: 90 },
-      { id: 'husbandGenotype', question: "What is your husband or partner's genotype?", field: 'husbandGenotype', type: 'chips',  required: false,
-        options: ['AA', 'AS', 'SS', 'AC', 'Not sure'] },
-      { id: 'husbandBloodGroup', question: "What is your husband or partner's blood group?", field: 'husbandBloodGroup', type: 'chips', required: false,
-        options: ['A+', 'A−', 'B+', 'B−', 'AB+', 'AB−', 'O+', 'O−', 'Not sure'] },
-        { id: 'husbandMarriage', question: 'Type of marriage', field: 'husbandMarriage', type: 'chips', required: false,
-          options: [{ value: 'monogamous', label: 'Monogamous (one husband, one wife)' }, { value: 'polygamous', label: 'Polygamous (one husband, multiple wives)' }] },
-      { id: 'patientSmokes', question: 'Do you smoke?',                                  field: 'patientSmokes',  type: 'yes_no',  required: false },
-      { id: 'patientDrinks', question: 'Do you drink alcohol?',                           field: 'patientDrinks',  type: 'yes_no',  required: false },
-      { id: 'patientHerbal', question: 'Do you consume or use herbal concoctions?',       field: 'patientHerbal',  type: 'yes_no',  required: false, hint: 'Including herbal remedies, traditional mixtures or concoctions' },
-      { id: 'supportive',    question: 'Is your husband or partner supportive of this pregnancy?', field: 'supportive', type: 'yes_no', required: false },
-    ];
-
     case 'systems': return [
       { id: 'systemsSymptoms', question: 'Do you have any of these symptoms?', field: 'systemsSymptoms', type: 'multi', required: false,
         options: [
@@ -422,9 +404,6 @@ const INIT = {
   topDone: null, topCount: '', topYear: '', topMethod: null, topComplications: null,
   // Medical
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
-  // Family & Social
-  husbandOccupation: '', husbandEducation: null, husbandAge: '', husbandGenotype: null, husbandBloodGroup: null, husbandMarriage: null,
-  patientSmokes: null, patientDrinks: null, patientHerbal: null, supportive: null,
   // Systems
   neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], uroGynaeSymptoms: [],
 };
@@ -982,16 +961,6 @@ const IntakeQuestionnaire = () => {
           currentMeds: map['other_medications'] || prev.currentMeds,
           drugAllergy: map['drug_allergy'] === 'yes' ? true : map['drug_allergy'] === 'no' ? false : prev.drugAllergy,
           allergyDetails: map['allergy_details'] || prev.allergyDetails,
-          husbandOccupation: map['husband_occupation'] || prev.husbandOccupation,
-              husbandAge: map['husband_age'] || prev.husbandAge,
-              husbandEducation: map['husband_education'] || prev.husbandEducation,
-              husbandGenotype: map['husband_genotype'] || prev.husbandGenotype,
-              husbandBloodGroup: map['husband_blood_group'] || prev.husbandBloodGroup,
-              husbandMarriage: map['husband_marriage'] || prev.husbandMarriage,
-              patientSmokes: map['patient_smokes'] === 'yes' ? true : map['patient_smokes'] === 'no' ? false : prev.patientSmokes,
-              patientDrinks: map['patient_drinks'] === 'yes' ? true : map['patient_drinks'] === 'no' ? false : prev.patientDrinks,
-              patientHerbal: map['patient_herbal'] === 'yes' ? true : map['patient_herbal'] === 'no' ? false : prev.patientHerbal,
-          supportive: map['supportive'] === 'yes' ? true : map['supportive'] === 'no' ? false : prev.supportive,
           // Systems: prefer new grouped key 'systems_symptoms' if present, else fall back to legacy individual keys
           systemsSymptoms: (map['systems_symptoms'] ? String(map['systems_symptoms']).split(',').map(s => s.trim()).filter(Boolean) : (
             [
@@ -1099,9 +1068,16 @@ const IntakeQuestionnaire = () => {
         setSlideIdx(idx + 1);
         window.scrollTo(0, 0);
       } else {
-        // Section complete — save & return to overview
+        // Section complete — save, then open the next section automatically
         await autoSave(secIdx);
-        setView('overview');
+        const nextIdx = secIdx + 1;
+        if (nextIdx < SECTION_META.length) {
+          setSecIdx(nextIdx);
+          setSlideIdx(0);
+          setView('section');
+        } else {
+          setView('overview');
+        }
         window.scrollTo(0, 0);
       }
     } finally {
@@ -1111,8 +1087,22 @@ const IntakeQuestionnaire = () => {
 
   const goBack = () => {
     if (navLoading) return;
-    if (slideIdx > 0) { setSlideIdx(s => s - 1); window.scrollTo(0, 0); }
-    else { setView('overview'); window.scrollTo(0, 0); }
+    if (slideIdx > 0) {
+      setSlideIdx(s => s - 1);
+      window.scrollTo(0, 0);
+      return;
+    }
+    if (secIdx > 0) {
+      const prevIdx = secIdx - 1;
+      const prevSlides = getSlides(SECTION_META[prevIdx].id);
+      setSecIdx(prevIdx);
+      setSlideIdx(Math.max(0, prevSlides.length - 1));
+      setView('section');
+      window.scrollTo(0, 0);
+      return;
+    }
+    setView('overview');
+    window.scrollTo(0, 0);
   };
 
   const autoSave = async (sIdx) => {
@@ -1174,7 +1164,6 @@ const IntakeQuestionnaire = () => {
         obstetric: 'obstetric',
         gynae: 'gynae',
         medical: 'medical',
-        family_social: 'family_social',
         systems: 'systems',
       };
       if (domainMap[sId]) {
@@ -1260,7 +1249,7 @@ const IntakeQuestionnaire = () => {
                 ? 'Welcome back — your answers were saved. Continue where you left off.'
                 : status === 'submitted' && canEdit
                   ? 'You can still edit your answers for a short time after submitting.'
-                  : 'Fill in each section — tap any card to begin.'}
+                  : 'Fill in each section. When you finish one, the next opens automatically.'}
             </p>
             {gpParts && (
               <div className="mt-4 inline-flex flex-col items-start gap-0.5 bg-white/20 text-white rounded-2xl px-4 py-2 text-sm font-semibold leading-tight">
@@ -1397,6 +1386,7 @@ const IntakeQuestionnaire = () => {
   const slide = slides[safeSlideIdx];
   const progress = slides.length > 0 ? ((safeSlideIdx + 1) / slides.length) * 100 : 0;
   const isLast = slides.length === 0 || safeSlideIdx === slides.length - 1;
+  const nextSec = isLast && secIdx < SECTION_META.length - 1 ? SECTION_META[secIdx + 1] : null;
 
   if (!sec) {
     return (
@@ -1418,7 +1408,11 @@ const IntakeQuestionnaire = () => {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-primary/10">
         <div className="max-w-[640px] mx-auto px-6 py-4 flex items-center gap-4">
-          <button onClick={goBack} className="p-2 -ml-2 rounded-full hover:bg-primary/5 transition-colors">
+          <button
+            onClick={() => { if (!navLoading) { setView('overview'); window.scrollTo(0, 0); } }}
+            className="p-2 -ml-2 rounded-full hover:bg-primary/5 transition-colors"
+            aria-label="Back to health profile"
+          >
             <span className="text-primary font-bold text-lg">←</span>
           </button>
           <div className="flex-1">
@@ -1489,7 +1483,9 @@ const IntakeQuestionnaire = () => {
               </div>
             ) : (
               <>
-                {isLast ? `Finish ${sec.label}` : 'Next'}
+                {isLast
+                  ? (nextSec ? `Continue to ${nextSec.label}` : `Finish ${sec.label}`)
+                  : 'Next'}
                 <span>→</span>
               </>
             )}
@@ -1557,18 +1553,6 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'other_medications',     answer: data.currentMeds || '' },
       { question_key: 'drug_allergy',     answer: data.drugAllergy ? 'yes' : 'no' },
       { question_key: 'allergy_details',  answer: data.allergyDetails || '' },
-    ];
-    case 'family_social': return [
-      { question_key: 'husband_occupation',   answer: data.husbandOccupation || '' },
-      { question_key: 'husband_education',   answer: data.husbandEducation || '' },
-      { question_key: 'husband_age',          answer: String(data.husbandAge || '') },
-      { question_key: 'husband_genotype',     answer: data.husbandGenotype || '' },
-      { question_key: 'husband_blood_group',  answer: data.husbandBloodGroup || '' },
-      { question_key: 'husband_marriage',     answer: data.husbandMarriage || '' },
-      { question_key: 'patient_smokes',       answer: data.patientSmokes ? 'yes' : 'no' },
-      { question_key: 'patient_drinks',       answer: data.patientDrinks ? 'yes' : 'no' },
-      { question_key: 'patient_herbal',       answer: data.patientHerbal ? 'yes' : 'no' },
-      { question_key: 'supportive',           answer: data.supportive ? 'yes' : 'no' },
     ];
     case 'systems': return [
       // Persist merged systems symptoms. Send both a grouped key and individual per-symptom flags.

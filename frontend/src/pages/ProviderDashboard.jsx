@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   doctorLogin as apiDoctorLogin,
   registerDoctor as apiRegisterDoctor,
@@ -73,7 +73,7 @@ const toPatientRow = (p) => ({
 
 // ── Sub-views ────────────────────────────────────────────────────
 
-const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
+const QueueView = ({ navigate, sseAlerts, onDismiss, fromTab }) => {
   const [filter, setFilter] = useState('All');
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -227,7 +227,7 @@ const QueueView = ({ navigate, sseAlerts, onDismiss }) => {
                 </span>
                 {p.status !== 'DONE' && (
                   <button
-                    onClick={() => navigate('/provider/patient', { state: { patient: p, appointment_id: p.appointment_id } })}
+                    onClick={() => navigate('/provider/patient', { state: { patient: p, appointment_id: p.appointment_id, fromTab } })}
                     className="bg-primary text-white px-5 py-2 rounded-lg font-label-sm text-xs hover:bg-primary-container transition-all flex items-center gap-1"
                   >
                     View
@@ -303,7 +303,7 @@ const MetricsView = () => {
   );
 };
 
-const PatientsView = ({ navigate }) => {
+const PatientsView = ({ navigate, fromTab }) => {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
   const [patients, setPatients] = useState([]);
@@ -405,7 +405,7 @@ const PatientsView = ({ navigate }) => {
           return (
             <button
               key={p.id}
-              onClick={() => navigate('/provider/patient', { state: { patient: p } })}
+              onClick={() => navigate('/provider/patient', { state: { patient: p, fromTab } })}
               className="w-full text-left group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20"
             >
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${rc.bar} rounded-l-xl`} />
@@ -924,15 +924,27 @@ const NAV_ITEMS = [
   { id: 'settings', icon: 'settings',   label: 'Settings' },
 ];
 
+const TAB_IDS = new Set(NAV_ITEMS.map((item) => item.id));
+const isProviderTab = (tab) => TAB_IDS.has(tab);
+
 const TODAY_DATE = new Date().toLocaleDateString('en-GB', {
   weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
 });
 
 const ProviderDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loggedIn, setLoggedIn] = useState(isDoctorAuthenticated());
   const [doctor, setDoctor] = useState(getDoctorData());
-  const [activeView, setActiveView] = useState('queue');
+  const tabParam = searchParams.get('tab');
+  const activeView = isProviderTab(tabParam) ? tabParam : 'queue';
+  const setActiveView = (id) => {
+    if (!isProviderTab(id) || id === 'queue') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: id }, { replace: true });
+    }
+  };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sseAlerts, setSseAlerts] = useState([]);
   const sseRef = useRef(null);
@@ -954,6 +966,10 @@ const ProviderDashboard = () => {
     sseRef.current = es;
     return () => es.close();
   }, [loggedIn]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem('mc_provider_tab', activeView); } catch {}
+  }, [activeView]);
 
   const handleDoctorLogin = (doc) => {
     setDoctor(doc);
@@ -1108,6 +1124,7 @@ const ProviderDashboard = () => {
         <div className="max-w-[1100px] mx-auto p-6 lg:p-10">
           <ActiveView
             navigate={navigate}
+            fromTab={activeView}
             onEditProfile={() => setActiveView('profile')}
             onSignOut={handleSignOut}
             sseAlerts={sseAlerts}

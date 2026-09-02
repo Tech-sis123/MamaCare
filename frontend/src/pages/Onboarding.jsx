@@ -138,6 +138,16 @@ const SECTION_META = [
   { id: 'systems',        label: 'Review of Systems',      icon: 'stethoscope', desc: 'Current symptoms by system' },
 ];
 
+/** First pregnancy including this one (G1) — no previous obstetric history to collect. */
+function isPrimigravida(data) {
+  return parseInt(data?.gravidity, 10) === 1;
+}
+
+function visibleSectionMeta(data) {
+  if (!isPrimigravida(data)) return SECTION_META;
+  return SECTION_META.filter((s) => s.id !== 'obstetric');
+}
+
 // ── Build slides per section (data-driven) ────────────────────────────────────
 function buildSlides(sectionId, data) {
   switch (sectionId) {
@@ -170,10 +180,12 @@ function buildSlides(sectionId, data) {
       { id: 'parity',        question: 'How many of those pregnancies reached 24 weeks (6 months) or more?',
         field: 'parity',        type: 'number',  required: true,  placeholder: 'e.g. 2', min: 0, max: 20,
         hint: 'This is your Para (P) — pregnancies that reached 24 weeks, whether the baby was born alive or stillborn. Do not count this pregnancy until after delivery.',
+        condition: d => !isPrimigravida(d),
         riskCheck: v => { const p = parseInt(v); if (p > 5) return 'Grand multiparity — more than 5 deliveries. Flagged as high risk.'; return null; } },
       { id: 'gp_summary',    question: null, type: 'gp_summary', required: false,
-        condition: d => d.gravidity !== '' && d.gravidity != null && d.parity !== '' && d.parity != null && !isNaN(parseInt(d.gravidity, 10)) && !isNaN(parseInt(d.parity, 10)) },
-      { id: 'multiGestation', question: 'Did any of those pregnancies include Twin or multiple gestations?', field: 'multiGestation', type: 'yes_no', required: false },
+        condition: d => !isPrimigravida(d) && d.gravidity !== '' && d.gravidity != null && d.parity !== '' && d.parity != null && !isNaN(parseInt(d.gravidity, 10)) && !isNaN(parseInt(d.parity, 10)) },
+      { id: 'multiGestation', question: 'Did any of those pregnancies include Twin or multiple gestations?', field: 'multiGestation', type: 'yes_no', required: false,
+        condition: d => !isPrimigravida(d) },
       { id: 'multiGestationCount', question: 'How many of those pregnancies were twin or multiple gestations?', field: 'multiGestationCount', type: 'number', required: false,
         condition: d => d.multiGestation === true,
         placeholder: 'e.g. 1', min: 1, max: 20,
@@ -205,6 +217,7 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'obstetric': {
+      if (isPrimigravida(data)) return [];
       const p = parseInt(data.parity) || 0;
       if (p === 0) return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
       return Array.from({ length: p }, (_, i) => ({
@@ -320,6 +333,7 @@ function sectionComplete(sectionId, data) {
 
   // Obstetric is only child cards (or first-delivery notice) — never has top-level `field`s
   if (sectionId === 'obstetric') {
+    if (isPrimigravida(data)) return true;
     const p = parseInt(data.parity, 10) || 0;
     if (p === 0) return true; // first delivery — nothing to record
     return Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
@@ -872,7 +886,7 @@ const IntakeQuestionnaire = () => {
           lmpKnown: preg.lmp_date ? true : prev.lmpKnown,
           lmpDate: preg.lmp_date ? new Date(preg.lmp_date).toISOString().split('T')[0] : prev.lmpDate,
           gravidity: preg.gravidity ?? prev.gravidity,
-          parity: parityVal,
+          parity: parseInt(preg.gravidity ?? prev.gravidity, 10) === 1 ? '0' : parityVal,
           bloodGroup: preg.blood_group || prev.bloodGroup,
           genotype: preg.genotype || prev.genotype,
           multiGestation: (() => {
@@ -984,6 +998,13 @@ const IntakeQuestionnaire = () => {
         next.topMethod = null;
         next.topComplications = null;
       }
+      if (key === 'gravidity' && parseInt(val, 10) === 1) {
+        next.parity = '0';
+        next.multiGestation = null;
+        next.multiGestationCount = '';
+        next.childrenAlive = '';
+        next.children = [];
+      }
       return next;
     });
   };
@@ -1018,6 +1039,8 @@ const IntakeQuestionnaire = () => {
   const surgeryCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
   const ensuredSurgeries = Array.from({ length: surgeryCount }, (_, i) => data.surgeryDetails?.[i] || {});
 
+  const sections = useMemo(() => visibleSectionMeta(data), [data.gravidity]);
+
   const getSlides = (sId) => {
     const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries });
     return all.filter(s => !s.condition || s.condition(data));
@@ -1033,7 +1056,7 @@ const IntakeQuestionnaire = () => {
     setNavLoading(true);
     try {
       // Recompute slides so newly added surgery/child cards are included after count is entered
-      const list = getSlides(SECTION_META[secIdx].id);
+      const list = getSlides(sections[secIdx]?.id);
       const idx = Math.min(slideIdx, Math.max(0, list.length - 1));
       if (list.length > 0 && idx < list.length - 1) {
         setSlideIdx(idx + 1);
@@ -1042,7 +1065,7 @@ const IntakeQuestionnaire = () => {
         // Section complete — save, then open the next section automatically
         await autoSave(secIdx);
         const nextIdx = secIdx + 1;
-        if (nextIdx < SECTION_META.length) {
+        if (nextIdx < sections.length) {
           setSecIdx(nextIdx);
           setSlideIdx(0);
           setView('section');
@@ -1065,7 +1088,7 @@ const IntakeQuestionnaire = () => {
     }
     if (secIdx > 0) {
       const prevIdx = secIdx - 1;
-      const prevSlides = getSlides(SECTION_META[prevIdx].id);
+      const prevSlides = getSlides(sections[prevIdx].id);
       setSecIdx(prevIdx);
       setSlideIdx(Math.max(0, prevSlides.length - 1));
       setView('section');
@@ -1079,7 +1102,8 @@ const IntakeQuestionnaire = () => {
   const autoSave = async (sIdx) => {
     const patientId = getPatientId();
     if (!patientId || !canEdit) return;
-    const sId = SECTION_META[sIdx].id;
+    const sId = sections[sIdx]?.id;
+    if (!sId) return;
     setSaveError('');
     try {
       if (sId === 'biodata') {
@@ -1116,8 +1140,10 @@ const IntakeQuestionnaire = () => {
           lmp_date: lmp ? new Date(lmp).toISOString() : undefined,
           blood_group: data.bloodGroup || undefined,
           genotype: data.genotype || undefined,
-          gravidity: Number(data.gravidity) || undefined,
-          parity: Number(data.parity) || undefined,
+          gravidity: data.gravidity === '' || data.gravidity == null || isNaN(Number(data.gravidity)) ? undefined : Number(data.gravidity),
+          parity: isPrimigravida(data)
+            ? 0
+            : (data.parity === '' || data.parity == null || isNaN(Number(data.parity)) ? undefined : Number(data.parity)),
         }).catch(() => {});
         // Index pregnancy clerking details for doctor view
         const indexResponses = buildDomainResponses('index', data, ensuredChildren);
@@ -1155,7 +1181,7 @@ const IntakeQuestionnaire = () => {
     if (patientId) {
       try {
         // Save all sections in parallel (was sequential — major latency)
-        await Promise.all(SECTION_META.map((_, i) => autoSave(i)));
+        await Promise.all(sections.map((_, i) => autoSave(i)));
         const { data: res } = await submitIntake(patientId);
         if (res?.meta) setIntakeMeta(res.meta);
         // Never persist risk on the patient device — the confirmation screen is generic.
@@ -1178,22 +1204,22 @@ const IntakeQuestionnaire = () => {
   };
 
   const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
-  const allDone = SECTION_META.every(s => sectionComplete(s.id, dataForComplete));
+  const allDone = sections.every(s => sectionComplete(s.id, dataForComplete));
 
   // MUST stay above any early return — otherwise overview→section crashes (hooks order)
   useEffect(() => {
     if (view !== 'section') return;
-    const list = getSlides(SECTION_META[secIdx]?.id);
+    const list = getSlides(sections[secIdx]?.id);
     if (list.length > 0 && slideIdx >= list.length) {
       setSlideIdx(list.length - 1);
     }
-  }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, slideIdx]);
+  }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, data.gravidity, slideIdx]);
 
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {
     const hasProgress =
       hydrated &&
-      SECTION_META.some(s => sectionComplete(s.id, dataForComplete));
+      sections.some(s => sectionComplete(s.id, dataForComplete));
     const status = intakeMeta?.status || (hasProgress ? 'in_progress' : 'not_started');
 
     return (
@@ -1258,7 +1284,7 @@ const IntakeQuestionnaire = () => {
 
           {/* Section cards */}
           <div className="space-y-3">
-            {SECTION_META.map((s, i) => {
+            {sections.map((s, i) => {
               const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
               const done = sectionComplete(s.id, dataForSection);
               const { answered, total } = sectionProgress(s.id, dataForSection);
@@ -1327,14 +1353,14 @@ const IntakeQuestionnaire = () => {
   }
 
   // ── Carousel section view ──────────────────────────────────────────────────
-  const sec = SECTION_META[secIdx];
-  const slides = getSlides(sec.id);
+  const sec = sections[secIdx];
+  const slides = getSlides(sec?.id);
   // Clamp index when slide list grows/shrinks (e.g. after entering surgery count)
   const safeSlideIdx = slides.length === 0 ? 0 : Math.min(slideIdx, slides.length - 1);
   const slide = slides[safeSlideIdx];
   const progress = slides.length > 0 ? ((safeSlideIdx + 1) / slides.length) * 100 : 0;
   const isLast = slides.length === 0 || safeSlideIdx === slides.length - 1;
-  const nextSec = isLast && secIdx < SECTION_META.length - 1 ? SECTION_META[secIdx + 1] : null;
+  const nextSec = isLast && secIdx < sections.length - 1 ? sections[secIdx + 1] : null;
 
   if (!sec) {
     return (

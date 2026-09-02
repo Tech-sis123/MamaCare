@@ -190,10 +190,19 @@ const ynBtnCls = (active) =>
       : 'bg-surface-container-low text-on-surface border-outline/20 hover:border-primary/40'
   }`;
 
+const providerHomePath = (fromTab) => {
+  if (fromTab && fromTab !== 'queue') return `/provider?tab=${encodeURIComponent(fromTab)}`;
+  return '/provider';
+};
+
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { patient: passedPatient, appointment_id } = location.state || {};
+  const { patient: passedPatient, appointment_id, fromTab: fromTabState } = location.state || {};
+  const fromTab = fromTabState || (() => {
+    try { return sessionStorage.getItem('mc_provider_tab'); } catch { return null; }
+  })();
+  const goBackToProvider = () => navigate(providerHomePath(fromTab));
   const isReal =
     !!passedPatient?.id &&
     typeof passedPatient.id === 'string' &&
@@ -516,7 +525,7 @@ const PatientDetailPanel = () => {
 
   const handleMarkSeen = async () => {
     if (!appointment_id) {
-      navigate('/provider');
+      goBackToProvider();
       return;
     }
     try {
@@ -526,9 +535,9 @@ const PatientDetailPanel = () => {
         (consult.important_remarks || '').trim() || 'Appointment completed.',
         { complete: true }
       );
-      navigate('/provider');
+      goBackToProvider();
     } catch {
-      navigate('/provider');
+      goBackToProvider();
     }
   };
 
@@ -588,7 +597,7 @@ const PatientDetailPanel = () => {
           <div className="flex justify-between items-start mb-4">
             <button
               type="button"
-              onClick={() => navigate('/provider')}
+              onClick={goBackToProvider}
               className="text-white/60 hover:text-white transition-colors"
               aria-label="Close"
             >
@@ -862,10 +871,10 @@ const PatientDetailPanel = () => {
           {appointment_id ? (
             <button
               type="button"
-              onClick={() => navigate('/provider')}
+              onClick={goBackToProvider}
               className="col-span-2 sm:col-span-1 bg-surface-container-high text-on-surface py-3 rounded-lg font-label-sm text-sm border border-outline/20"
             >
-              Back to queue
+              {fromTab && fromTab !== 'queue' ? 'Back' : 'Back to queue'}
             </button>
           ) : null}
         </div>

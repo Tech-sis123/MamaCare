@@ -226,18 +226,6 @@ const PatientProfile = () => {
   const edd = eddVal
     ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
-  const riskNorm = String(patient?.risk_tier || '')
-    .toUpperCase()
-    .replace(/\s*RISK\s*/i, '')
-    .trim();
-  const riskTier =
-    riskNorm === 'HIGH'
-      ? 'High Risk'
-      : riskNorm === 'MEDIUM'
-        ? 'Medium Risk'
-        : riskNorm === 'LOW'
-          ? 'Low Risk'
-          : patient?.risk_tier || 'Risk not assessed';
   const progress =
     weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
   const trimesterText =
@@ -339,14 +327,14 @@ const PatientProfile = () => {
             <>
               <h3 className="font-headline-md text-2xl mb-1">Week unavailable</h3>
               <p className="font-body-md text-white/80 text-sm">
-                Add your LMP in intake to calculate gestational age · {riskTier}
+                Add your LMP in intake to calculate gestational age
               </p>
             </>
           ) : (
             <>
               <h3 className="font-headline-md text-2xl mb-1">Week {weeks} of 40</h3>
               <p className="font-body-md text-white/80 text-sm">
-                {trimesterText} Trimester · {riskTier}
+                {trimesterText} Trimester
               </p>
               <div className="mt-4 bg-white/10 rounded-full h-1.5">
                 <div className="bg-white/80 h-1.5 rounded-full" style={{ width: `${progress}%` }} />

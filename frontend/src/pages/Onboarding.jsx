@@ -83,40 +83,6 @@ const Chips = ({ options = [], value, onChange, multi = false }) => {
   );
 };
 
-// ── Risk computation ──────────────────────────────────────────────────────────
-function computeRisks(data) {
-  const risks = [];
-  const age = parseInt(data.age);
-  if (!isNaN(age) && age > 35) risks.push({ field: 'age', text: 'Advanced maternal age (over 35)' });
-  if (!isNaN(age) && age < 18) risks.push({ field: 'age', text: 'Teenage pregnancy (under 18)' });
-
-  const parity = parseInt(data.parity);
-  if (!isNaN(parity) && parity > 5) risks.push({ field: 'parity', text: 'Grand multiparity — more than 5 deliveries' });
-
-  const children = data.children || [];
-  const csCount = children.filter(c => c.deliveryMode === 'cs').length;
-  if (csCount >= 2) risks.push({ field: 'children', text: '2 or more previous caesarean sections' });
-
-  children.forEach((c, i) => {
-    // Birth weight is still saved for clinicians; macrosomia is not shown to the mother.
-    if (c.stateNow === 'died_at_birth') risks.push({ field: 'children', text: `Bad obstetric history — child ${i + 1} died at birth` });
-    if (c.anomaly) risks.push({ field: 'children', text: `Anomaly noted in child ${i + 1}` });
-  });
-
-  if (data.genotype === 'SS') risks.push({ field: 'genotype', text: 'Sickle cell disease (SS genotype)' });
-  if (data.hivStatus === 'reactive') risks.push({ field: 'hivStatus', text: 'HIV reactive — PMTCT pathway required' });
-
-  const bp = parseInt(data.bpSystolic);
-  const bpd = parseInt(data.bpDiastolic);
-  if ((!isNaN(bp) && bp >= 140) || (!isNaN(bpd) && bpd >= 90))
-    risks.push({ field: 'bp', text: 'Elevated blood pressure at booking' });
-
-  const pcv = parseInt(data.pcv);
-  if (!isNaN(pcv) && pcv < 30) risks.push({ field: 'pcv', text: 'Anaemia — PCV below 30%' });
-
-  return risks;
-}
-
 // ── G/P+ notation (ANC / clinical obstetric summary) ─────────────────────────
 // G  = Gravida  — total pregnancies (including current, miscarriages, terminations)
 // P  = Para     — pregnancies that reached ≥24 weeks (live birth or stillbirth)
@@ -1036,7 +1002,6 @@ const IntakeQuestionnaire = () => {
     });
   };
 
-  const risks = useMemo(() => computeRisks(data), [data]);
   const gpParts = useMemo(() => computeGPParts(data), [data]);
   const gp = gpParts ? gpParts.compact : null;
 
@@ -1187,21 +1152,10 @@ const IntakeQuestionnaire = () => {
         await Promise.all(SECTION_META.map((_, i) => autoSave(i)));
         const { data: res } = await submitIntake(patientId);
         if (res?.meta) setIntakeMeta(res.meta);
-        // API shape: { risk: { tier, reasons, engine_version, id } }
-        const risk = res?.risk && typeof res.risk === 'object' ? res.risk : null;
-        const tier = risk?.tier || res?.risk_tier || res?.tier;
-        if (tier && typeof tier === 'string') {
-          localStorage.setItem('mc_risk_tier', tier.toUpperCase());
-        }
-        if (Array.isArray(risk?.reasons)) {
-          localStorage.setItem('mc_risk_reasons', JSON.stringify(risk.reasons));
-        } else {
-          localStorage.removeItem('mc_risk_reasons');
-        }
-        if (risk?.engine_version) {
-          localStorage.setItem('mc_risk_engine', String(risk.engine_version));
-        }
-        // Navigate as soon as the API returns — no artificial 2.8s delay
+        // Never persist risk on the patient device — the confirmation screen is generic.
+        localStorage.removeItem('mc_risk_tier');
+        localStorage.removeItem('mc_risk_reasons');
+        localStorage.removeItem('mc_risk_engine');
         navigate('/risk-result');
       } catch (err) {
         const msg =
@@ -1296,18 +1250,6 @@ const IntakeQuestionnaire = () => {
             </div>
           )}
 
-          {/* Risk summary */}
-          {risks.length > 0 && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4">
-              <p className="text-red-700 font-bold text-sm mb-2">⚠ High-risk flags detected</p>
-              <ul className="space-y-1">
-                {risks.map((r, i) => (
-                  <li key={i} className="text-red-600 font-bold text-xs">• {r.text}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           {/* Section cards */}
           <div className="space-y-3">
             {SECTION_META.map((s, i) => {
@@ -1359,7 +1301,7 @@ const IntakeQuestionnaire = () => {
             ) : allDone ? (
               <button onClick={handleSubmit}
                 className="w-full py-5 bg-primary text-white font-bold text-lg rounded-2xl shadow-lg hover:bg-primary active:scale-95 transition-all">
-                {status === 'submitted' ? 'Update & re-check risk' : 'Submit & Get Risk Assessment'}
+                {status === 'submitted' ? 'Update answers' : 'Submit questionnaire'}
               </button>
             ) : (
               <div className="text-center">

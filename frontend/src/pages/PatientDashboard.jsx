@@ -183,28 +183,6 @@ const PatientDashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-[640px] mx-auto px-4 pb-32 space-y-6">
-        {/* Risk Level Card */}
-        <section className="bg-[#D4E6D8] rounded-xl p-6 flex justify-between items-center card-shadow">
-          <div className="space-y-3">
-            <div className="inline-flex items-center px-3 py-1 bg-primary text-white rounded-full font-label-sm text-[10px]">
-              LOW RISK
-            </div>
-            <div>
-              <h3 className="font-label-sm text-primary uppercase opacity-60">Your risk level</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="material-symbols-outlined text-primary text-3xl font-bold">check_circle</span>
-                <p className="font-body-md text-primary/80">Safe &amp; Stable</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 pt-1">
-              <span className="text-xs text-primary/60">Last assessed: Today</span>
-            </div>
-          </div>
-          <div className="w-20 h-20 opacity-10">
-            <span className="material-symbols-outlined text-[80px]">spa</span>
-          </div>
-        </section>
-
         {/* Pregnancy Progress Card */}
         <section className="bg-surface-container-lowest rounded-xl p-6 card-shadow border border-surface-container">
           <h3 className="font-headline-md text-body-lg text-primary mb-6">Week 12 of 40</h3>

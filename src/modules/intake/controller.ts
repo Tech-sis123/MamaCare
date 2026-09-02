@@ -277,12 +277,6 @@ export const intakeController = {
 
       res.status(200).json({
         message: 'Intake submitted successfully',
-        risk: {
-          id: assessment.id,
-          tier: result.tier,
-          reasons: result.reasons,
-          engine_version: result.engine_version,
-        },
         meta,
       });
     } catch (err) {

@@ -124,7 +124,6 @@ export const educationController = {
         patient: {
           name: patient.name,
           current_ega_weeks: egaWeeks,
-          risk_tier: riskTier,
         },
         recommendations: {
           weekly_target: aiRecommendation || currentRecommendation, // Use AI if active, fallback to database clinical content

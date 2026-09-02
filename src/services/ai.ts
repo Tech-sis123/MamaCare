@@ -16,7 +16,7 @@ export const aiService = {
    * Gracefully returns null if OpenAI key is missing or API errors.
    */
   async generatePersonalizedLesson(params: GenerateLessonParams): Promise<{ summary: string; transcript: string } | null> {
-    const { patientName, age, weekNumber, riskTier, doctorRole, languagePreference } = params;
+    const { patientName, age, weekNumber, doctorRole, languagePreference } = params;
 
     if (!env.GROQ_API_KEY || env.GROQ_API_KEY === 'your_groq_api_key_here' || env.GROQ_API_KEY === '') {
       logger.info('Groq API Key is missing or default. Skipping AI personalization (graceful degradation).');
@@ -30,9 +30,10 @@ export const aiService = {
       const langStr = languagePreference === 'pidgin' ? 'friendly, encouraging Nigerian Pidgin' : 'plain, reassuring English';
 
       const prompt = `You are ${roleStr} at the University of Benin Teaching Hospital (UBTH), Nigeria. 
-Your patient is ${patientName}, age ${age}, in Week ${weekNumber} of pregnancy with a risk tier of ${riskTier}. 
+Your patient is ${patientName}, age ${age}, in Week ${weekNumber} of pregnancy.
 Write a highly personalized, warm antenatal lesson for her current week of pregnancy entirely in ${langStr}.
 Do NOT provide a translation in another language, just write the lesson strictly in ${langStr}.
+Never mention a risk level, risk tier, risk score, or whether she is low/medium/high risk.
 Finally, on a new line, recommend a real, educational YouTube search link about "Pregnancy week ${weekNumber}" or a trusted channel like WHO/Mayo Clinic (e.g., https://www.youtube.com/results?search_query=pregnancy+week+${weekNumber}).
 Address her directly by name ("${patientName}") and mention her current gestational week. Use common warm Nigerian pregnancy phrases.
 Keep the total output under 250 words. Format with standard paragraphs.`;
@@ -95,12 +96,12 @@ The patient asking the question is ${patientData.name || 'a patient'}.
 Context:
 - Age: ${patientData.age || 'Unknown'}
 - Pregnancy info: ${JSON.stringify(patientData.pregnancies?.[0] || 'No current pregnancy info')}
-- Risk Assessment: ${JSON.stringify(patientData.risk_assessments?.[0] || 'Unknown')}
 - Recent symptoms: ${JSON.stringify(patientData.symptoms || 'None')}
 
 Patient Question: "${question}"
 
-Provide a deeply insightful, comforting, and medically sound response. Explain the "why" behind your advice so the patient truly understands what is happening in her body. Draw connections between her current gestational age, risk factors, and her symptoms. 
+Provide a deeply insightful, comforting, and medically sound response. Explain the "why" behind your advice so the patient truly understands what is happening in her body. Draw connections between her current gestational age and her symptoms.
+Never mention a risk level, risk tier, risk score, or whether she is low/medium/high risk. If she asks for her risk, say her care team reviews her information and the next step is to attend antenatal clinic.
 If the question implies an emergency, urgently advise her to seek immediate medical attention. Format your response with clear, easy-to-read paragraphs or bullet points where appropriate.`;
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {

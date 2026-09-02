@@ -155,7 +155,6 @@ export const patientsController = {
         where: { id: patientId },
         include: {
           pregnancies: { orderBy: { id: 'desc' }, take: 1 },
-          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
         },
       });
 
@@ -178,7 +177,6 @@ export const patientsController = {
         ...safePatient,
         has_password: !!_pw,
         current_ega: ega,
-        risk_tier: patient.risk_assessments?.[0]?.tier || 'Low Risk',
       });
     } catch (err) {
       next(err);
@@ -187,7 +185,7 @@ export const patientsController = {
 
   /**
    * GET /patients/me/dashboard
-   * Returns: current EGA, next appointment, latest risk tier, this week's education module
+   * Returns: current EGA, next appointment, this week's education module
    */
   async getDashboard(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -224,12 +222,6 @@ export const patientsController = {
         include: { doctor: { select: { name: true } } },
       });
 
-      // Latest risk tier
-      const latestRisk = await prisma.riskAssessment.findFirst({
-        where: { patient_id: patientId },
-        orderBy: { created_at: 'desc' },
-      });
-
       // This week's education module
       const educationModule = await prisma.educationModule.findFirst({
         where: {
@@ -248,13 +240,6 @@ export const patientsController = {
               slot_end: nextAppointment.slot_end,
               doctor_id: nextAppointment.doctor_id,
               doctor: { name: nextAppointment.doctor?.name },
-            }
-          : null,
-        risk: latestRisk
-          ? {
-              tier: latestRisk.tier,
-              reasons: latestRisk.reasons,
-              assessed_at: latestRisk.created_at,
             }
           : null,
         education_module: educationModule,
@@ -277,7 +262,6 @@ export const patientsController = {
         where: { id: patientId },
         include: {
           pregnancies: { orderBy: { id: 'desc' }, take: 1 },
-          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
           symptoms: { orderBy: { reported_at: 'desc' }, take: 5 },
         },
       });

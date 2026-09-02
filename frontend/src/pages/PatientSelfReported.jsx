@@ -214,12 +214,14 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
   const extraConditions = conditions
     .filter((k) => !['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'].includes(k))
     .filter((k) => !k.includes('medication') && !k.includes('allergy'))
+    .filter((k) => !/^none(_of_(these|the_above))?$/.test(k))
     .map(formatKey);
 
   const conditionList = [...medicalKnown, ...extraConditions];
 
   const systemFlags = (p.intake_responses || [])
     .filter((r) => (r.domain === 'systems' || r.domain === 'symptoms') && YES_NO[String(r.answer).toLowerCase()] === 'Yes')
+    .filter((r) => !/^none(_of_(these|the_above))?$/.test(r.question_key))
     .map((r) => formatKey(r.question_key));
 
   const bp =

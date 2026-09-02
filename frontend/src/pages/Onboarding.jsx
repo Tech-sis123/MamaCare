@@ -54,6 +54,11 @@ const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
   </div>
 );
 
+function isNoneChoice(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return s === 'none' || s === 'none of these' || s === 'none of the above';
+}
+
 const Chips = ({ options = [], value, onChange, multi = false }) => {
   const vals = multi
     ? (Array.isArray(value) ? value : value != null && value !== '' ? [value] : [])
@@ -68,7 +73,8 @@ const Chips = ({ options = [], value, onChange, multi = false }) => {
           <button key={String(v)} type="button" onClick={() => {
             if (multi) {
               if (vals.includes(v)) onChange(vals.filter(x => x !== v));
-              else onChange([...vals, v]);
+              else if (isNoneChoice(v) || isNoneChoice(l)) onChange([v]);
+              else onChange([...vals.filter(x => !isNoneChoice(x)), v]);
             } else onChange(v);
           }}
             className={`px-4 py-2.5 rounded-full border-2 text-sm font-semibold transition-all active:scale-95 ${
@@ -262,7 +268,7 @@ function buildSlides(sectionId, data) {
         ]
       },
       { id: 'uroGynae', question: 'Are you experiencing any of these?', field: 'uroGynaeSymptoms', type: 'multi', required: false,
-        options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling']
+        options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling', 'None of these']
       },
     ];
 
@@ -1483,7 +1489,7 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'top_complications', answer: data.topComplications === true ? 'yes' : data.topComplications === false ? 'no' : '' },
     ];
     case 'medical': return [
-      ...(data.conditions || []).filter(c => c !== 'None of these').map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
+      ...(data.conditions || []).filter(c => !isNoneChoice(c)).map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
       { question_key: 'surgery',          answer: data.surgeries ? 'yes' : 'no' },
       { question_key: 'surgery_count',    answer: String(data.surgeryCount || '') },
       ...(data.surgeryDetails || []).flatMap((s, i) => [
@@ -1498,7 +1504,7 @@ function buildDomainResponses(sId, data, children) {
     ];
     case 'systems': return [
       // Persist merged systems symptoms. Send both a grouped key and individual per-symptom flags.
-      ...(data.systemsSymptoms || []).flatMap(s => {
+      ...(data.systemsSymptoms || []).filter(s => !isNoneChoice(s)).flatMap(s => {
         const slug = String(s).toLowerCase().replace(/\s*\/\s*/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
         return [
           { question_key: slug, answer: 'yes' },
@@ -1506,7 +1512,7 @@ function buildDomainResponses(sId, data, children) {
       }),
       { question_key: 'systems_symptoms', answer: (data.systemsSymptoms || []).join(', ') },
       // Uro/gynae grouped symptoms
-      ...(data.uroGynaeSymptoms || []).flatMap(s => {
+      ...(data.uroGynaeSymptoms || []).filter(s => !isNoneChoice(s)).flatMap(s => {
         const slug = String(s).toLowerCase().replace(/\s*\/\s*/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
         return [{ question_key: slug, answer: 'yes' }];
       }),

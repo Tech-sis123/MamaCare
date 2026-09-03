@@ -236,7 +236,17 @@ function buildSlides(sectionId, data) {
         id: `miscarriage_${i}`, question: null, type: 'miscarriage_card', miscarriageIdx: i, required: false, condition: d => d.miscarriageHistory === true && (parseInt(d.miscarriageCount, 10) || 0) > 0,
       }));
 
-      return [...childSlides, ...miscarriageSlides, ...miscarriageDetailsSlides];
+      const stillbirthSlides = [
+        { id: 'stillbirthHistory', question: 'Have you ever had a stillbirth?', field: 'stillbirthHistory', type: 'yes_no', required: false },
+        { id: 'stillbirthCount', question: 'How many stillbirths have you had?', field: 'stillbirthCount', type: 'number', required: false, condition: d => d.stillbirthHistory === true, placeholder: 'e.g. 1', min: 1, max: 10 },
+      ];
+      
+      const sCount = Math.min(10, Math.max(0, parseInt(data.stillbirthCount, 10) || 0));
+      const stillbirthDetailsSlides = Array.from({ length: sCount }, (_, i) => ({
+        id: `stillbirth_${i}`, question: null, type: 'stillbirth_card', stillbirthIdx: i, required: false, condition: d => d.stillbirthHistory === true && (parseInt(d.stillbirthCount, 10) || 0) > 0,
+      }));
+
+      return [...childSlides, ...miscarriageSlides, ...miscarriageDetailsSlides, ...stillbirthSlides, ...stillbirthDetailsSlides];
     }
 
     case 'gynae': return [
@@ -311,6 +321,11 @@ function isFilledValue(v) {
 }
 
 /** Minimum fields for a previous-child card to count as done */
+function isStillbirthCardFilled(s) {
+  if (!s || typeof s !== 'object') return false;
+  return isFilledValue(s.year) && isFilledValue(s.gestationalAge);
+}
+
 function isMiscarriageCardFilled(m) {
   if (!m || typeof m !== 'object') return false;
   return isFilledValue(m.year) && isFilledValue(m.gestationalAge);
@@ -344,6 +359,9 @@ function isSlideAnswered(slide, data) {
   if (slide.type === 'miscarriage_card') {
     return isMiscarriageCardFilled((data.miscarriages || [])[slide.miscarriageIdx]);
   }
+  if (slide.type === 'stillbirth_card') {
+    return isStillbirthCardFilled((data.stillbirths || [])[slide.stillbirthIdx]);
+  }
   if (slide.field) return isFilledValue(data[slide.field]);
   return false;
 }
@@ -365,7 +383,7 @@ function sectionComplete(sectionId, data) {
   // Optional field sections: keep prior “enough answers” heuristic so we don’t
   // suddenly mark long sections incomplete; always require card slides (surgery) if present.
   const fieldSlides = slides.filter(s => s.field);
-  const cardSlides = slides.filter(s => s.type === 'child_card' || s.type === 'surgery_card' || s.type === 'miscarriage_card');
+  const cardSlides = slides.filter(s => s.type === 'child_card' || s.type === 'surgery_card' || s.type === 'miscarriage_card' || s.type === 'stillbirth_card');
 
   if (fieldSlides.length === 0) {
     return cardSlides.length === 0 || cardSlides.every(s => isSlideAnswered(s, data));
@@ -404,6 +422,9 @@ const INIT = {
   miscarriageHistory: null,
   miscarriageCount: '',
   miscarriages: [],
+  stillbirthHistory: null,
+  stillbirthCount: '',
+  stillbirths: [],
   // Gynae
   menarche: '', cycleLength: '', flowDays: '',
   contraAware: null, contraUsed: null, contraType: null, contraStartDate: '', contraRemoved: null,
@@ -461,7 +482,7 @@ const ChildCard = ({ idx, child, onChange }) => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold text-primary">{label} child</h2>
+      <h2 className="text-2xl font-bold text-primary">{label} delivery</h2>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Year of birth</Label>
@@ -636,8 +657,35 @@ const MiscarriageCard = ({ idx, miscarriage, onChange }) => {
   );
 };
 
+// ── Stillbirth card ──────────────────────────────────────────────────────────
+const StillbirthCard = ({ idx, stillbirth, onChange }) => {
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+  const label = ordinals[idx] || `${idx + 1}th`;
+  const set = (field, val) => onChange(idx, field, val);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-primary">{label} stillbirth</h2>
+      <div className="grid grid-cols-1 gap-3">
+        <div>
+          <Label>What year did it happen?</Label>
+          <input type="number" value={stillbirth.year || ''} onChange={e => set('year', e.target.value)}
+            placeholder="e.g. 2021" min={1980} max={2026}
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
+        </div>
+        <div>
+          <Label>At what gestational age did it happen?</Label>
+          <input type="text" value={stillbirth.gestationalAge || ''} onChange={e => set('gestationalAge', e.target.value)}
+            placeholder="i.e 28 weeks or 7 months"
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Slide renderer ────────────────────────────────────────────────────────────
-const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }) => {
+const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage, setStillbirth }) => {
   if (!slide) return null;
   const val = slide.field ? data[slide.field] : null;
   const risk = slide.riskCheck ? slide.riskCheck(val, data) : null;
@@ -792,6 +840,19 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }
     return <MiscarriageCard idx={slide.miscarriageIdx} miscarriage={miscarriage} onChange={setMiscarriage} />;
   }
 
+  if (slide.type === 'stillbirth_card') {
+    if (typeof setStillbirth !== 'function') {
+      return (
+        <p className="text-red-600 text-sm font-semibold">
+          Unable to load stillbirth details. Please go back and try again.
+        </p>
+      );
+    }
+    const stillbirths = data.stillbirths || [];
+    const stillbirth = stillbirths[slide.stillbirthIdx] || {};
+    return <StillbirthCard idx={slide.stillbirthIdx} stillbirth={stillbirth} onChange={setStillbirth} />;
+  }
+
   return null;
 };
 
@@ -876,6 +937,12 @@ const IntakeQuestionnaire = () => {
           gestationalAge: map[`miscarriage_${i}_gestational_age`] || ''
         }));
 
+        const stillbirthCountVal = map['stillbirth_count'] ?? prev.stillbirthCount;
+        const stillbirths = Array.from({ length: parseInt(stillbirthCountVal) || 0 }, (_, i) => ({
+          year: map[`stillbirth_${i}_year`] || '',
+          gestationalAge: map[`stillbirth_${i}_gestational_age`] || ''
+        }));
+
         const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
         const conditionsMap = {
           'hypertension': 'Hypertension',
@@ -948,6 +1015,9 @@ const IntakeQuestionnaire = () => {
           miscarriageHistory: map['miscarriage_history'] === 'yes' ? true : map['miscarriage_history'] === 'no' ? false : prev.miscarriageHistory,
           miscarriageCount: miscarriageCountVal,
           miscarriages,
+          stillbirthHistory: map['stillbirth_history'] === 'yes' ? true : map['stillbirth_history'] === 'no' ? false : prev.stillbirthHistory,
+          stillbirthCount: stillbirthCountVal,
+          stillbirths,
           menarche: map['menarche_age'] || prev.menarche,
           cycleLength: map['cycle_days'] || prev.cycleLength,
           flowDays: map['flow_days'] || prev.flowDays,
@@ -1019,6 +1089,10 @@ const IntakeQuestionnaire = () => {
         next.miscarriageCount = '';
         next.miscarriages = [];
       }
+      if (key === 'stillbirthHistory' && val !== true) {
+        next.stillbirthCount = '';
+        next.stillbirths = [];
+      }
       if (key === 'surgeries' && val !== true) {
         next.surgeryCount = '';
         next.surgeryDetails = [];
@@ -1055,6 +1129,16 @@ const IntakeQuestionnaire = () => {
     });
   };
 
+  const setStillbirth = (idx, field, val) => {
+    if (!canEdit) return;
+    setData(prev => {
+      const count = Math.min(10, Math.max(0, parseInt(prev.stillbirthCount, 10) || 0));
+      const stillbirths = Array.from({ length: Math.max(count, idx + 1) }, (_, i) => prev.stillbirths?.[i] || {});
+      stillbirths[idx] = { ...(stillbirths[idx] || {}), [field]: val };
+      return { ...prev, stillbirths };
+    });
+  };
+
   const setMiscarriage = (idx, field, val) => {
     if (!canEdit) return;
     setData(prev => {
@@ -1088,10 +1172,13 @@ const IntakeQuestionnaire = () => {
   const mCount = Math.min(10, Math.max(0, parseInt(data.miscarriageCount, 10) || 0));
   const ensuredMiscarriages = Array.from({ length: mCount }, (_, i) => data.miscarriages?.[i] || {});
 
+  const sCount = Math.min(10, Math.max(0, parseInt(data.stillbirthCount, 10) || 0));
+  const ensuredStillbirths = Array.from({ length: sCount }, (_, i) => data.stillbirths?.[i] || {});
+
   const sections = useMemo(() => visibleSectionMeta(data), [data.gravidity]);
 
   const getSlides = (sId) => {
-    const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages });
+    const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages, stillbirths: ensuredStillbirths });
     return all.filter(s => !s.condition || s.condition(data));
   };
 
@@ -1195,7 +1282,7 @@ const IntakeQuestionnaire = () => {
             : (data.parity === '' || data.parity == null || isNaN(Number(data.parity)) ? undefined : Number(data.parity)),
         }).catch(() => {});
         // Index pregnancy clerking details for doctor view
-        const indexResponses = buildDomainResponses('index', data, ensuredChildren, ensuredMiscarriages);
+        const indexResponses = buildDomainResponses('index', data, ensuredChildren, ensuredMiscarriages, ensuredStillbirths);
         if (indexResponses.length) {
           await saveIntake(patientId, 'index', indexResponses).catch(() => {});
         }
@@ -1213,7 +1300,7 @@ const IntakeQuestionnaire = () => {
         systems: 'systems',
       };
       if (domainMap[sId]) {
-        const responses = buildDomainResponses(sId, data, ensuredChildren, ensuredMiscarriages);
+        const responses = buildDomainResponses(sId, data, ensuredChildren, ensuredMiscarriages, ensuredStillbirths);
         if (responses.length) await saveIntake(patientId, domainMap[sId], responses).catch(() => {});
       }
     } catch (_) {}
@@ -1252,7 +1339,7 @@ const IntakeQuestionnaire = () => {
     }
   };
 
-  const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages };
+  const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages, stillbirths: ensuredStillbirths };
   const allDone = sections.every(s => sectionComplete(s.id, dataForComplete));
 
   // MUST stay above any early return — otherwise overview→section crashes (hooks order)
@@ -1334,7 +1421,7 @@ const IntakeQuestionnaire = () => {
           {/* Section cards */}
           <div className="space-y-3">
             {sections.map((s, i) => {
-              const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages };
+              const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages, stillbirths: ensuredStillbirths };
               const done = sectionComplete(s.id, dataForSection);
               const { answered, total } = sectionProgress(s.id, dataForSection);
               return (
@@ -1481,10 +1568,11 @@ const IntakeQuestionnaire = () => {
 
         <SlideContent
           slide={slide}
-          data={{ ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages }}
+          data={{ ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages, stillbirths: ensuredStillbirths }}
           set={set}
           setChild={setChild}
           setMiscarriage={setMiscarriage}
+          setStillbirth={setStillbirth}
           setSurgery={setSurgery}
         />
       </main>
@@ -1523,7 +1611,7 @@ const IntakeQuestionnaire = () => {
 };
 
 // ── Domain response builder ───────────────────────────────────────────────────
-function buildDomainResponses(sId, data, children, miscarriages) {
+function buildDomainResponses(sId, data, children, miscarriages, stillbirths) {
   switch (sId) {
     case 'index': return [
       { question_key: 'desired', answer: data.desired === true ? 'yes' : data.desired === false ? 'no' : '' },
@@ -1555,7 +1643,15 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         { question_key: `miscarriage_${i}_year`, answer: String(m.year || '') },
         { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
       ]);
-      return [...childResponses, ...miscarriageResponses, ...mDetails].filter(r => r.answer !== '' && r.answer != null);
+      const stillbirthResponses = [
+        { question_key: 'stillbirth_history', answer: data.stillbirthHistory === true ? 'yes' : data.stillbirthHistory === false ? 'no' : '' },
+        { question_key: 'stillbirth_count', answer: String(data.stillbirthCount || '') }
+      ];
+      const sDetails = (stillbirths || []).flatMap((s, i) => [
+        { question_key: `stillbirth_${i}_year`, answer: String(s.year || '') },
+        { question_key: `stillbirth_${i}_gestational_age`, answer: s.gestationalAge || '' }
+      ]);
+      return [...childResponses, ...miscarriageResponses, ...mDetails, ...stillbirthResponses, ...sDetails].filter(r => r.answer !== '' && r.answer != null);
     }
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },

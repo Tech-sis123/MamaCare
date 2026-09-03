@@ -219,10 +219,24 @@ function buildSlides(sectionId, data) {
     case 'obstetric': {
       if (isPrimigravida(data)) return [];
       const p = parseInt(data.parity) || 0;
-      if (p === 0) return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
-      return Array.from({ length: p }, (_, i) => ({
-        id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+      let childSlides = [];
+      if (p > 0) {
+        childSlides = Array.from({ length: p }, (_, i) => ({
+          id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+        }));
+      }
+
+      const miscarriageSlides = [
+        { id: 'miscarriageHistory', question: 'Have you ever had a miscarriage?', field: 'miscarriageHistory', type: 'yes_no', required: false },
+        { id: 'miscarriageCount', question: 'How many miscarriages have you had?', field: 'miscarriageCount', type: 'number', required: false, condition: d => d.miscarriageHistory === true, placeholder: 'e.g. 1', min: 1, max: 10 },
+      ];
+      
+      const mCount = Math.min(10, Math.max(0, parseInt(data.miscarriageCount, 10) || 0));
+      const miscarriageDetailsSlides = Array.from({ length: mCount }, (_, i) => ({
+        id: `miscarriage_${i}`, question: null, type: 'miscarriage_card', miscarriageIdx: i, required: false, condition: d => d.miscarriageHistory === true && (parseInt(d.miscarriageCount, 10) || 0) > 0,
       }));
+
+      return [...childSlides, ...miscarriageSlides, ...miscarriageDetailsSlides];
     }
 
     case 'gynae': return [
@@ -297,6 +311,11 @@ function isFilledValue(v) {
 }
 
 /** Minimum fields for a previous-child card to count as done */
+function isMiscarriageCardFilled(m) {
+  if (!m || typeof m !== 'object') return false;
+  return isFilledValue(m.year) && isFilledValue(m.gestationalAge);
+}
+
 function isChildCardFilled(child) {
   if (!child || typeof child !== 'object') return false;
   // Year + gender + mode of delivery + state now is a practical "filled" bar
@@ -322,6 +341,9 @@ function isSlideAnswered(slide, data) {
   if (slide.type === 'surgery_card') {
     return isSurgeryCardFilled((data.surgeryDetails || [])[slide.surgeryIdx]);
   }
+  if (slide.type === 'miscarriage_card') {
+    return isMiscarriageCardFilled((data.miscarriages || [])[slide.miscarriageIdx]);
+  }
   if (slide.field) return isFilledValue(data[slide.field]);
   return false;
 }
@@ -331,12 +353,8 @@ function sectionComplete(sectionId, data) {
   const slides = buildSlides(sectionId, data).filter(s => !s.condition || s.condition(data));
   if (slides.length === 0) return true;
 
-  // Obstetric is only child cards (or first-delivery notice) — never has top-level `field`s
   if (sectionId === 'obstetric') {
     if (isPrimigravida(data)) return true;
-    const p = parseInt(data.parity, 10) || 0;
-    if (p === 0) return true; // first delivery — nothing to record
-    return Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
   }
 
   const required = slides.filter(s => s.required);
@@ -347,7 +365,7 @@ function sectionComplete(sectionId, data) {
   // Optional field sections: keep prior “enough answers” heuristic so we don’t
   // suddenly mark long sections incomplete; always require card slides (surgery) if present.
   const fieldSlides = slides.filter(s => s.field);
-  const cardSlides = slides.filter(s => s.type === 'child_card' || s.type === 'surgery_card');
+  const cardSlides = slides.filter(s => s.type === 'child_card' || s.type === 'surgery_card' || s.type === 'miscarriage_card');
 
   if (fieldSlides.length === 0) {
     return cardSlides.length === 0 || cardSlides.every(s => isSlideAnswered(s, data));
@@ -383,6 +401,9 @@ const INIT = {
   bloodGroup: null, genotype: null,
   // Children (obstetric)
   children: [],
+  miscarriageHistory: null,
+  miscarriageCount: '',
+  miscarriages: [],
   // Gynae
   menarche: '', cycleLength: '', flowDays: '',
   contraAware: null, contraUsed: null, contraType: null, contraStartDate: '', contraRemoved: null,
@@ -478,31 +499,11 @@ const ChildCard = ({ idx, child, onChange }) => {
         {csRisk && <p className="text-red-600 font-bold text-xs mt-1">⚠ CS delivery noted</p>}
       </div>
 
-      <div>
-        <Label>Did the baby cry well at birth?</Label>
-        <div className="flex gap-2">
-          {[{ v: true, l: 'Yes' }, { v: false, l: 'No / Delayed' }].map(opt => (
-            <button key={String(opt.v)} onClick={() => set('criedWell', opt.v)}
-              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                child.criedWell === opt.v
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
-              }`}>{opt.l}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <div>
           <Label>Birth weight (kg)</Label>
           <input type="number" step="0.1" value={child.birthWeight || ''} onChange={e => set('birthWeight', e.target.value)}
             placeholder="e.g. 3.2" min={0.5} max={7}
-            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
-        </div>
-        <div>
-          <Label>How many days did you spend in the hospital after your delivery?</Label>
-          <input type="number" value={child.daysInHospital || ''} onChange={e => set('daysInHospital', e.target.value)}
-            placeholder="e.g. 3" min={1} max={365}
             className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
         </div>
       </div>
@@ -521,21 +522,6 @@ const ChildCard = ({ idx, child, onChange }) => {
         </div>
         {(child.stateNow === 'died_at_birth' || child.stateNow === 'died_later') &&
           <p className="text-red-600 font-bold text-xs mt-1">⚠ Bad obstetric history — flagged as high risk</p>}
-      </div>
-
-      <div>
-        <Label>Any abnormalities in this child?</Label>
-        <div className="flex gap-2">
-          {[{ v: true, l: 'Yes' }, { v: false, l: 'No' }].map(opt => (
-            <button key={String(opt.v)} onClick={() => set('anomaly', opt.v)}
-              className={`flex-1 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                child.anomaly === opt.v
-                  ? 'border-primary bg-primary text-white'
-                  : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
-              }`}>{opt.l}</button>
-          ))}
-        </div>
-        {child.anomaly && <p className="text-red-600 font-bold text-xs mt-1">⚠ Anomaly noted — flagged as high risk</p>}
       </div>
 
       <div>
@@ -623,8 +609,35 @@ const ChildCard = ({ idx, child, onChange }) => {
   );
 };
 
+// ── Miscarriage card ──────────────────────────────────────────────────────────
+const MiscarriageCard = ({ idx, miscarriage, onChange }) => {
+  const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+  const label = ordinals[idx] || `${idx + 1}th`;
+  const set = (field, val) => onChange(idx, field, val);
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-2xl font-bold text-primary">{label} miscarriage</h2>
+      <div className="grid grid-cols-1 gap-3">
+        <div>
+          <Label>What year did it happen?</Label>
+          <input type="number" value={miscarriage.year || ''} onChange={e => set('year', e.target.value)}
+            placeholder="e.g. 2021" min={1980} max={2026}
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
+        </div>
+        <div>
+          <Label>At what gestational age did it happen?</Label>
+          <input type="text" value={miscarriage.gestationalAge || ''} onChange={e => set('gestationalAge', e.target.value)}
+            placeholder="i.e 20 weeks or 5 months"
+            className="w-full px-4 py-3 rounded-xl border-2 border-primary/20 bg-white text-slate-800 focus:ring-2 focus:ring-primary/50 outline-none" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Slide renderer ────────────────────────────────────────────────────────────
-const SlideContent = ({ slide, data, set, setChild, setSurgery }) => {
+const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }) => {
   if (!slide) return null;
   const val = slide.field ? data[slide.field] : null;
   const risk = slide.riskCheck ? slide.riskCheck(val, data) : null;
@@ -766,6 +779,19 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery }) => {
     return <SurgeryCard idx={slide.surgeryIdx} surgery={surgery} onChange={setSurgery} />;
   }
 
+  if (slide.type === 'miscarriage_card') {
+    if (typeof setMiscarriage !== 'function') {
+      return (
+        <p className="text-red-600 text-sm font-semibold">
+          Unable to load miscarriage details. Please go back and try again.
+        </p>
+      );
+    }
+    const miscarriages = data.miscarriages || [];
+    const miscarriage = miscarriages[slide.miscarriageIdx] || {};
+    return <MiscarriageCard idx={slide.miscarriageIdx} miscarriage={miscarriage} onChange={setMiscarriage} />;
+  }
+
   return null;
 };
 
@@ -826,11 +852,8 @@ const IntakeQuestionnaire = () => {
           year: map[`child_${i}_year`] || '',
           gender: map[`child_${i}_gender`] || '',
           deliveryMode: map[`child_${i}_delivery_mode`] || '',
-          criedWell: map[`child_${i}_cried_well`] === 'yes' ? true : map[`child_${i}_cried_well`] === 'no' ? false : null,
           birthWeight: map[`child_${i}_birth_weight`] || '',
-          daysInHospital: map[`child_${i}_days_in_hospital`] || '',
           stateNow: map[`child_${i}_state_now`] || '',
-          anomaly: map[`child_${i}_anomaly`] === 'yes' ? true : map[`child_${i}_anomaly`] === 'no' ? false : null,
           events: map[`child_${i}_events`] ? String(map[`child_${i}_events`]).split(',').filter(Boolean) : [],
           eventsOther: map[`child_${i}_events_other`] || '',
           hasPostnatalComplication: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no' ? true : false,
@@ -845,6 +868,12 @@ const IntakeQuestionnaire = () => {
         const surgeryDetails = Array.from({ length: parseInt(surgeryCountVal) || 0 }, (_, i) => ({
           type: map[`surgery_${i}_type`] || '',
           year: map[`surgery_${i}_year`] || ''
+        }));
+
+        const miscarriageCountVal = map['miscarriage_count'] ?? prev.miscarriageCount;
+        const miscarriages = Array.from({ length: parseInt(miscarriageCountVal) || 0 }, (_, i) => ({
+          year: map[`miscarriage_${i}_year`] || '',
+          gestationalAge: map[`miscarriage_${i}_gestational_age`] || ''
         }));
 
         const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
@@ -916,6 +945,9 @@ const IntakeQuestionnaire = () => {
             return prev.currentMultiGestation;
           })(),
           children,
+          miscarriageHistory: map['miscarriage_history'] === 'yes' ? true : map['miscarriage_history'] === 'no' ? false : prev.miscarriageHistory,
+          miscarriageCount: miscarriageCountVal,
+          miscarriages,
           menarche: map['menarche_age'] || prev.menarche,
           cycleLength: map['cycle_days'] || prev.cycleLength,
           flowDays: map['flow_days'] || prev.flowDays,
@@ -983,6 +1015,10 @@ const IntakeQuestionnaire = () => {
       const next = { ...prev, [key]: val };
       // Clear follow-ups when parent answer is No / cleared
       if (key === 'multiGestation' && val !== true) next.multiGestationCount = '';
+      if (key === 'miscarriageHistory' && val !== true) {
+        next.miscarriageCount = '';
+        next.miscarriages = [];
+      }
       if (key === 'surgeries' && val !== true) {
         next.surgeryCount = '';
         next.surgeryDetails = [];
@@ -1019,6 +1055,16 @@ const IntakeQuestionnaire = () => {
     });
   };
 
+  const setMiscarriage = (idx, field, val) => {
+    if (!canEdit) return;
+    setData(prev => {
+      const count = Math.min(10, Math.max(0, parseInt(prev.miscarriageCount, 10) || 0));
+      const miscarriages = Array.from({ length: Math.max(count, idx + 1) }, (_, i) => prev.miscarriages?.[i] || {});
+      miscarriages[idx] = { ...(miscarriages[idx] || {}), [field]: val };
+      return { ...prev, miscarriages };
+    });
+  };
+
   const setSurgery = (idx, field, val) => {
     if (!canEdit) return;
     setData(prev => {
@@ -1039,10 +1085,13 @@ const IntakeQuestionnaire = () => {
   const surgeryCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
   const ensuredSurgeries = Array.from({ length: surgeryCount }, (_, i) => data.surgeryDetails?.[i] || {});
 
+  const mCount = Math.min(10, Math.max(0, parseInt(data.miscarriageCount, 10) || 0));
+  const ensuredMiscarriages = Array.from({ length: mCount }, (_, i) => data.miscarriages?.[i] || {});
+
   const sections = useMemo(() => visibleSectionMeta(data), [data.gravidity]);
 
   const getSlides = (sId) => {
-    const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries });
+    const all = buildSlides(sId, { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages });
     return all.filter(s => !s.condition || s.condition(data));
   };
 
@@ -1146,7 +1195,7 @@ const IntakeQuestionnaire = () => {
             : (data.parity === '' || data.parity == null || isNaN(Number(data.parity)) ? undefined : Number(data.parity)),
         }).catch(() => {});
         // Index pregnancy clerking details for doctor view
-        const indexResponses = buildDomainResponses('index', data, ensuredChildren);
+        const indexResponses = buildDomainResponses('index', data, ensuredChildren, ensuredMiscarriages);
         if (indexResponses.length) {
           await saveIntake(patientId, 'index', indexResponses).catch(() => {});
         }
@@ -1164,7 +1213,7 @@ const IntakeQuestionnaire = () => {
         systems: 'systems',
       };
       if (domainMap[sId]) {
-        const responses = buildDomainResponses(sId, data, ensuredChildren);
+        const responses = buildDomainResponses(sId, data, ensuredChildren, ensuredMiscarriages);
         if (responses.length) await saveIntake(patientId, domainMap[sId], responses).catch(() => {});
       }
     } catch (_) {}
@@ -1203,7 +1252,7 @@ const IntakeQuestionnaire = () => {
     }
   };
 
-  const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
+  const dataForComplete = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages };
   const allDone = sections.every(s => sectionComplete(s.id, dataForComplete));
 
   // MUST stay above any early return — otherwise overview→section crashes (hooks order)
@@ -1285,7 +1334,7 @@ const IntakeQuestionnaire = () => {
           {/* Section cards */}
           <div className="space-y-3">
             {sections.map((s, i) => {
-              const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries };
+              const dataForSection = { ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages };
               const done = sectionComplete(s.id, dataForSection);
               const { answered, total } = sectionProgress(s.id, dataForSection);
               return (
@@ -1432,9 +1481,10 @@ const IntakeQuestionnaire = () => {
 
         <SlideContent
           slide={slide}
-          data={{ ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries }}
+          data={{ ...data, children: ensuredChildren, surgeryDetails: ensuredSurgeries, miscarriages: ensuredMiscarriages }}
           set={set}
           setChild={setChild}
+          setMiscarriage={setMiscarriage}
           setSurgery={setSurgery}
         />
       </main>
@@ -1473,7 +1523,7 @@ const IntakeQuestionnaire = () => {
 };
 
 // ── Domain response builder ───────────────────────────────────────────────────
-function buildDomainResponses(sId, data, children) {
+function buildDomainResponses(sId, data, children, miscarriages) {
   switch (sId) {
     case 'index': return [
       { question_key: 'desired', answer: data.desired === true ? 'yes' : data.desired === false ? 'no' : '' },
@@ -1486,19 +1536,27 @@ function buildDomainResponses(sId, data, children) {
       { question_key: 'blood_group', answer: data.bloodGroup || '' },
       { question_key: 'genotype', answer: data.genotype || '' },
     ].filter((r) => r.answer !== '' && r.answer != null);
-    case 'obstetric': return (children || []).flatMap((c, i) => [
+    case 'obstetric': {
+      const childResponses = (children || []).flatMap((c, i) => [
       { question_key: `child_${i}_year`,          answer: String(c.year || '') },
       { question_key: `child_${i}_gender`,         answer: c.gender || '' },
       { question_key: `child_${i}_delivery_mode`,  answer: c.deliveryMode || '' },
-      { question_key: `child_${i}_cried_well`,     answer: c.criedWell ? 'yes' : 'no' },
       { question_key: `child_${i}_birth_weight`,   answer: String(c.birthWeight || '') },
-      { question_key: `child_${i}_days_in_hospital`, answer: String(c.daysInHospital || '') },
       { question_key: `child_${i}_state_now`,      answer: c.stateNow || '' },
-      { question_key: `child_${i}_anomaly`,        answer: c.anomaly ? 'yes' : 'no' },
       { question_key: `child_${i}_events`,         answer: (c.events || []).join(',') },
       { question_key: `child_${i}_events_other`,   answer: (c.events || []).includes('Other') ? (c.eventsOther || '') : '' },
       { question_key: `child_${i}_postnatal_issues`, answer: c.hasPostnatalComplication ? [...(c.postnatalIssues || []), c.postnatalOther].filter(Boolean).join(', ') : 'no' },
-    ]);
+      ]);
+      const miscarriageResponses = [
+        { question_key: 'miscarriage_history', answer: data.miscarriageHistory === true ? 'yes' : data.miscarriageHistory === false ? 'no' : '' },
+        { question_key: 'miscarriage_count', answer: String(data.miscarriageCount || '') }
+      ];
+      const mDetails = (miscarriages || []).flatMap((m, i) => [
+        { question_key: `miscarriage_${i}_year`, answer: String(m.year || '') },
+        { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
+      ]);
+      return [...childResponses, ...miscarriageResponses, ...mDetails].filter(r => r.answer !== '' && r.answer != null);
+    }
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },
       { question_key: 'cycle_days',      answer: data.cycleLength || '' },

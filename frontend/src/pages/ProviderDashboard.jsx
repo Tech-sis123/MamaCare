@@ -68,7 +68,7 @@ const toPatientRow = (p) => ({
   weeks: p.ega_weeks || '—',
   risk: (p.risk_tier || 'LOW').toUpperCase(),
   flags: [],
-  initials: (p.name || 'P').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+  initials: (p.name || 'P').split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'P',
 });
 
 // ── Sub-views ────────────────────────────────────────────────────
@@ -306,26 +306,42 @@ const MetricsView = () => {
 const PatientsView = ({ navigate, fromTab }) => {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [patients, setPatients] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalRegistered, setTotalRegistered] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
-    const delay = search.trim() ? 400 : 0;
+    const delay = search.trim() ? 350 : 0;
     let cancelled = false;
     const t = setTimeout(() => {
       setLoading(true);
       setLoadError('');
-      searchPatients(search)
+      searchPatients({
+        q: search.trim(),
+        page,
+        limit,
+        risk: riskFilter !== 'All' ? riskFilter.toLowerCase() : undefined,
+      })
         .then(({ data }) => {
           if (cancelled) return;
           const list = Array.isArray(data) ? data : data?.patients || [];
           setPatients(list.map(toPatientRow));
+          const total = data?.total ?? list.length;
+          setTotalCount(total);
+          setTotalRegistered(data?.totalRegistered ?? total);
+          setTotalPages(data?.totalPages ?? Math.max(1, Math.ceil(total / limit)));
         })
         .catch((err) => {
           if (cancelled) return;
           setPatients([]);
+          setTotalCount(0);
+          setTotalPages(1);
           const status = err.response?.status;
           setLoadError(
             status === 401
@@ -341,17 +357,62 @@ const PatientsView = ({ navigate, fromTab }) => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [search, reloadTick]);
+  }, [search, riskFilter, page, limit, reloadTick]);
 
-  const filtered = patients.filter(p => riskFilter === 'All' || p.risk === riskFilter);
+  const handleSearchChange = (e) => {
+    setSearch(e.target.value);
+    setPage(1);
+  };
+
+  const handleRiskChange = (e) => {
+    setRiskFilter(e.target.value);
+    setPage(1);
+  };
+
+  const handleLimitChange = (e) => {
+    setLimit(Number(e.target.value));
+    setPage(1);
+  };
+
+  const getPageNumbers = () => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (page <= 3) {
+      return [1, 2, 3, 4, '...', totalPages];
+    }
+    if (page >= totalPages - 2) {
+      return [1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', page - 1, page, page + 1, '...', totalPages];
+  };
+
+  const start = totalCount > 0 ? (page - 1) * limit + 1 : 0;
+  const end = Math.min(page * limit, totalCount);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-headline-lg text-amber-900 text-2xl">All Patients</h2>
-        <p className="font-body-md text-on-surface-variant/70 mt-1">
-          {loading ? 'Loading…' : `${patients.length} patient${patients.length !== 1 ? 's' : ''} registered`}
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h2 className="font-headline-lg text-amber-900 text-2xl">All Patients</h2>
+          <p className="font-body-md text-on-surface-variant/70 mt-1">
+            {loading ? (
+              'Loading…'
+            ) : search.trim() || riskFilter !== 'All' ? (
+              <>
+                Showing <span className="font-semibold text-amber-900">{totalCount}</span> matching patient{totalCount !== 1 ? 's' : ''}{' '}
+                <span className="text-on-surface-variant/50">({totalRegistered} total registered)</span>
+              </>
+            ) : (
+              `${totalRegistered} patient${totalRegistered !== 1 ? 's' : ''} registered`
+            )}
+          </p>
+        </div>
+        {totalCount > 0 && (
+          <div className="text-xs font-label-sm text-on-surface-variant/80 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30 self-start sm:self-auto">
+            Page {page} of {totalPages}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 flex-col sm:flex-row">
@@ -361,29 +422,59 @@ const PatientsView = ({ navigate, fromTab }) => {
             type="text"
             placeholder="Search by name or patient code (MC-XXXXXX)…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-body-md bg-white"
+            onChange={handleSearchChange}
+            className="w-full pl-10 pr-10 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-body-md bg-white"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setPage(1);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-outline hover:text-primary transition-colors p-1"
+              title="Clear search"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          )}
         </div>
-        <select
-          value={riskFilter}
-          onChange={e => setRiskFilter(e.target.value)}
-          className="px-4 py-3 border border-outline-variant rounded-xl font-body-md bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-        >
-          <option>All</option>
-          <option>HIGH</option>
-          <option>MEDIUM</option>
-          <option>LOW</option>
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={riskFilter}
+            onChange={handleRiskChange}
+            className="flex-1 sm:flex-none px-4 py-3 border border-outline-variant rounded-xl font-body-md bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+          >
+            <option value="All">All Risks</option>
+            <option value="HIGH">HIGH Risk</option>
+            <option value="MEDIUM">MEDIUM Risk</option>
+            <option value="LOW">LOW Risk</option>
+          </select>
+
+          <select
+            value={limit}
+            onChange={handleLimitChange}
+            title="Patients per page"
+            className="px-3 py-3 border border-outline-variant rounded-xl font-body-md bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none text-sm"
+          >
+            <option value={10}>10 / pg</option>
+            <option value={20}>20 / pg</option>
+            <option value={50}>50 / pg</option>
+            <option value={100}>100 / pg</option>
+          </select>
+        </div>
       </div>
 
       <div className="space-y-3">
         {loading && (
-          <div className="text-center py-8 text-on-surface-variant font-body-md text-sm">Loading patients…</div>
+          <div className="text-center py-12 text-on-surface-variant font-body-md text-sm">
+            <div className="inline-block w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin mb-2"></div>
+            <p>Loading patients…</p>
+          </div>
         )}
         {!loading && loadError && (
           <div className="text-center py-16 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl block mb-2">error</span>
+            <span className="material-symbols-outlined text-4xl block mb-2 text-rose-500">error</span>
             <p className="font-body-md">{loadError}</p>
             <button
               type="button"
@@ -394,19 +485,35 @@ const PatientsView = ({ navigate, fromTab }) => {
             </button>
           </div>
         )}
-        {!loading && !loadError && filtered.length === 0 && (
-          <div className="text-center py-16 text-on-surface-variant">
-            <span className="material-symbols-outlined text-4xl block mb-2">person_search</span>
-            <p className="font-body-md">No patients found</p>
+        {!loading && !loadError && patients.length === 0 && (
+          <div className="text-center py-16 text-on-surface-variant bg-white border border-outline-variant/30 rounded-2xl p-8">
+            <span className="material-symbols-outlined text-4xl block mb-2 text-outline">person_search</span>
+            <p className="font-body-md font-medium text-amber-900">No patients found</p>
+            <p className="font-body-md text-xs text-on-surface-variant/70 mt-1">
+              {search || riskFilter !== 'All' ? 'Try adjusting your search query or risk filter.' : 'No patients have been registered yet.'}
+            </p>
+            {(search || riskFilter !== 'All') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setRiskFilter('All');
+                  setPage(1);
+                }}
+                className="mt-4 px-4 py-1.5 rounded-full border border-outline-variant text-xs font-label-sm text-primary hover:bg-amber-50"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         )}
-        {filtered.map(p => {
+        {!loading && patients.map(p => {
           const rc = RISK_COLORS[p.risk] || RISK_COLORS.LOW;
           return (
             <button
               key={p.id}
               onClick={() => navigate('/provider/patient', { state: { patient: p, fromTab } })}
-              className="w-full text-left group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20"
+              className="w-full text-left group relative bg-white border border-amber-50 rounded-xl p-5 flex items-center justify-between transition-all hover:shadow-md custom-shadow hover:border-primary/20 cursor-pointer"
             >
               <div className={`absolute left-0 top-0 bottom-0 w-1 ${rc.bar} rounded-l-xl`} />
               <div className="flex items-center gap-4">
@@ -431,6 +538,77 @@ const PatientsView = ({ navigate, fromTab }) => {
           );
         })}
       </div>
+
+      {/* Pagination Bar */}
+      {!loading && totalCount > 0 && (
+        <div className="bg-white border border-outline-variant/30 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+          <div className="text-sm font-body-md text-on-surface-variant">
+            Showing <span className="font-semibold text-amber-900">{start}</span>–<span className="font-semibold text-amber-900">{end}</span> of <span className="font-semibold text-amber-900">{totalCount}</span> patients
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Previous Page */}
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => {
+                setPage((p) => Math.max(1, p - 1));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs font-label-sm flex items-center gap-1 text-on-surface hover:bg-amber-50 disabled:opacity-35 disabled:hover:bg-transparent transition-all cursor-pointer disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-sm">chevron_left</span>
+              <span className="hidden xs:inline">Prev</span>
+            </button>
+
+            {/* Page Numbers */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((pNum, idx) => {
+                if (pNum === '...') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-1.5 py-1 text-xs text-on-surface-variant/60 font-mono select-none">
+                      …
+                    </span>
+                  );
+                }
+                const isCurrent = pNum === page;
+                return (
+                  <button
+                    key={`page-${pNum}`}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setPage(pNum);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`w-8 h-8 rounded-lg text-xs font-label-sm flex items-center justify-center transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'bg-primary text-white font-bold shadow-sm'
+                        : 'text-on-surface hover:bg-amber-50 border border-transparent hover:border-outline-variant/40'
+                    }`}
+                  >
+                    {pNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next Page */}
+            <button
+              type="button"
+              disabled={page >= totalPages || loading}
+              onClick={() => {
+                setPage((p) => Math.min(totalPages, p + 1));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="px-3 py-1.5 rounded-lg border border-outline-variant/60 text-xs font-label-sm flex items-center gap-1 text-on-surface hover:bg-amber-50 disabled:opacity-35 disabled:hover:bg-transparent transition-all cursor-pointer disabled:cursor-not-allowed"
+            >
+              <span className="hidden xs:inline">Next</span>
+              <span className="material-symbols-outlined text-sm">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

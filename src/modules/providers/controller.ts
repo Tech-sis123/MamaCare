@@ -204,43 +204,48 @@ export const providersController = {
   },
 
   /**
-   * GET /providers/patients?q=
+   * GET /providers/patients?q=&page=&limit=&risk=
    * Search or list all patients (doctor-accessible).
-   * Supports name, phone, and unique patient code (MC-XXXXXX).
+   * Supports name, phone, unique patient code (MC-XXXXXX), and pagination.
    */
   async searchPatients(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const q = ((req.query.q as string) || '').trim();
+      const page = Math.max(1, parseInt((req.query.page as string) || '1', 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || '20', 10) || 20));
+      const risk = ((req.query.risk as string) || '').trim().toLowerCase();
+
       const codeNeedle = q.replace(/^MC-?/i, '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
       const looksLikeCode = /^MC-?[a-fA-F0-9]{4,}/i.test(q) || (/^[a-fA-F0-9]{4,8}$/i.test(q) && q.length <= 8);
 
-      // When searching by code, load a broader set and filter by derived code
-      const patients = await prisma.patient.findMany({
-        where: q && !looksLikeCode
-          ? {
-              OR: [
-                { name: { contains: q, mode: 'insensitive' } },
-                { phone_number: { contains: q } },
-              ],
-            }
-          : {},
-        include: {
-          risk_assessments: {
-            orderBy: { created_at: 'desc' },
-            take: 1,
-            select: { tier: true },
+      const [totalRegistered, patients] = await Promise.all([
+        prisma.patient.count(),
+        prisma.patient.findMany({
+          where: q && !looksLikeCode
+            ? {
+                OR: [
+                  { name: { contains: q, mode: 'insensitive' } },
+                  { phone_number: { contains: q } },
+                ],
+              }
+            : {},
+          include: {
+            risk_assessments: {
+              orderBy: { created_at: 'desc' },
+              take: 1,
+              select: { tier: true },
+            },
+            // Only lmp_date is needed for EGA — avoid selecting clinic columns
+            // that may not exist yet (P2022 on search looks like an empty list).
+            pregnancies: {
+              orderBy: { id: 'desc' },
+              take: 1,
+              select: { lmp_date: true },
+            },
           },
-          // Only lmp_date is needed for EGA — avoid selecting clinic columns
-          // that may not exist yet (P2022 on search looks like an empty list).
-          pregnancies: {
-            orderBy: { id: 'desc' },
-            take: 1,
-            select: { lmp_date: true },
-          },
-        },
-        orderBy: { name: 'asc' },
-        take: looksLikeCode ? 200 : 50,
-      });
+          orderBy: { name: 'asc' },
+        }),
+      ]);
 
       const toCode = (id: string) =>
         `MC-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`;
@@ -254,7 +259,19 @@ export const providersController = {
         });
       }
 
-      const result = filtered.slice(0, 50).map((p) => ({
+      if (risk && risk !== 'all') {
+        filtered = filtered.filter((p) => {
+          const tier = (p.risk_assessments[0]?.tier || 'low').toLowerCase();
+          return tier === risk;
+        });
+      }
+
+      const total = filtered.length;
+      const totalPages = Math.ceil(total / limit) || 1;
+      const startIndex = (page - 1) * limit;
+      const paginated = filtered.slice(startIndex, startIndex + limit);
+
+      const result = paginated.map((p) => ({
         id: p.id,
         patient_code: toCode(p.id),
         name: p.name,
@@ -266,7 +283,14 @@ export const providersController = {
           : null,
       }));
 
-      res.status(200).json({ patients: result });
+      res.status(200).json({
+        patients: result,
+        total,
+        totalRegistered,
+        page,
+        limit,
+        totalPages,
+      });
     } catch (err) {
       next(err);
     }

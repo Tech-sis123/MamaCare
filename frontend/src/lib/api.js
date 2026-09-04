@@ -152,8 +152,10 @@ export const updateDoctorPregnancy = (patientId, data) =>
 export const saveVisitNotes = (appointmentId, doctor_notes, { complete = false } = {}) =>
   doctorApi.post(`/providers/visits/${appointmentId}/notes`, { doctor_notes, complete });
 
-export const searchPatients = (q = '') =>
-  doctorApi.get('/providers/patients', { params: { q } });
+export const searchPatients = (params = {}) => {
+  const queryParams = typeof params === 'string' ? { q: params } : params;
+  return doctorApi.get('/providers/patients', { params: queryParams });
+};
 
 export const getPatientSymptoms = (patientId, range = '30d') =>
   doctorApi.get(`/patients/${patientId}/symptoms`, { params: { range } });

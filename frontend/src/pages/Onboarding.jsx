@@ -144,6 +144,9 @@ function isPrimigravida(data) {
 }
 
 function visibleSectionMeta(data) {
+  if (isPrimigravida(data)) {
+    return SECTION_META.filter(s => s.id !== 'obstetric');
+  }
   return SECTION_META;
 }
 
@@ -214,6 +217,7 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'obstetric': {
+      /* Miscarriage questions commented out for now per doctor instructions
       const miscarriageSlides = [
         { id: 'miscarriageHistory', question: 'Have you ever had a miscarriage?', field: 'miscarriageHistory', type: 'yes_no', required: false },
         { id: 'miscarriageCount', question: 'How many miscarriages have you had?', field: 'miscarriageCount', type: 'number', required: false, condition: d => d.miscarriageHistory === true, placeholder: 'e.g. 1', min: 1, max: 10 },
@@ -223,16 +227,14 @@ function buildSlides(sectionId, data) {
       const miscarriageDetailsSlides = Array.from({ length: mCount }, (_, i) => ({
         id: `miscarriage_${i}`, question: null, type: 'miscarriage_card', miscarriageIdx: i, required: false, condition: d => d.miscarriageHistory === true && (parseInt(d.miscarriageCount, 10) || 0) > 0,
       }));
+      */
 
+      if (isPrimigravida(data)) return [];
       const p = parseInt(data.parity) || 0;
-      let childSlides = [];
-      if (p > 0) {
-        childSlides = Array.from({ length: p }, (_, i) => ({
-          id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
-        }));
-      }
-
-      return [...miscarriageSlides, ...miscarriageDetailsSlides, ...childSlides];
+      if (p === 0) return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
+      return Array.from({ length: p }, (_, i) => ({
+        id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+      }));
     }
 
     case 'gynae': return [
@@ -343,6 +345,9 @@ function sectionComplete(sectionId, data) {
 
   if (sectionId === 'obstetric') {
     if (isPrimigravida(data)) return true;
+    const p = parseInt(data.parity, 10) || 0;
+    if (p === 0) return true; // first delivery — nothing to record
+    return Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
   }
 
   const required = slides.filter(s => s.required);
@@ -1549,6 +1554,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
       { question_key: `child_${i}_events_other`,   answer: (c.events || []).includes('Other') ? (c.eventsOther || '') : '' },
       { question_key: `child_${i}_postnatal_issues`, answer: c.hasPostnatalComplication ? [...(c.postnatalIssues || []), c.postnatalOther].filter(Boolean).join(', ') : 'no' },
       ]);
+      /* Miscarriage responses commented out for now per doctor instructions
       const miscarriageResponses = [
         { question_key: 'miscarriage_history', answer: data.miscarriageHistory === true ? 'yes' : data.miscarriageHistory === false ? 'no' : '' },
         { question_key: 'miscarriage_count', answer: String(data.miscarriageCount || '') }
@@ -1557,7 +1563,8 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         { question_key: `miscarriage_${i}_year`, answer: String(m.year || '') },
         { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
       ]);
-      return [...childResponses, ...miscarriageResponses, ...mDetails].filter(r => r.answer !== '' && r.answer != null);
+      */
+      return [...childResponses].filter(r => r.answer !== '' && r.answer != null);
     }
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },

@@ -187,7 +187,7 @@ function buildSlides(sectionId, data) {
         condition: d => d.multiGestation === true,
         placeholder: 'e.g. 1', min: 1, max: 20,
         hint: 'Count pregnancies with twins, triplets, or more — not the number of babies.' },
-      { id: 'childrenAlive', question: 'Of the children you have given birth to, how many are currently alive?',
+      { id: 'childrenAlive', question: 'How many of the children you delivered are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
     ];

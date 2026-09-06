@@ -439,13 +439,17 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                     label: 'Stopped / removed before this pregnancy',
                     value: get(map, 'contraceptive_removed_before_pregnancy'),
                   },
-                  { label: 'Aware of Pap smear', value: get(map, 'pap_smear_aware') },
-                  { label: 'Pap smear done', value: get(map, 'pap_smear') },
-                  { label: 'Termination of pregnancy', value: get(map, 'top') },
-                  { label: 'Number of TOPs', value: get(map, 'top_count') },
-                  { label: 'Year of most recent TOP', value: get(map, 'top_year') },
-                  { label: 'Method', value: mapped(map.top_method, TOP_METHOD) },
-                  { label: 'Complications / sequelae', value: get(map, 'top_complications') },
+                  ...(map.pap_smear_aware || map.pap_smear ? [
+                    { label: 'Aware of Pap smear', value: get(map, 'pap_smear_aware') },
+                    { label: 'Pap smear done', value: get(map, 'pap_smear') },
+                  ] : []),
+                  ...(map.top ? [
+                    { label: 'Termination of pregnancy', value: get(map, 'top') },
+                    { label: 'Number of TOPs', value: get(map, 'top_count') },
+                    { label: 'Year of most recent TOP', value: get(map, 'top_year') },
+                    { label: 'Method', value: mapped(map.top_method, TOP_METHOD) },
+                    { label: 'Complications / sequelae', value: get(map, 'top_complications') },
+                  ] : []),
                 ]}
               />
             </ReportSection>

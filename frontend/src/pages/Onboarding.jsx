@@ -246,15 +246,6 @@ function buildSlides(sectionId, data) {
         options: [{ value: 'pill', label: 'Pill' }, { value: 'injection', label: 'Injection' }, { value: 'implant', label: 'Implant' }, { value: 'iud', label: 'IUD / Coil' }, { value: 'condom', label: 'Condom' }, { value: 'other', label: 'Other' }] },
       { id: 'contraStartDate', question: 'When did you start using it?',                field: 'contraStartDate', type: 'text', required: false, condition: d => d.contraUsed === true && d.contraType && d.contraType !== 'condom', placeholder: 'e.g. Year (2020) is okay as a response' },
       { id: 'contraRemoved',   question: 'Did you stop taking it/have it removed before you got pregnant?',field: 'contraRemoved',  type: 'yes_no', required: false, condition: d => d.contraUsed === true && d.contraType && d.contraType !== 'condom' },
-      { id: 'papSmearAware', question: 'Have you heard of a pap smear (cervical smear)?', field: 'papSmearAware', type: 'yes_no', required: false },
-      { id: 'papSmearDone',  question: 'Have you had a pap smear done before?',         field: 'papSmearDone',   type: 'yes_no',  required: false, condition: d => d.papSmearAware === true },
-      { id: 'topDone',       question: 'Have you ever had a termination of pregnancy (abortion)?', field: 'topDone',        type: 'yes_no',  required: false, hint: 'Any pregnancy you had to remove.' },
-      { id: 'topCount',      question: 'How many terminations have you had?',           field: 'topCount',       type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 1', min: 1, max: 10 },
-      { id: 'topYear',       question: 'What year was the most recent termination?',    field: 'topYear',        type: 'number',  required: false, condition: d => d.topDone === true, placeholder: 'e.g. 2021', min: 1980, max: 2026 },
-      { id: 'topMethod',     question: 'How was the termination done?',                 field: 'topMethod',      type: 'chips',   required: false,
-        condition: d => d.topDone === true,
-        options: [{ value: 'medical', label: 'Medical (drugs & injection)' }, { value: 'surgical', label: 'Surgical [ Manual Vacuum Aspiration (MVA), Dilatation & Curettage (D&C) ]' }, { value: 'unknown', label: 'Not sure' }] },
-      { id: 'topComplications', question: 'Were there any complications after the termination?', field: 'topComplications', type: 'yes_no', required: false, condition: d => d.topDone === true },
     ];
 
     case 'medical': {
@@ -1576,12 +1567,6 @@ function buildDomainResponses(sId, data, children, miscarriages) {
       { question_key: 'contraceptive_type', answer: data.contraType || '' },
       { question_key: 'contraceptive_start_date', answer: data.contraStartDate || '' },
       { question_key: 'contraceptive_removed_before_pregnancy', answer: data.contraRemoved === true ? 'yes' : data.contraRemoved === false ? 'no' : '' },
-      { question_key: 'pap_smear',       answer: data.papSmearDone ? 'yes' : 'no' },
-      { question_key: 'top',             answer: data.topDone ? 'yes' : 'no' },
-      { question_key: 'top_count',       answer: String(data.topCount || '') },
-      { question_key: 'top_year',        answer: String(data.topYear || '') },
-      { question_key: 'top_method',      answer: data.topMethod || '' },
-      { question_key: 'top_complications', answer: data.topComplications === true ? 'yes' : data.topComplications === false ? 'no' : '' },
     ];
     case 'medical': return [
       ...(data.conditions || []).filter(c => !isNoneChoice(c)).map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),

@@ -217,24 +217,35 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'obstetric': {
-      /* Miscarriage questions commented out for now per doctor instructions
-      const miscarriageSlides = [
-        { id: 'miscarriageHistory', question: 'Have you ever had a miscarriage?', field: 'miscarriageHistory', type: 'yes_no', required: false },
-        { id: 'miscarriageCount', question: 'How many miscarriages have you had?', field: 'miscarriageCount', type: 'number', required: false, condition: d => d.miscarriageHistory === true, placeholder: 'e.g. 1', min: 1, max: 10 },
-      ];
-      
-      const mCount = Math.min(10, Math.max(0, parseInt(data.miscarriageCount, 10) || 0));
-      const miscarriageDetailsSlides = Array.from({ length: mCount }, (_, i) => ({
-        id: `miscarriage_${i}`, question: null, type: 'miscarriage_card', miscarriageIdx: i, required: false, condition: d => d.miscarriageHistory === true && (parseInt(d.miscarriageCount, 10) || 0) > 0,
-      }));
-      */
-
       if (isPrimigravida(data)) return [];
-      const p = parseInt(data.parity) || 0;
-      if (p === 0) return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
-      return Array.from({ length: p }, (_, i) => ({
-        id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+
+      const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+      const mCount = Math.min(10, derivedMCount);
+      const miscarriageDetailsSlides = Array.from({ length: mCount }, (_, i) => ({
+        id: `miscarriage_${i}`,
+        question: null,
+        type: 'miscarriage_card',
+        miscarriageIdx: i,
+        required: false,
       }));
+
+      const p = parseInt(data.parity, 10) || 0;
+      let childSlides = [];
+      if (p > 0) {
+        childSlides = Array.from({ length: p }, (_, i) => ({
+          id: `child_${i}`,
+          question: null,
+          type: 'child_card',
+          childIdx: i,
+          required: false,
+        }));
+      }
+
+      if (miscarriageDetailsSlides.length === 0 && childSlides.length === 0) {
+        return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
+      }
+
+      return [...miscarriageDetailsSlides, ...childSlides];
     }
 
     case 'gynae': return [
@@ -303,7 +314,7 @@ function isFilledValue(v) {
 /** Minimum fields for a previous-child card to count as done */
 function isMiscarriageCardFilled(m) {
   if (!m || typeof m !== 'object') return false;
-  return isFilledValue(m.year) && isFilledValue(m.gestationalAge);
+  return isFilledValue(m.year) || isFilledValue(m.gestationalAge);
 }
 
 function isChildCardFilled(child) {
@@ -345,9 +356,12 @@ function sectionComplete(sectionId, data) {
 
   if (sectionId === 'obstetric') {
     if (isPrimigravida(data)) return true;
+    const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
     const p = parseInt(data.parity, 10) || 0;
-    if (p === 0) return true; // first delivery — nothing to record
-    return Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
+    if (derivedMCount === 0 && p === 0) return true;
+    const childrenOk = p === 0 || Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
+    const miscarriagesOk = derivedMCount === 0 || Array.from({ length: derivedMCount }, (_, i) => (data.miscarriages || [])[i]).every(isMiscarriageCardFilled);
+    return childrenOk && miscarriagesOk;
   }
 
   const required = slides.filter(s => s.required);
@@ -1059,7 +1073,8 @@ const IntakeQuestionnaire = () => {
   const setMiscarriage = (idx, field, val) => {
     if (!canEdit) return;
     setData(prev => {
-      const count = Math.min(10, Math.max(0, parseInt(prev.miscarriageCount, 10) || 0));
+      const derivedCount = Math.max(0, (parseInt(prev.gravidity, 10) || 0) - (parseInt(prev.parity, 10) || 0) - 1);
+      const count = Math.min(10, Math.max(0, derivedCount));
       const miscarriages = Array.from({ length: Math.max(count, idx + 1) }, (_, i) => prev.miscarriages?.[i] || {});
       miscarriages[idx] = { ...(miscarriages[idx] || {}), [field]: val };
       return { ...prev, miscarriages };
@@ -1086,7 +1101,8 @@ const IntakeQuestionnaire = () => {
   const surgeryCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
   const ensuredSurgeries = Array.from({ length: surgeryCount }, (_, i) => data.surgeryDetails?.[i] || {});
 
-  const mCount = Math.min(10, Math.max(0, parseInt(data.miscarriageCount, 10) || 0));
+  const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+  const mCount = Math.min(10, Math.max(0, derivedMCount));
   const ensuredMiscarriages = Array.from({ length: mCount }, (_, i) => data.miscarriages?.[i] || {});
 
   const sections = useMemo(() => visibleSectionMeta(data), [data.gravidity]);
@@ -1564,7 +1580,19 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
       ]);
       */
-      return [...childResponses].filter(r => r.answer !== '' && r.answer != null);
+      const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+      const miscarriageResponses = derivedMCount > 0 ? [
+        { question_key: 'miscarriage_history', answer: 'yes' },
+        { question_key: 'miscarriage_count', answer: String(derivedMCount) },
+      ] : [
+        { question_key: 'miscarriage_history', answer: 'no' },
+        { question_key: 'miscarriage_count', answer: '0' },
+      ];
+      const mDetails = (miscarriages || []).slice(0, derivedMCount).flatMap((m, i) => [
+        { question_key: `miscarriage_${i}_year`, answer: String(m.year || '') },
+        { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
+      ]);
+      return [...miscarriageResponses, ...mDetails, ...childResponses].filter(r => r.answer !== '' && r.answer != null);
     }
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },

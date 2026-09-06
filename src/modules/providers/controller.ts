@@ -151,25 +151,32 @@ export const providersController = {
         }
       }
 
-      // Children alive from obstetric child_*_state_now intake answers
+      // Children alive: check direct children_alive question first, then child cards
       const allIntake = await prisma.intakeResponse.findMany({
         where: { patient_id: id },
         select: { question_key: true, answer: true },
       });
-      let childrenAlive = 0;
-      let childEntries = 0;
-      for (const ir of allIntake) {
-        const m = /^child_(\d+)_state_now$/.exec(ir.question_key);
-        if (!m) continue;
-        childEntries += 1;
-        const state = String(ir.answer ?? '').toLowerCase();
-        if (state.includes('alive') || state === 'well' || state === 'healthy' || state === 'living') {
-          childrenAlive += 1;
+      const directChildrenAlive = allIntake.find((ir) => ir.question_key === 'children_alive')?.answer;
+      let childrenAlive: number | null = null;
+      if (directChildrenAlive != null && directChildrenAlive !== '' && !isNaN(Number(directChildrenAlive))) {
+        childrenAlive = Number(directChildrenAlive);
+      } else {
+        let childEntries = 0;
+        let aliveCount = 0;
+        for (const ir of allIntake) {
+          const m = /^child_(\d+)_state_now$/.exec(ir.question_key);
+          if (!m) continue;
+          childEntries += 1;
+          const state = String(ir.answer ?? '').toLowerCase();
+          if (state.includes('alive') || state === 'well' || state === 'healthy' || state === 'living') {
+            aliveCount += 1;
+          }
         }
-      }
-      // Fallback: if no child cards, use parity as proxy for living children
-      if (childEntries === 0 && pregnancy?.parity != null) {
-        childrenAlive = Math.max(0, pregnancy.parity);
+        if (childEntries > 0) {
+          childrenAlive = aliveCount;
+        } else if (pregnancy?.parity === 0) {
+          childrenAlive = 0;
+        }
       }
 
       const summary = generatePreConsultSummary({

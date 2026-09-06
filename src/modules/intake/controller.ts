@@ -176,7 +176,7 @@ export const intakeController = {
       if (previousCsection == null || previousStillbirth == null) {
         for (const [key, answer] of intakeMap.entries()) {
           if (key.endsWith('_delivery_mode') && String(answer) === 'cs') previousCsection = true;
-          if (key.endsWith('_state_now') && String(answer) === 'died_at_birth') previousStillbirth = true;
+          if (key.endsWith('_state_now') && (String(answer) === 'died_at_birth' || String(answer) === 'stillbirth')) previousStillbirth = true;
         }
       }
 

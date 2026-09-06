@@ -178,16 +178,23 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
   const map = intakeMap(p.intake_responses);
   const children = parseIndexed(map, 'child');
   const surgeries = parseIndexed(map, 'surgery');
+  const miscarriages = parseIndexed(map, 'miscarriage');
 
-  let childrenAlive = 0;
-  children.forEach((c) => {
-    const s = String(c.state_now || '').toLowerCase();
-    if (s.includes('alive') || s === 'well' || s === 'healthy' || s === 'living') childrenAlive += 1;
-  });
-  if (!children.length && preg.parity != null) childrenAlive = Math.max(0, Number(preg.parity) || 0);
+  let childrenAlive = null;
   if (map.children_alive != null && map.children_alive !== '') {
     const n = Number(map.children_alive);
     if (!Number.isNaN(n)) childrenAlive = n;
+  }
+  if (childrenAlive === null && children.length > 0) {
+    let alive = 0;
+    children.forEach((c) => {
+      const s = String(c.state_now || '').toLowerCase();
+      if (s.includes('alive') || s === 'well' || s === 'healthy' || s === 'living') alive += 1;
+    });
+    childrenAlive = alive;
+  }
+  if (childrenAlive === null && preg.parity === 0) {
+    childrenAlive = 0;
   }
 
   const ega = preg.current_ega_weeks ?? egaFromLmp(preg.lmp_date);
@@ -218,6 +225,7 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
     .map(formatKey);
 
   const conditionList = [...medicalKnown, ...extraConditions];
+  const hasMedicalResponses = (p.intake_responses || []).some((r) => r.domain === 'medical');
 
   const systemFlags = (p.intake_responses || [])
     .filter((r) => (r.domain === 'systems' || r.domain === 'symptoms') && YES_NO[String(r.answer).toLowerCase()] === 'Yes')
@@ -312,7 +320,8 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                   { label: 'Occupation', value: asText(p.occupation) },
                   { label: 'Marital status', value: asText(p.marital_status) },
                   { label: 'Address', value: asText(p.address) },
-                  { label: 'Religion', value: asText(p.religion) },
+                  { label: 'Religion', value: asText(p.religion) + ((p.denomination || map.denomination) ? ` (${p.denomination || map.denomination})` : '') },
+                  { label: 'Denomination', value: asText(p.denomination || map.denomination) },
                   { label: 'Ethnicity', value: asText(p.ethnicity) },
                   { label: 'Phone', value: asText(p.phone_number) },
                   { label: 'LMP', value: formatDate(preg.lmp_date) },
@@ -358,8 +367,22 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
             </ReportSection>
 
             <ReportSection num="3" title="Obstetric history">
-              <p className="text-[12px] text-stone-600 mb-2">
-                Previous deliveries (parity {asText(preg.parity)}).
+              {(map.miscarriage_history || miscarriages.length > 0) && (
+                <div className="mb-3">
+                  <FieldTable
+                    rows={[
+                      { label: 'History of miscarriages', value: get(map, 'miscarriage_history') },
+                      { label: 'Number of miscarriages', value: get(map, 'miscarriage_count') },
+                      ...miscarriages.map((m, i) => ({
+                        label: `Miscarriage #${i + 1}`,
+                        value: `Year: ${asText(m.year)}, Gestational age: ${asText(m.gestational_age)}`,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
+              <p className="text-[12px] font-semibold text-stone-700 mb-1 mt-2">
+                Previous deliveries (parity {asText(preg.parity)}):
               </p>
               <DataTable
                 empty={
@@ -385,7 +408,16 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                   gender: asText(c.gender),
                   bw: c.birth_weight ? `${asText(c.birth_weight)} kg` : DASH,
                   cried: asText(c.cried_well),
-                  state: asText(c.state_now),
+                  state:
+                    c.state_now === 'stillbirth' || c.state_now === 'died_at_birth'
+                      ? 'Stillbirth'
+                      : c.state_now === 'alive_well'
+                        ? 'Alive and well'
+                        : c.state_now === 'alive_unwell'
+                          ? 'Alive with health issues'
+                          : c.state_now === 'died_later'
+                            ? 'Died later'
+                            : asText(c.state_now),
                   events: [asText(c.events), asText(c.events_other), asText(c.postnatal_issues)]
                     .filter((x) => x && x !== DASH && x !== 'No')
                     .join('; ') || DASH,
@@ -423,7 +455,7 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                 rows={[
                   {
                     label: 'Known conditions',
-                    value: conditionList.length ? conditionList.join('; ') : 'Nil of note',
+                    value: conditionList.length ? conditionList.join('; ') : (hasMedicalResponses ? 'Nil of note' : 'Not recorded'),
                   },
                   { label: 'Pregnancy medications', value: get(map, 'pregnancy_medications') },
                   { label: 'Other routine medications', value: get(map, 'other_medications') },
@@ -458,11 +490,21 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
             </ReportSection>
 
             <ReportSection num="8" title="Review of systems / reported symptoms">
-              {systemFlags.length ? (
-                <p className="text-[13px] mb-2">
-                  <span className="text-stone-500">Intake flags: </span>
-                  {systemFlags.join('; ')}
-                </p>
+              {systemFlags.length || map.systems_symptoms_other ? (
+                <div className="space-y-1 mb-2 text-[13px]">
+                  {systemFlags.length ? (
+                    <p>
+                      <span className="text-stone-500">Intake flags: </span>
+                      {systemFlags.join('; ')}
+                    </p>
+                  ) : null}
+                  {map.systems_symptoms_other ? (
+                    <p>
+                      <span className="text-stone-500">Other symptoms noted: </span>
+                      <span className="font-medium text-stone-900">{asText(map.systems_symptoms_other)}</span>
+                    </p>
+                  ) : null}
+                </div>
               ) : (
                 <p className="text-[13px] italic text-stone-500 mb-2">No systems complaints flagged at intake.</p>
               )}

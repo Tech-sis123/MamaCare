@@ -144,8 +144,7 @@ function isPrimigravida(data) {
 }
 
 function visibleSectionMeta(data) {
-  if (!isPrimigravida(data)) return SECTION_META;
-  return SECTION_META.filter((s) => s.id !== 'obstetric');
+  return SECTION_META;
 }
 
 // ── Build slides per section (data-driven) ────────────────────────────────────
@@ -217,15 +216,6 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'obstetric': {
-      if (isPrimigravida(data)) return [];
-      const p = parseInt(data.parity) || 0;
-      let childSlides = [];
-      if (p > 0) {
-        childSlides = Array.from({ length: p }, (_, i) => ({
-          id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
-        }));
-      }
-
       const miscarriageSlides = [
         { id: 'miscarriageHistory', question: 'Have you ever had a miscarriage?', field: 'miscarriageHistory', type: 'yes_no', required: false },
         { id: 'miscarriageCount', question: 'How many miscarriages have you had?', field: 'miscarriageCount', type: 'number', required: false, condition: d => d.miscarriageHistory === true, placeholder: 'e.g. 1', min: 1, max: 10 },
@@ -236,7 +226,15 @@ function buildSlides(sectionId, data) {
         id: `miscarriage_${i}`, question: null, type: 'miscarriage_card', miscarriageIdx: i, required: false, condition: d => d.miscarriageHistory === true && (parseInt(d.miscarriageCount, 10) || 0) > 0,
       }));
 
-      return [...childSlides, ...miscarriageSlides, ...miscarriageDetailsSlides];
+      const p = parseInt(data.parity) || 0;
+      let childSlides = [];
+      if (p > 0) {
+        childSlides = Array.from({ length: p }, (_, i) => ({
+          id: `child_${i}`, question: null, type: 'child_card', childIdx: i, required: false,
+        }));
+      }
+
+      return [...miscarriageSlides, ...miscarriageDetailsSlides, ...childSlides];
     }
 
     case 'gynae': return [
@@ -291,9 +289,10 @@ function buildSlides(sectionId, data) {
       { id: 'systemsSymptoms', question: 'Do you have any of these symptoms?', field: 'systemsSymptoms', type: 'multi', required: false,
         options: [
           'Headaches', 'Seizures / convulsions', 'Dizziness', 'Fainting episodes',
-          'Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'None of these'
+          'Chest pain', 'Cough', 'Palpitations', 'Difficulty breathing', 'Other', 'None of these'
         ]
       },
+      { id: 'systemsOther', question: 'Please describe any other symptoms you have', field: 'systemsOther', type: 'text', placeholder: 'Type your other symptoms…', condition: d => (d.systemsSymptoms || []).includes('Other') },
       { id: 'uroGynae', question: 'Are you experiencing any of these?', field: 'uroGynaeSymptoms', type: 'multi', required: false,
         options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling', 'None of these']
       },
@@ -412,7 +411,7 @@ const INIT = {
   // Medical
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Systems
-  neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], uroGynaeSymptoms: [],
+  neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], systemsOther: '', uroGynaeSymptoms: [],
 };
 
 // ── Surgery card ──────────────────────────────────────────────────────────────
@@ -511,16 +510,21 @@ const ChildCard = ({ idx, child, onChange }) => {
       <div>
         <Label>State of child now</Label>
         <div className="grid grid-cols-2 gap-2">
-          {[{ v: 'alive_well', l: 'Alive and well' }, { v: 'alive_unwell', l: 'Alive with health issues' }, { v: 'died_at_birth', l: 'Died at birth' }, { v: 'died_later', l: 'Died later' }].map(opt => (
+          {[
+            { v: 'alive_well', l: 'Alive and well' },
+            { v: 'alive_unwell', l: 'Alive with health issues' },
+            { v: 'stillbirth', l: 'Stillbirth' },
+            { v: 'died_later', l: 'Died later' }
+          ].map(opt => (
             <button key={opt.v} onClick={() => set('stateNow', opt.v)}
               className={`py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-center ${
-                child.stateNow === opt.v
+                child.stateNow === opt.v || (opt.v === 'stillbirth' && child.stateNow === 'died_at_birth')
                   ? 'border-primary bg-primary text-white'
                   : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
               }`}>{opt.l}</button>
           ))}
         </div>
-        {(child.stateNow === 'died_at_birth' || child.stateNow === 'died_later') &&
+        {(child.stateNow === 'died_at_birth' || child.stateNow === 'stillbirth' || child.stateNow === 'died_later') &&
           <p className="text-red-600 font-bold text-xs mt-1">⚠ Bad obstetric history — flagged as high risk</p>}
       </div>
 
@@ -853,7 +857,7 @@ const IntakeQuestionnaire = () => {
           gender: map[`child_${i}_gender`] || '',
           deliveryMode: map[`child_${i}_delivery_mode`] || '',
           birthWeight: map[`child_${i}_birth_weight`] || '',
-          stateNow: map[`child_${i}_state_now`] || '',
+          stateNow: map[`child_${i}_state_now`] === 'died_at_birth' ? 'stillbirth' : (map[`child_${i}_state_now`] || ''),
           events: map[`child_${i}_events`] ? String(map[`child_${i}_events`]).split(',').filter(Boolean) : [],
           eventsOther: map[`child_${i}_events_other`] || '',
           hasPostnatalComplication: map[`child_${i}_postnatal_issues`] && map[`child_${i}_postnatal_issues`] !== 'no' ? true : false,
@@ -911,11 +915,13 @@ const IntakeQuestionnaire = () => {
           addrCity: addrParts[2] || prev.addrCity,
           addrState: addrParts[3] || prev.addrState,
           religion: prof?.religion ? prof.religion.charAt(0).toUpperCase() + prof.religion.slice(1) : prev.religion,
+          christianDenom: prof?.denomination || map['denomination'] || prev.christianDenom,
           tribe: prof?.ethnicity || prev.tribe,
           lmpKnown: preg.lmp_date ? true : prev.lmpKnown,
           lmpDate: preg.lmp_date ? new Date(preg.lmp_date).toISOString().split('T')[0] : prev.lmpDate,
           gravidity: preg.gravidity ?? prev.gravidity,
           parity: parseInt(preg.gravidity ?? prev.gravidity, 10) === 1 ? '0' : parityVal,
+          childrenAlive: map['children_alive'] != null && map['children_alive'] !== '' ? String(map['children_alive']) : prev.childrenAlive,
           bloodGroup: preg.blood_group || prev.bloodGroup,
           genotype: preg.genotype || prev.genotype,
           multiGestation: (() => {
@@ -992,6 +998,7 @@ const IntakeQuestionnaire = () => {
               { key: 'difficulty_breathing', label: 'Difficulty breathing' }
             ].filter(x => map[x.key] === 'yes').map(x => x.label)
           )),
+          systemsOther: map['systems_symptoms_other'] || prev.systemsOther,
           // Uro/gynae grouped symptoms
           uroGynaeSymptoms: (map['uro_gynae_symptoms'] ? String(map['uro_gynae_symptoms']).split(',').map(s => s.trim()).filter(Boolean) : (
             [
@@ -1167,8 +1174,14 @@ const IntakeQuestionnaire = () => {
           religion: data.religion?.toLowerCase() || undefined,
           ethnicity: data.tribe || undefined,
         }).catch(() => {});
-        // Past twin/multiple history + current twin flag (biodata domain is allowed by API)
+        // Past twin/multiple history + current twin flag + denomination + children alive (biodata domain is allowed by API)
         const biodataResponses = [];
+        if (data.religion === 'Christian' && data.christianDenom) {
+          biodataResponses.push({ question_key: 'denomination', answer: String(data.christianDenom) });
+        }
+        if (data.childrenAlive !== '' && data.childrenAlive != null) {
+          biodataResponses.push({ question_key: 'children_alive', answer: String(data.childrenAlive) });
+        }
         if (data.multiGestation !== null && data.multiGestation !== undefined) {
           biodataResponses.push({ question_key: 'multi_gestation_history', answer: data.multiGestation === true });
         }
@@ -1595,6 +1608,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         ];
       }),
       { question_key: 'systems_symptoms', answer: (data.systemsSymptoms || []).join(', ') },
+      ...(data.systemsOther ? [{ question_key: 'systems_symptoms_other', answer: data.systemsOther }] : []),
       // Uro/gynae grouped symptoms
       ...(data.uroGynaeSymptoms || []).filter(s => !isNoneChoice(s)).flatMap(s => {
         const slug = String(s).toLowerCase().replace(/\s*\/\s*/g, '_').replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');

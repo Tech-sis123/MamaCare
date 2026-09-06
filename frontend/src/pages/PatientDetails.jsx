@@ -355,16 +355,24 @@ const PatientDetailPanel = () => {
     if (r?.question_key) intakeMap[r.question_key] = r.answer;
   });
 
-  let childrenAlive = 0;
+  let childrenAlive = null;
+  if (intakeMap.children_alive != null && intakeMap.children_alive !== '') {
+    const n = Number(intakeMap.children_alive);
+    if (!Number.isNaN(n)) childrenAlive = n;
+  }
   let childEntries = 0;
+  let aliveCount = 0;
   for (let i = 0; i < 20; i += 1) {
     const state = ans(intakeMap, `child_${i}_state_now`);
     if (state == null || state === '') continue;
     childEntries += 1;
     const s = String(state).toLowerCase();
     if (s.includes('alive') || s === 'well' || s === 'healthy' || s === 'living') {
-      childrenAlive += 1;
+      aliveCount += 1;
     }
+  }
+  if (childrenAlive === null && childEntries > 0) {
+    childrenAlive = aliveCount;
   }
 
   const liveEga = preg.lmp_date
@@ -375,10 +383,10 @@ const PatientDetailPanel = () => {
 
   const gravida = preg.gravidity ?? passedPatient?.gravida ?? (isReal ? null : MOCK.gravida);
   const para = preg.parity ?? passedPatient?.para ?? (isReal ? null : MOCK.para);
-  if (childEntries === 0 && para != null && !Number.isNaN(Number(para))) {
-    childrenAlive = Math.max(0, Number(para));
+  if (childrenAlive === null && para === 0) {
+    childrenAlive = 0;
   }
-  if (!isReal && childEntries === 0) childrenAlive = MOCK.childrenAlive;
+  if (!isReal && childrenAlive === null) childrenAlive = MOCK.childrenAlive;
 
   const gpStr = formatGP(gravida, para, childrenAlive);
 

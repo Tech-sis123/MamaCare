@@ -508,13 +508,13 @@ const ChildCard = ({ idx, child, onChange }) => {
       </div>
 
       <div>
-        <Label>State of child now</Label>
+        <Label>State of child</Label>
         <div className="grid grid-cols-2 gap-2">
           {[
             { v: 'alive_well', l: 'Alive and well' },
-            { v: 'alive_unwell', l: 'Alive with health issues' },
-            { v: 'stillbirth', l: 'Stillbirth' },
-            { v: 'died_later', l: 'Died later' }
+            { v: 'alive_unwell', l: 'Alive, health issues' },
+            { v: 'stillbirth', l: 'Still birth' },
+            { v: 'died_later', l: 'Died at birth/later' }
           ].map(opt => (
             <button key={opt.v} onClick={() => set('stateNow', opt.v)}
               className={`py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all text-center ${

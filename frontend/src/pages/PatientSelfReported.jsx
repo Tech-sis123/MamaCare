@@ -410,13 +410,13 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                   cried: asText(c.cried_well),
                   state:
                     c.state_now === 'stillbirth' || c.state_now === 'died_at_birth'
-                      ? 'Stillbirth'
+                      ? 'Still birth'
                       : c.state_now === 'alive_well'
                         ? 'Alive and well'
                         : c.state_now === 'alive_unwell'
-                          ? 'Alive with health issues'
+                          ? 'Alive, health issues'
                           : c.state_now === 'died_later'
-                            ? 'Died later'
+                            ? 'Died at birth/later'
                             : asText(c.state_now),
                   events: [asText(c.events), asText(c.events_other), asText(c.postnatal_issues)]
                     .filter((x) => x && x !== DASH && x !== 'No')

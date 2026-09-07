@@ -332,6 +332,10 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
                   { label: 'Children alive', value: asText(childrenAlive) },
                   { label: 'Twin / multiple history', value: get(map, 'multi_gestation_history') },
                   { label: 'Number of multiple gestations', value: get(map, 'multi_gestation_count') },
+                  { label: 'Miscarriage history', value: get(map, 'miscarriage') },
+                  { label: 'Number of miscarriages', value: get(map, 'miscarriage_count') },
+                  { label: 'Termination (abortion) history', value: get(map, 'abortion') },
+                  { label: 'Number of terminations', value: get(map, 'abortion_count') },
                   { label: 'Last childbirth', value: lastBirthYear != null ? String(lastBirthYear) : DASH },
                 ]}
               />

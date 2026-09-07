@@ -193,6 +193,16 @@ function buildSlides(sectionId, data) {
       { id: 'childrenAlive', question: 'How many of the children you delivered are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
+      { id: 'miscarriage', question: 'Have you ever had a miscarriage?', field: 'miscarriage', type: 'yes_no', required: false,
+        condition: d => !isPrimigravida(d) },
+      { id: 'miscarriageCount', question: 'How many miscarriages have you had?', field: 'miscarriageCount', type: 'number', required: false,
+        condition: d => d.miscarriage === true,
+        placeholder: 'e.g. 1', min: 1, max: 20 },
+      { id: 'abortion', question: 'Have you ever had a Termination of pregnancy (abortion)?', field: 'abortion', type: 'yes_no', required: false,
+        condition: d => !isPrimigravida(d) },
+      { id: 'abortionCount', question: 'How many terminations have you had?', field: 'abortionCount', type: 'number', required: false,
+        condition: d => d.abortion === true,
+        placeholder: 'e.g. 1', min: 1, max: 20 },
     ];
 
     case 'index': return [
@@ -219,7 +229,7 @@ function buildSlides(sectionId, data) {
     case 'obstetric': {
       if (isPrimigravida(data)) return [];
 
-      const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+      const derivedMCount = data.miscarriage === true ? (parseInt(data.miscarriageCount, 10) || 0) : 0;
       const mCount = Math.min(10, derivedMCount);
       const miscarriageDetailsSlides = Array.from({ length: mCount }, (_, i) => ({
         id: `miscarriage_${i}`,
@@ -296,8 +306,9 @@ function buildSlides(sectionId, data) {
       },
       { id: 'systemsOther', question: 'Please describe any other symptoms you have', field: 'systemsOther', type: 'text', placeholder: 'Type your other symptoms…', condition: d => (d.systemsSymptoms || []).includes('Other') },
       { id: 'uroGynae', question: 'Are you experiencing any of these?', field: 'uroGynaeSymptoms', type: 'multi', required: false,
-        options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling', 'None of these']
+        options: ['Frequent urination', 'Pain on urination', 'Urinating blood', 'Unusual vaginal discharge', 'Constipation (hard stool)', 'Frequent stooling', 'Other', 'None of these']
       },
+      { id: 'uroGynaeOther', question: 'Please describe any other symptoms you are experiencing', field: 'uroGynaeOther', type: 'text', placeholder: 'Type your other symptoms…', condition: d => (d.uroGynaeSymptoms || []).includes('Other') },
     ];
 
     default: return [];
@@ -356,7 +367,7 @@ function sectionComplete(sectionId, data) {
 
   if (sectionId === 'obstetric') {
     if (isPrimigravida(data)) return true;
-    const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+    const derivedMCount = data.miscarriage === true ? (parseInt(data.miscarriageCount, 10) || 0) : 0;
     const p = parseInt(data.parity, 10) || 0;
     if (derivedMCount === 0 && p === 0) return true;
     const childrenOk = p === 0 || Array.from({ length: p }, (_, i) => (data.children || [])[i]).every(isChildCardFilled);
@@ -419,7 +430,7 @@ const INIT = {
   // Medical
   conditions: [], surgeries: null, surgeryCount: '', surgeryDetails: [], pregMeds: '', routineMedsCheck: null, currentMeds: '', drugAllergy: null, allergyDetails: '',
   // Systems
-  neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], systemsOther: '', uroGynaeSymptoms: [],
+  neuroSymptoms: [], cardioSymptoms: [], systemsSymptoms: [], systemsOther: '', uroGynaeSymptoms: [], uroGynaeOther: '',
 };
 
 // ── Surgery card ──────────────────────────────────────────────────────────────
@@ -1018,6 +1029,7 @@ const IntakeQuestionnaire = () => {
               { key: 'frequent_stooling', label: 'Frequent stooling' }
             ].filter(x => map[x.key] === 'yes').map(x => x.label)
           )),
+          uroGynaeOther: map['uro_gynae_symptoms_other'] || prev.uroGynaeOther,
           // legacy per-field keys removed — new grouped keys used: systems_symptoms, uro_gynae_symptoms
         };
       });
@@ -1101,7 +1113,7 @@ const IntakeQuestionnaire = () => {
   const surgeryCount = Math.min(20, Math.max(0, parseInt(data.surgeryCount, 10) || 0));
   const ensuredSurgeries = Array.from({ length: surgeryCount }, (_, i) => data.surgeryDetails?.[i] || {});
 
-  const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+  const derivedMCount = data.miscarriage === true ? (parseInt(data.miscarriageCount, 10) || 0) : 0;
   const mCount = Math.min(10, Math.max(0, derivedMCount));
   const ensuredMiscarriages = Array.from({ length: mCount }, (_, i) => data.miscarriages?.[i] || {});
 
@@ -1200,6 +1212,18 @@ const IntakeQuestionnaire = () => {
         }
         if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
           biodataResponses.push({ question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true });
+        }
+        if (data.miscarriage !== null && data.miscarriage !== undefined) {
+          biodataResponses.push({ question_key: 'miscarriage', answer: data.miscarriage === true });
+        }
+        if (data.miscarriage === true && data.miscarriageCount !== '' && data.miscarriageCount != null) {
+          biodataResponses.push({ question_key: 'miscarriage_count', answer: String(data.miscarriageCount) });
+        }
+        if (data.abortion !== null && data.abortion !== undefined) {
+          biodataResponses.push({ question_key: 'abortion', answer: data.abortion === true });
+        }
+        if (data.abortion === true && data.abortionCount !== '' && data.abortionCount != null) {
+          biodataResponses.push({ question_key: 'abortion_count', answer: String(data.abortionCount) });
         }
         if (biodataResponses.length) {
           await saveIntake(patientId, 'biodata', biodataResponses).catch(() => {});
@@ -1580,7 +1604,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
       ]);
       */
-      const derivedMCount = Math.max(0, (parseInt(data.gravidity, 10) || 0) - (parseInt(data.parity, 10) || 0) - 1);
+      const derivedMCount = data.miscarriage === true ? (parseInt(data.miscarriageCount, 10) || 0) : 0;
       const miscarriageResponses = derivedMCount > 0 ? [
         { question_key: 'miscarriage_history', answer: 'yes' },
         { question_key: 'miscarriage_count', answer: String(derivedMCount) },
@@ -1633,6 +1657,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         return [{ question_key: slug, answer: 'yes' }];
       }),
       { question_key: 'uro_gynae_symptoms', answer: (data.uroGynaeSymptoms || []).join(', ') },
+      ...(data.uroGynaeOther ? [{ question_key: 'uro_gynae_symptoms_other', answer: data.uroGynaeOther }] : []),
     ];
     default: return [];
   }

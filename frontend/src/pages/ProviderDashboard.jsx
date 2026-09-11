@@ -820,6 +820,8 @@ const DoctorAuthScreen = ({ onLogin }) => {
   const [view, setView] = useState('login'); // 'login', 'register', 'forgot'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
   const [name, setName] = useState('');
   const [hospital, setHospital] = useState('');
   const [loading, setLoading] = useState(false);
@@ -889,7 +891,26 @@ const DoctorAuthScreen = ({ onLogin }) => {
             </div>
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
             </div>
             <div className="flex justify-end">
               <button type="button" onClick={() => { setView('forgot'); setError(''); setMsg(''); }} className="text-primary font-label-sm text-xs hover:underline">Forgot password?</button>
@@ -920,7 +941,26 @@ const DoctorAuthScreen = ({ onLogin }) => {
             </div>
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+              <div className="relative">
+                <input
+                  type={showRegPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRegPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                  tabIndex={-1}
+                  aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showRegPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
             </div>
             {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
             <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60">

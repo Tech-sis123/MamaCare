@@ -10,6 +10,28 @@ import {
 } from '../lib/api';
 import { setPatientAuth, isPatientAuthenticated } from '../lib/auth';
 
+const parseDobToDate = (day, month, year) => {
+  const d = parseInt(day, 10);
+  const m = parseInt(month, 10);
+  const y = parseInt(year, 10);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+  if (m < 1 || m > 12) return null;
+  if (d < 1 || d > 31) return null;
+  const currentYear = new Date().getFullYear();
+  if (y < 1920 || y > currentYear) return null;
+
+  const date = new Date(y, m - 1, d);
+  if (
+    date.getFullYear() !== y ||
+    date.getMonth() !== m - 1 ||
+    date.getDate() !== d
+  ) {
+    return null;
+  }
+  if (date > new Date()) return null;
+  return date;
+};
+
 const RegistrationFlow = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -36,6 +58,17 @@ const RegistrationFlow = () => {
   });
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+
+  const [dobDay, setDobDay] = useState('');
+  const [dobMonth, setDobMonth] = useState('');
+  const [dobYear, setDobYear] = useState('');
+  const monthInputRef = useRef(null);
+  const yearInputRef = useRef(null);
+
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const inputRefs = useRef([]);
 
@@ -150,9 +183,13 @@ const RegistrationFlow = () => {
       setApiError('Password must be at least 6 characters.');
       return;
     }
+    const dob = parseDobToDate(dobDay, dobMonth, dobYear);
+    if (!dobDay || !dobMonth || !dobYear || !dob) {
+      setApiError('Please enter a valid date of birth (Day, Month, Year).');
+      return;
+    }
     setLoading(true);
     try {
-      const dob = formData.dob ? new Date(formData.dob) : null;
       let age;
       if (dob && !isNaN(dob.getTime())) {
         const today = new Date();
@@ -338,15 +375,28 @@ const RegistrationFlow = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label-sm text-on-surface-variant">PASSWORD</label>
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    placeholder="Your password"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="Your password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                      tabIndex={-1}
+                      aria-label={showLoginPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {showLoginPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
                 <button
@@ -412,14 +462,27 @@ const RegistrationFlow = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="font-label-sm text-on-surface-variant">PASSWORD</label>
-                    <input
-                      type="password"
-                      value={registerPassword}
-                      onChange={(e) => setRegisterPassword(e.target.value)}
-                      className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                      placeholder="At least 6 characters"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showRegisterPassword ? 'text' : 'password'}
+                        value={registerPassword}
+                        onChange={(e) => setRegisterPassword(e.target.value)}
+                        className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                        placeholder="At least 6 characters"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegisterPassword((prev) => !prev)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                        tabIndex={-1}
+                        aria-label={showRegisterPassword ? 'Hide password' : 'Show password'}
+                      >
+                        <span className="material-symbols-outlined text-[20px]">
+                          {showRegisterPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                   {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
                   <button
@@ -559,14 +622,62 @@ const RegistrationFlow = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label-sm text-on-surface-variant">DATE OF BIRTH</label>
-                  <input
-                    name="dob"
-                    type="date"
-                    value={formData.dob}
-                    onChange={handleProfileChange}
-                    className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    required
-                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Day (DD)"
+                        maxLength={2}
+                        value={dobDay}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          setDobDay(val);
+                          if (val.length === 2 && monthInputRef.current) {
+                            monthInputRef.current.focus();
+                          }
+                        }}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input
+                        ref={monthInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Month (MM)"
+                        maxLength={2}
+                        value={dobMonth}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          setDobMonth(val);
+                          if (val.length === 2 && yearInputRef.current) {
+                            yearInputRef.current.focus();
+                          }
+                        }}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <input
+                        ref={yearInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Year (YYYY)"
+                        maxLength={4}
+                        value={dobYear}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          setDobYear(val);
+                        }}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-400">e.g. 15 / 08 / 1996</p>
                 </div>
                 <div className="space-y-1">
                   <label className="font-label-sm text-on-surface-variant">EMAIL</label>
@@ -583,29 +694,57 @@ const RegistrationFlow = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="font-label-sm text-on-surface-variant">PASSWORD</label>
-                  <input
-                    name="password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={formData.password}
-                    onChange={handleProfileChange}
-                    className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    placeholder="At least 6 characters"
-                    minLength={6}
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={formData.password}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="At least 6 characters"
+                      minLength={6}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                      tabIndex={-1}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="font-label-sm text-on-surface-variant">CONFIRM PASSWORD</label>
-                  <input
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    value={formData.confirmPassword}
-                    onChange={handleProfileChange}
-                    className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      name="confirmPassword"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={formData.confirmPassword}
+                      onChange={handleProfileChange}
+                      className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                      placeholder="Confirm your password"
+                      minLength={6}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                      tabIndex={-1}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
                 <button

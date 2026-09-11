@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { resetDoctorPassword } from '../lib/api';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-  const navigate = useNavigate();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -69,11 +70,51 @@ const ResetPassword = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">New Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required minLength={6} />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
             </div>
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Confirm Password</label>
-              <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required minLength={6} />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-11 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(prev => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 focus:outline-none flex items-center justify-center p-1"
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  <span className="material-symbols-outlined text-[20px]">
+                    {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </div>
             </div>
             {error && <p className="text-secondary font-label-sm text-sm">{error}</p>}
             <button type="submit" disabled={loading} className="w-full bg-primary text-white py-4 rounded-xl font-label-sm hover:opacity-90 transition-all disabled:opacity-60">

@@ -201,8 +201,6 @@ function buildSlides(sectionId, data) {
       { id: 'childrenAlive', question: 'How many of the children you delivered are currently alive?',
         field: 'childrenAlive', type: 'number',  required: false, placeholder: 'e.g. 2', min: 0, max: 20,
         condition: d => parseInt(d.parity) > 0 },
-      { id: 'gp_summary',    question: null, type: 'gp_summary', required: false,
-        condition: d => !isPrimigravida(d) && d.gravidity !== '' && d.gravidity != null && d.parity !== '' && d.parity != null && !isNaN(parseInt(d.gravidity, 10)) && !isNaN(parseInt(d.parity, 10)) },
     ];
 
     case 'index': return [
@@ -255,7 +253,7 @@ function buildSlides(sectionId, data) {
         return [{ id: 'obs_none', question: null, type: 'obs_none', required: false }];
       }
 
-      return [...miscarriageDetailsSlides, ...childSlides];
+      return [...childSlides, ...miscarriageDetailsSlides];
     }
 
     case 'gynae': return [
@@ -346,7 +344,7 @@ function isSurgeryCardFilled(surgery) {
 
 function isSlideAnswered(slide, data) {
   if (!slide) return false;
-  if (slide.type === 'obs_none' || slide.type === 'gp_summary') return true;
+  if (slide.type === 'obs_none') return true;
   if (slide.type === 'child_card') {
     return isChildCardFilled((data.children || [])[slide.childIdx]);
   }
@@ -736,45 +734,6 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }
     </div>
   );
 
-  if (slide.type === 'gp_summary') {
-    const parts = computeGPParts(data);
-    if (!parts) {
-      return (
-        <p className="text-slate-400 text-center py-8">
-          Fill in total pregnancies (G) and births after 24 weeks (P) to see your obstetric summary.
-        </p>
-      );
-    }
-    return (
-      <div className="bg-primary/5 border-2 border-primary/20 rounded-2xl p-8 text-center space-y-5">
-        {/* Chart-style layout matching clinical ANC cards */}
-        <div className="inline-block text-left bg-white/80 border border-primary/15 rounded-2xl px-10 py-6 shadow-sm">
-          <p className="text-4xl font-bold text-primary tracking-wide text-center">{parts.chartLine1}</p>
-          <p className="text-4xl font-bold text-primary tracking-wide text-center mt-1">{parts.chartLine2}</p>
-          {parts.alive != null && (
-            <p className="text-lg font-semibold text-primary/70 text-center mt-2">({parts.alive}A)</p>
-          )}
-        </div>
-        <p className="text-sm font-semibold text-primary/80 tracking-wide">{parts.compact}</p>
-        <div className="text-sm text-slate-600 space-y-2 text-left max-w-sm mx-auto">
-          <p><span className="font-bold text-primary">G{parts.G}</span> — Gravida: total pregnancies (including this one)</p>
-          <p><span className="font-bold text-primary">P{parts.P}</span> — Para: pregnancies that reached 24 weeks</p>
-          <p><span className="font-bold text-primary">+{parts.abortions}</span> — pregnancies that ended before 24 weeks (miscarriage / termination)</p>
-          {parts.alive != null && (
-            <p><span className="font-bold text-primary">({parts.alive}A)</span> — children currently alive</p>
-          )}
-          <p className="text-xs text-slate-400 pt-1">
-            While you are pregnant: G = P + (losses) + 1 (this pregnancy).
-          </p>
-          {parts.inconsistent && (
-            <p className="text-amber-700 font-semibold text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              These numbers may not add up. Total pregnancies (G) should be at least Para (P) + 1 while you are pregnant. Please check your answers.
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   if (slide.type === 'obs_none') return (
     <div className="bg-primary/5 border border-primary/20 rounded-2xl p-8 text-center">
@@ -1504,11 +1463,6 @@ const IntakeQuestionnaire = () => {
             {slide.hint && <p className="text-slate-400 text-sm mt-2">{slide.hint}</p>}
           </div>
         )}
-        {slide?.type === 'gp_summary' && (
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-slate-800">Your obstetric summary</h2>
-          </div>
-        )}
         {slide?.type === 'obs_none' && (
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-slate-800">Obstetric history</h2>
@@ -1616,7 +1570,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
         { question_key: `miscarriage_${i}_year`, answer: String(m.year || '') },
         { question_key: `miscarriage_${i}_gestational_age`, answer: m.gestationalAge || '' }
       ]);
-      return [...miscarriageResponses, ...mDetails, ...childResponses].filter(r => r.answer !== '' && r.answer != null);
+      return [...childResponses, ...miscarriageResponses, ...mDetails].filter(r => r.answer !== '' && r.answer != null);
     }
     case 'gynae': return [
       { question_key: 'menarche_age',    answer: data.menarche || '' },

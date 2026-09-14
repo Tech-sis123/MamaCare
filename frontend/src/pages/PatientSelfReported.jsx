@@ -7,6 +7,8 @@ const YES_NO = {
   no: 'No',
   true: 'Yes',
   false: 'No',
+  not_sure: 'Not sure',
+  unsure: 'Not sure',
 };
 
 const CONCEPTION = {

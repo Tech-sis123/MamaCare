@@ -40,8 +40,8 @@ const Field = ({ label, value, onChange, placeholder, type = 'text', hint, min, 
   </div>
 );
 
-const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
-  <div className="flex gap-3">
+const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No', unsureLabel }) => (
+  <div className="flex flex-wrap gap-3">
     {[{ v: true, l: yesLabel }, { v: false, l: noLabel }].map(opt => (
       <button key={String(opt.v)} onClick={() => onChange(opt.v)}
         className={`flex-1 py-4 rounded-xl border-2 text-base font-semibold transition-all active:scale-95 ${
@@ -51,12 +51,91 @@ const YesNo = ({ value, onChange, yesLabel = 'Yes', noLabel = 'No' }) => (
         }`}
       >{opt.l}</button>
     ))}
+    {unsureLabel ? (
+      <button type="button" onClick={() => onChange('not_sure')}
+        className={`w-full py-4 rounded-xl border-2 text-base font-semibold transition-all active:scale-95 ${
+          value === 'not_sure'
+            ? 'border-primary bg-primary text-white shadow-md'
+            : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
+        }`}
+      >{unsureLabel}</button>
+    ) : null}
   </div>
 );
 
 function isNoneChoice(v) {
   const s = String(v ?? '').trim().toLowerCase();
   return s === 'none' || s === 'none of these' || s === 'none of the above';
+}
+
+const MEDICAL_CONDITIONS = [
+  { key: 'hypertension', label: 'Hypertension' },
+  { key: 'epilepsy', label: 'Epilepsy' },
+  { key: 'asthma', label: 'Asthma' },
+  { key: 'diabetes', label: 'Diabetes' },
+  { key: 'peptic_ulcer_disease', label: 'Peptic ulcer disease' },
+];
+
+function isYesAnswer(v) {
+  return v === true || v === 'true' || v === 'yes' || v === 'Yes';
+}
+
+function isNoAnswer(v) {
+  return v === false || v === 'false' || v === 'no' || v === 'No';
+}
+
+function ynAnswer(v) {
+  if (isYesAnswer(v)) return true;
+  if (isNoAnswer(v)) return false;
+  return null;
+}
+
+function isNotSureAnswer(v) {
+  const s = String(v ?? '').trim().toLowerCase().replace(/\s+/g, '_');
+  return s === 'not_sure' || s === 'unsure' || s === 'notsure';
+}
+
+function loadTwinFlag(v) {
+  const yn = ynAnswer(v);
+  if (yn !== null) return yn;
+  if (isNotSureAnswer(v)) return 'not_sure';
+  return null;
+}
+
+function serializeTwinPregnancy(v) {
+  if (v === true) return 'yes';
+  if (v === false) return 'no';
+  if (v === 'not_sure' || isNotSureAnswer(v)) return 'not_sure';
+  return null;
+}
+
+function medicalConditionKey(label) {
+  return String(label ?? '').toLowerCase().replace(/\s+/g, '_');
+}
+
+function loadMedicalConditions(map) {
+  const grouped = map['medical_conditions'];
+  if (grouped != null && String(grouped).trim() !== '') {
+    return String(grouped).split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  const selected = MEDICAL_CONDITIONS.filter((c) => isYesAnswer(map[c.key])).map((c) => c.label);
+  if (selected.length > 0) return selected;
+  if (isYesAnswer(map['none_of_these'])) return ['None of these'];
+  return [];
+}
+
+function buildMedicalConditionResponses(selected) {
+  const list = Array.isArray(selected) ? selected : [];
+  if (list.length === 0) return [];
+  const noneSelected = list.some(isNoneChoice);
+  return [
+    ...MEDICAL_CONDITIONS.map((c) => ({
+      question_key: c.key,
+      answer: list.some((item) => medicalConditionKey(item) === c.key) ? 'yes' : 'no',
+    })),
+    { question_key: 'none_of_these', answer: noneSelected ? 'yes' : 'no' },
+    { question_key: 'medical_conditions', answer: list.join(', ') },
+  ];
 }
 
 const Chips = ({ options = [], value, onChange, multi = false }) => {
@@ -204,10 +283,10 @@ function buildSlides(sectionId, data) {
     ];
 
     case 'index': return [
-      { id: 'desired',        question: 'Was this pregnancy planned or desired?',        field: 'desired',        type: 'yes_no',  required: false },
       { id: 'conception',     question: 'How was this pregnancy achieved?',              field: 'conception',     type: 'chips',   required: false,
         options: [{ value: 'spontaneous', label: 'Spontaneous (natural)' }, { value: 'assisted', label: 'Assisted (IVF / IUI)' }] },
       { id: 'currentMultiGestation', question: 'Is this pregnancy a twin or multiple pregnancy?', field: 'currentMultiGestation', type: 'yes_no', required: false,
+        unsureLabel: 'Not sure',
         hint: 'This is about the pregnancy you are carrying now.' },
       { id: 'pregTestDone',   question: 'Did you do a pregnancy test to confirm this pregnancy?', field: 'pregTestDone', type: 'yes_no', required: false },
       { id: 'pregTestType',   question: 'What type of pregnancy test did you use?',      field: 'pregTestType',   type: 'chips',   required: false,
@@ -283,7 +362,7 @@ function buildSlides(sectionId, data) {
 
       return [
         { id: 'conditions',    question: 'Do you have or have you ever had any of these conditions?', field: 'conditions', type: 'multi', required: false,
-          options: ['Hypertension', 'Epilepsy', 'Asthma', 'Diabetes', 'Peptic ulcer disease', 'None of these'] },
+          options: [...MEDICAL_CONDITIONS.map((c) => c.label), 'None of these'] },
         { id: 'surgeries',     question: 'Have you had any past surgeries?',               field: 'surgeries',      type: 'yes_no',  required: false },
         { id: 'surgeryCount',  question: 'How many surgeries have you had in the past?',   field: 'surgeryCount',   type: 'number',  required: false, condition: d => d.surgeries === true, placeholder: 'e.g. 1', min: 1, max: 20 },
         ...surgeryFields,
@@ -342,9 +421,19 @@ function isSurgeryCardFilled(surgery) {
   return isFilledValue(surgery.type) && isFilledValue(surgery.year);
 }
 
+function isAddressFilled(data) {
+  return [data?.addrHouse, data?.addrStreet, data?.addrCity, data?.addrState].some(isFilledValue);
+}
+
+function isMonthYearFilled(data) {
+  return isFilledValue(data?.lmpMonth) && isFilledValue(data?.lmpYear);
+}
+
 function isSlideAnswered(slide, data) {
   if (!slide) return false;
   if (slide.type === 'obs_none') return true;
+  if (slide.type === 'address') return isAddressFilled(data);
+  if (slide.type === 'month_year') return isMonthYearFilled(data);
   if (slide.type === 'child_card') {
     return isChildCardFilled((data.children || [])[slide.childIdx]);
   }
@@ -410,6 +499,7 @@ const INIT = {
   religion: null, christianDenom: null, tribe: '',
   lmpKnown: null, lmpDate: '', lmpMonth: '', lmpYear: '',
   gravidity: '', parity: '', multiGestation: null, multiGestationCount: '', childrenAlive: '',
+  miscarriage: null, abortion: null, abortionCount: '',
   // Index pregnancy
   desired: null, conception: null, currentMultiGestation: null,
   pregTestDone: null, pregTestType: null,
@@ -720,7 +810,7 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }
 
   if (slide.type === 'yes_no') return (
     <div className="space-y-3">
-      <YesNo value={val} onChange={v => set(slide.field, v)} />
+      <YesNo value={val} onChange={v => set(slide.field, v)} unsureLabel={slide.unsureLabel} />
       {risk && <RiskBadge text={risk} />}
     </div>
   );
@@ -858,15 +948,7 @@ const IntakeQuestionnaire = () => {
           gestationalAge: map[`miscarriage_${i}_gestational_age`] || ''
         }));
 
-        const conditionOpts = ['hypertension', 'epilepsy', 'asthma', 'diabetes', 'peptic_ulcer_disease'];
-        const conditionsMap = {
-          'hypertension': 'Hypertension',
-          'epilepsy': 'Epilepsy',
-          'asthma': 'Asthma',
-          'diabetes': 'Diabetes',
-          'peptic_ulcer_disease': 'Peptic ulcer disease'
-        };
-        const loadedConditions = conditionOpts.filter(c => map[c] === 'yes').map(c => conditionsMap[c]);
+        const loadedConditions = loadMedicalConditions(map);
 
         return {
           ...prev,
@@ -916,19 +998,21 @@ const IntakeQuestionnaire = () => {
           multiGestationCount: map['multi_gestation_count'] != null && map['multi_gestation_count'] !== ''
             ? String(map['multi_gestation_count'])
             : prev.multiGestationCount,
-          // Current pregnancy twins — only from is_twin_pregnancy once we use the new history key
           currentMultiGestation: (() => {
-            const yn = (v) => (v === true || v === 'true' || v === 'yes' ? true : v === false || v === 'false' || v === 'no' ? false : null);
-            if ('multi_gestation_history' in map || 'is_twin_pregnancy' in map) {
-              // Prefer explicit current flag; if only legacy history key existed, leave current unset
-              if ('multi_gestation_history' in map) {
-                const cur = yn(map['is_twin_pregnancy']);
-                return cur !== null ? cur : prev.currentMultiGestation;
-              }
-            }
-            return prev.currentMultiGestation;
+            if (!('is_twin_pregnancy' in map)) return prev.currentMultiGestation;
+            const cur = loadTwinFlag(map['is_twin_pregnancy']);
+            return cur !== null ? cur : prev.currentMultiGestation;
           })(),
           children,
+          miscarriage: (() => {
+            const direct = ynAnswer(map['miscarriage']);
+            if (direct !== null) return direct;
+            if (map['miscarriage_history'] === 'yes') return true;
+            if (map['miscarriage_history'] === 'no') return false;
+            return prev.miscarriage;
+          })(),
+          abortion: ynAnswer(map['abortion']) ?? prev.abortion,
+          abortionCount: map['abortion_count'] != null && map['abortion_count'] !== '' ? String(map['abortion_count']) : prev.abortionCount,
           miscarriageHistory: map['miscarriage_history'] === 'yes' ? true : map['miscarriage_history'] === 'no' ? false : prev.miscarriageHistory,
           miscarriageCount: miscarriageCountVal,
           miscarriages,
@@ -1005,6 +1089,11 @@ const IntakeQuestionnaire = () => {
         next.miscarriageCount = '';
         next.miscarriages = [];
       }
+      if (key === 'miscarriage' && val !== true) {
+        next.miscarriageCount = '';
+        next.miscarriages = [];
+      }
+      if (key === 'abortion' && val !== true) next.abortionCount = '';
       if (key === 'surgeries' && val !== true) {
         next.surgeryCount = '';
         next.surgeryDetails = [];
@@ -1026,6 +1115,11 @@ const IntakeQuestionnaire = () => {
         next.multiGestationCount = '';
         next.childrenAlive = '';
         next.children = [];
+        next.miscarriage = null;
+        next.miscarriageCount = '';
+        next.miscarriages = [];
+        next.abortion = null;
+        next.abortionCount = '';
       }
       return next;
     });
@@ -1096,6 +1190,16 @@ const IntakeQuestionnaire = () => {
       const list = getSlides(sections[secIdx]?.id);
       const idx = Math.min(slideIdx, Math.max(0, list.length - 1));
       if (list.length > 0 && idx < list.length - 1) {
+        // Persist conditions as soon as the patient leaves that slide so "None of these"
+        // is not lost if they don't finish the rest of Medical History in this session.
+        const current = list[idx];
+        if (current?.field === 'conditions' && (data.conditions || []).length > 0 && canEdit) {
+          const patientId = getPatientId();
+          const payload = buildMedicalConditionResponses(data.conditions);
+          if (patientId && payload.length) {
+            await saveIntake(patientId, 'medical', payload).catch(() => {});
+          }
+        }
         setSlideIdx(idx + 1);
         window.scrollTo(0, 0);
       } else {
@@ -1169,8 +1273,11 @@ const IntakeQuestionnaire = () => {
         if (data.multiGestation === true && data.multiGestationCount !== '' && data.multiGestationCount != null) {
           biodataResponses.push({ question_key: 'multi_gestation_count', answer: String(data.multiGestationCount) });
         }
-        if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
-          biodataResponses.push({ question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true });
+        {
+          const twinAns = serializeTwinPregnancy(data.currentMultiGestation);
+          if (twinAns != null) {
+            biodataResponses.push({ question_key: 'is_twin_pregnancy', answer: twinAns });
+          }
         }
         if (data.miscarriage !== null && data.miscarriage !== undefined) {
           biodataResponses.push({ question_key: 'miscarriage', answer: data.miscarriage === true });
@@ -1187,6 +1294,18 @@ const IntakeQuestionnaire = () => {
         if (biodataResponses.length) {
           await saveIntake(patientId, 'biodata', biodataResponses).catch(() => {});
         }
+        // LMP / G / P are asked in biodata — persist them here so they survive a reload
+        // before the index-pregnancy section is completed.
+        const lmp = data.lmpKnown
+          ? data.lmpDate
+          : (data.lmpYear && data.lmpMonth ? `${data.lmpYear}-${String(data.lmpMonth).padStart(2, '0')}-01` : undefined);
+        await addPregnancy({
+          lmp_date: lmp ? new Date(lmp).toISOString() : undefined,
+          gravidity: data.gravidity === '' || data.gravidity == null || isNaN(Number(data.gravidity)) ? undefined : Number(data.gravidity),
+          parity: isPrimigravida(data)
+            ? 0
+            : (data.parity === '' || data.parity == null || isNaN(Number(data.parity)) ? undefined : Number(data.parity)),
+        }).catch(() => {});
       }
       if (sId === 'index') {
         const lmp = data.lmpKnown ? data.lmpDate : (data.lmpYear && data.lmpMonth ? `${data.lmpYear}-${String(data.lmpMonth).padStart(2, '0')}-01` : undefined);
@@ -1206,10 +1325,13 @@ const IntakeQuestionnaire = () => {
           await saveIntake(patientId, 'index', indexResponses).catch(() => {});
         }
         // Keep twin flag on biodata domain for risk engine compatibility
-        if (data.currentMultiGestation !== null && data.currentMultiGestation !== undefined) {
-          await saveIntake(patientId, 'biodata', [
-            { question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true },
-          ]).catch(() => {});
+        {
+          const twinAns = serializeTwinPregnancy(data.currentMultiGestation);
+          if (twinAns != null) {
+            await saveIntake(patientId, 'biodata', [
+              { question_key: 'is_twin_pregnancy', answer: twinAns },
+            ]).catch(() => {});
+          }
         }
       }
       const domainMap = {
@@ -1529,7 +1651,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
     case 'index': return [
       { question_key: 'desired', answer: data.desired === true ? 'yes' : data.desired === false ? 'no' : '' },
       { question_key: 'conception', answer: data.conception || '' },
-      { question_key: 'is_twin_pregnancy', answer: data.currentMultiGestation === true ? 'yes' : data.currentMultiGestation === false ? 'no' : '' },
+      { question_key: 'is_twin_pregnancy', answer: serializeTwinPregnancy(data.currentMultiGestation) || '' },
       { question_key: 'preg_test_done', answer: data.pregTestDone === true ? 'yes' : data.pregTestDone === false ? 'no' : '' },
       { question_key: 'preg_test_type', answer: data.pregTestType || '' },
       { question_key: 'scan_done', answer: data.scanDone === true ? 'yes' : data.scanDone === false ? 'no' : '' },
@@ -1582,7 +1704,7 @@ function buildDomainResponses(sId, data, children, miscarriages) {
       { question_key: 'contraceptive_removed_before_pregnancy', answer: data.contraRemoved === true ? 'yes' : data.contraRemoved === false ? 'no' : '' },
     ];
     case 'medical': return [
-      ...(data.conditions || []).filter(c => !isNoneChoice(c)).map(c => ({ question_key: c.toLowerCase().replace(/ /g, '_'), answer: 'yes' })),
+      ...buildMedicalConditionResponses(data.conditions),
       { question_key: 'surgery',          answer: data.surgeries ? 'yes' : 'no' },
       { question_key: 'surgery_count',    answer: String(data.surgeryCount || '') },
       ...(data.surgeryDetails || []).flatMap((s, i) => [

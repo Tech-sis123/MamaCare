@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { upsertProfile, addPregnancy, saveIntake, submitIntake, getPatientMe, getIntake } from '../lib/api';
-import { getPatientId, isPatientAuthenticated } from '../lib/auth';
+import { getPatientId, isPatientAuthenticated, getPatientData } from '../lib/auth';
 
 // ── Colours (sky-blue theme) ─────────────────────────────────────────────────
 const C = {
@@ -870,10 +870,19 @@ const SlideContent = ({ slide, data, set, setChild, setSurgery, setMiscarriage }
 // ── Main component ────────────────────────────────────────────────────────────
 const IntakeQuestionnaire = () => {
   const navigate = useNavigate();
-  const [view, setView] = useState('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const entryFrom = searchParams.get('from');
+  const directStart = entryFrom === 'otp' || entryFrom === 'email';
+  const entryRef = useRef(directStart ? entryFrom : null);
+  const [view, setView] = useState(directStart ? 'section' : 'overview');
   const [secIdx, setSecIdx] = useState(0);
-  const [slideIdx, setSlideIdx] = useState(0);
-  const [data, setData] = useState(INIT);
+  const [slideIdx, setSlideIdx] = useState(entryFrom === 'otp' ? 1 : 0);
+  const [data, setData] = useState(() => {
+    if (entryFrom !== 'otp') return INIT;
+    const stored = getPatientData();
+    if (stored?.age == null || stored.age === '') return INIT;
+    return { ...INIT, age: stored.age, name: stored.name || INIT.name };
+  });
   const [loading, setLoading] = useState(false);
   const [navLoading, setNavLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -1391,6 +1400,27 @@ const IntakeQuestionnaire = () => {
       setSlideIdx(list.length - 1);
     }
   }, [view, secIdx, data.surgeryCount, data.surgeries, data.parity, data.gravidity, slideIdx]);
+
+  // Direct entry after auth: email → "How old are you?"; OTP (DOB already collected) → occupation.
+  useEffect(() => {
+    const entry = entryRef.current;
+    if (!hydrated || (entry !== 'otp' && entry !== 'email')) return;
+    entryRef.current = null;
+
+    const biodataIdx = Math.max(0, sections.findIndex((s) => s.id === 'biodata'));
+    const slides = getSlides(sections[biodataIdx]?.id);
+    const occupationIdx = slides.findIndex((s) => s.id === 'occupation');
+    const ageFilled = isFilledValue(data.age) || isFilledValue(getPatientData()?.age);
+
+    setSecIdx(biodataIdx);
+    setView('section');
+    if (entry === 'otp' && ageFilled && occupationIdx >= 0) {
+      setSlideIdx(occupationIdx);
+    } else {
+      setSlideIdx(0);
+    }
+    setSearchParams({}, { replace: true });
+  }, [hydrated, setSearchParams]);
 
   // ── Overview page ──────────────────────────────────────────────────────────
   if (view === 'overview') {

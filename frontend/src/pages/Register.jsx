@@ -223,10 +223,11 @@ const RegistrationFlow = () => {
         language_preference: 'en',
       }).catch(() => {});
 
-      // Resume questionnaire if in progress; otherwise start intake
+      // Resume questionnaire if in progress; otherwise start intake.
+      // OTP sign-up already collected DOB/age, so skip the age slide and open occupation.
       const status = data?.patient?.intake_status;
       if (status === 'submitted') navigate('/dashboard');
-      else navigate('/intake');
+      else navigate('/intake?from=otp');
     } catch (err) {
       const d = err.response?.data;
       setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to save account.');
@@ -251,8 +252,8 @@ const RegistrationFlow = () => {
     try {
       const { data } = await registerPatientEmail(registerEmail.trim(), registerPassword, registerName.trim());
       setPatientAuth(data.access_token, data.refresh_token, data.patient);
-      // Email-registered users need to complete basic biodata before intake
-      navigate('/profile');
+      // Email sign-up does not collect DOB — open biodata on "How old are you?"
+      navigate('/intake?from=email');
     } catch (err) {
       const d = err.response?.data;
       setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Failed to create account.');
@@ -270,7 +271,7 @@ const RegistrationFlow = () => {
       setPatientAuth(data.access_token, data.refresh_token, data.patient);
       const status = data.patient?.intake_status;
       if (status === 'not_started' || status === 'in_progress' || !status) {
-        navigate('/intake');
+        navigate('/intake?from=email');
       } else {
         navigate('/dashboard');
       }

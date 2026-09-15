@@ -22,15 +22,28 @@ describe('Intake 7-day edit window', () => {
     expect(meta.days_remaining).toBeLessThanOrEqual(INTAKE_EDIT_WINDOW_DAYS);
   });
 
-  it('locks edit after 7 days', () => {
+  // TEMPORARILY DISABLED: 7-day edit lock so patients can edit whenever.
+  // Restore this test when INTAKE_EDIT_WINDOW_ENABLED is set back to true.
+  // it('locks edit after 7 days', () => {
+  //   const first = new Date();
+  //   first.setDate(first.getDate() - 10);
+  //   const meta = getIntakeEditMeta({
+  //     intake_status: 'submitted',
+  //     intake_first_submitted_at: first,
+  //   });
+  //   expect(meta.can_edit).toBe(false);
+  //   expect(meta.is_locked).toBe(true);
+  //   expect(meta.days_remaining).toBe(0);
+  // });
+
+  it('TEMPORARILY remains editable after 7 days (lock disabled)', () => {
     const first = new Date();
     first.setDate(first.getDate() - 10);
     const meta = getIntakeEditMeta({
       intake_status: 'submitted',
       intake_first_submitted_at: first,
     });
-    expect(meta.can_edit).toBe(false);
-    expect(meta.is_locked).toBe(true);
-    expect(meta.days_remaining).toBe(0);
+    expect(meta.can_edit).toBe(true);
+    expect(meta.is_locked).toBe(false);
   });
 });

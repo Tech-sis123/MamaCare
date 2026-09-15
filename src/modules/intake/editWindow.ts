@@ -1,6 +1,13 @@
 /** Days after first submit during which the mother may still edit her questionnaire. */
 export const INTAKE_EDIT_WINDOW_DAYS = 7;
 
+/**
+ * TEMPORARILY DISABLED: 7-day questionnaire edit lock.
+ * Patients can edit whenever. Set to `true` (and restore the checks in
+ * intake/controller.ts + Onboarding.jsx) when the lock should come back.
+ */
+export const INTAKE_EDIT_WINDOW_ENABLED = false;
+
 export type IntakeEditMeta = {
   status: string;
   can_edit: boolean;
@@ -36,14 +43,17 @@ export function getIntakeEditMeta(patient: {
   const now = new Date();
   const msLeft = deadline.getTime() - now.getTime();
   const days_remaining = Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
-  const can_edit = now.getTime() <= deadline.getTime();
+  // TEMPORARILY DISABLED: 7-day edit lock so patients can edit whenever.
+  // Restore: const can_edit = now.getTime() <= deadline.getTime();
+  const windowOpen = now.getTime() <= deadline.getTime();
+  const can_edit = INTAKE_EDIT_WINDOW_ENABLED ? windowOpen : true;
 
   return {
     status: status === 'not_started' ? 'submitted' : status,
     can_edit,
     first_submitted_at: first.toISOString(),
     edit_deadline: deadline.toISOString(),
-    days_remaining: can_edit ? days_remaining : 0,
-    is_locked: !can_edit,
+    days_remaining: windowOpen ? days_remaining : 0,
+    is_locked: INTAKE_EDIT_WINDOW_ENABLED ? !windowOpen : false,
   };
 }

@@ -890,7 +890,9 @@ const IntakeQuestionnaire = () => {
   const [intakeMeta, setIntakeMeta] = useState(null);
   const [saveError, setSaveError] = useState('');
 
-  const canEdit = intakeMeta?.can_edit !== false && !intakeMeta?.is_locked;
+  // TEMPORARILY DISABLED: 7-day edit lock — patients can edit whenever.
+  // Restore: const canEdit = intakeMeta?.can_edit !== false && !intakeMeta?.is_locked;
+  const canEdit = true;
 
   useEffect(() => {
     if (!isPatientAuthenticated() || !getPatientId()) {
@@ -1441,7 +1443,7 @@ const IntakeQuestionnaire = () => {
               {status === 'in_progress'
                 ? 'Welcome back — your answers were saved. Continue where you left off.'
                 : status === 'submitted' && canEdit
-                  ? 'You can still edit your answers for a short time after submitting.'
+                  ? 'You can still update your answers.'
                   : 'Fill in each section. When you finish one, the next opens automatically.'}
             </p>
             {gpParts && (
@@ -1466,7 +1468,8 @@ const IntakeQuestionnaire = () => {
               </p>
             </div>
           )}
-          {status === 'submitted' && canEdit && intakeMeta?.days_remaining != null && (
+          {/* TEMPORARILY DISABLED: 7-day edit lock banners. Restore by removing `false &&` when the lock is re-enabled. */}
+          {false && status === 'submitted' && canEdit && intakeMeta?.days_remaining != null && (
             <div className="mb-4 bg-amber-50 border border-amber-200 rounded-2xl p-4">
               <p className="text-amber-800 font-bold text-sm">Edit window open</p>
               <p className="text-amber-700 text-xs mt-1">
@@ -1475,7 +1478,7 @@ const IntakeQuestionnaire = () => {
               </p>
             </div>
           )}
-          {!canEdit && (
+          {false && !canEdit && (
             <div className="mb-4 bg-stone-100 border border-stone-200 rounded-2xl p-4">
               <p className="text-stone-800 font-bold text-sm">Questionnaire locked</p>
               <p className="text-stone-600 text-xs mt-1">

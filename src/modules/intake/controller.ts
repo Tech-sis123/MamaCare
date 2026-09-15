@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../../config/prisma';
-import { ForbiddenError, NotFoundError } from '../../utils/errors';
+import { /* ForbiddenError, */ NotFoundError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { normalizeIntakeDomain } from './schemas';
 import { getIntakeEditMeta } from './editWindow';
@@ -10,11 +10,13 @@ async function assertPatientCanEditIntake(patientId: string) {
   const patient = await prisma.patient.findUnique({ where: { id: patientId } });
   if (!patient) throw new NotFoundError('Patient not found');
   const meta = getIntakeEditMeta(patient);
-  if (!meta.can_edit) {
-    throw new ForbiddenError(
-      'Your questionnaire can no longer be edited. The 7-day edit window after your first submission has ended.'
-    );
-  }
+  // TEMPORARILY DISABLED: 7-day edit lock — patients can edit whenever.
+  // Restore by uncommenting the can_edit check below (and INTAKE_EDIT_WINDOW_ENABLED in editWindow.ts).
+  // if (!meta.can_edit) {
+  //   throw new ForbiddenError(
+  //     'Your questionnaire can no longer be edited. The 7-day edit window after your first submission has ended.'
+  //   );
+  // }
   return { patient, meta };
 }
 
@@ -23,7 +25,8 @@ export const intakeController = {
    * PATCH /intake/:patientId
    * Partial save — one question or one domain at a time.
    * Upserts each response by patient_id + domain + question_key.
-   * Blocked after first submit + 7 days.
+   * TEMPORARILY: not blocked after first submit + 7 days (edit lock disabled).
+   * Restore: Blocked after first submit + 7 days.
    */
   async patchIntake(req: Request, res: Response, next: NextFunction) {
     try {
@@ -147,7 +150,8 @@ export const intakeController = {
   /**
    * POST /intake/:patientId/submit
    * Marks intake as complete, triggers risk engine.
-   * First submit starts the 7-day edit window; re-submit allowed only within that window.
+   * TEMPORARILY: re-submit allowed at any time (7-day edit lock disabled).
+   * Restore: First submit starts the 7-day edit window; re-submit allowed only within that window.
    */
   async submitIntake(req: Request, res: Response, next: NextFunction) {
     try {

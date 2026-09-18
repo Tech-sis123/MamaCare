@@ -24,6 +24,7 @@ import { AuthRequest } from '../../utils/types';
 import { NotFoundError, ConflictError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { calculateEGAWeeks } from '../../services/ega-calculator';
+import { isSmsPhone } from '../../utils/contact';
 
 export const symptomsController = {
   /**
@@ -131,9 +132,7 @@ export const symptomsController = {
         let doctorPhone: string | null = null;
         if (doctorId) {
           const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
-          // Doctors may not have phone numbers in this schema; use email for now
-          // In production, add a phone_number field to doctors
-          doctorPhone = null; // placeholder
+          doctorPhone = doctor?.phone_number || null;
         }
 
         const triggerDescriptions = dangerResult.triggers.map((t) => t.description);
@@ -158,6 +157,20 @@ export const symptomsController = {
           whatsappSentAt = new Date();
         } catch (err) {
           logger.error({ err, patientId }, 'Failed to send patient WhatsApp alert');
+        }
+
+        if (isSmsPhone(doctorPhone)) {
+          const doctorMsg = `9Care: ${patient.name || 'A patient'} reported danger signs (${triggerDescriptions.join('; ')}). Call ${patient.phone_number}.`;
+          try {
+            await termiiService.sendSMS({ to: doctorPhone as string, sms: doctorMsg });
+          } catch (err) {
+            logger.error({ err, patientId }, 'Failed to send doctor SMS alert');
+          }
+          try {
+            await whatsappService.sendMessage({ to: doctorPhone as string, message: doctorMsg });
+          } catch (err) {
+            logger.error({ err, patientId }, 'Failed to send doctor WhatsApp alert');
+          }
         }
 
         // Step 5: Update timestamps on alert row

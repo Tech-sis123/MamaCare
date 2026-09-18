@@ -210,6 +210,8 @@ const PatientDetailPanel = () => {
 
   const [fullPatient, setFullPatient] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
+  const [riskFlags, setRiskFlags] = useState([]);
+  const [incompleteFlags, setIncompleteFlags] = useState([]);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [openSection, setOpenSection] = useState('bookings');
   const [clinicScreen, setClinicScreen] = useState('chart');
@@ -246,7 +248,14 @@ const PatientDetailPanel = () => {
     if (!isReal) return;
     setLoadingSummary(true);
     getPatientSummary(passedPatient.id)
-      .then((r) => setAiSummary(r.data?.summary || ''))
+      .then((r) => {
+        setAiSummary(r.data?.summary || '');
+        const clinical = Array.isArray(r.data?.risk_reasons) ? r.data.risk_reasons : [];
+        const incomplete = Array.isArray(r.data?.incomplete_data) ? r.data.incomplete_data : [];
+        const flags = Array.isArray(r.data?.flags) ? r.data.flags : [];
+        setRiskFlags(clinical.length ? clinical : flags);
+        setIncompleteFlags(incomplete);
+      })
       .catch(() => {})
       .finally(() => setLoadingSummary(false));
   }, [isReal, passedPatient?.id]);
@@ -422,6 +431,41 @@ const PatientDetailPanel = () => {
   const patientCode =
     fullPatient?.patient_code || formatPatientCode(fullPatient?.id || passedPatient?.id);
   const weeks = liveEga != null && !Number.isNaN(liveEga) ? liveEga : null;
+
+  const assessmentReasons = fullPatient?.risk_assessments?.[0]?.reasons;
+  const displayClinical =
+    riskFlags.length > 0
+      ? riskFlags
+      : Array.isArray(assessmentReasons)
+        ? assessmentReasons.filter(
+            (r) =>
+              r &&
+              !String(r).startsWith('Incomplete clinic data') &&
+              !String(r).startsWith('Missing critical field') &&
+              String(r) !== 'Genotype not confirmed'
+          )
+        : [];
+  const displayIncomplete =
+    incompleteFlags.length > 0
+      ? incompleteFlags
+      : Array.isArray(assessmentReasons)
+        ? assessmentReasons.filter(
+            (r) =>
+              String(r).startsWith('Incomplete clinic data') ||
+              String(r).startsWith('Missing critical field') ||
+              String(r) === 'Genotype not confirmed'
+          )
+        : [];
+  const lastSeenRaw = fullPatient?.last_seen_at;
+  const lastSeenLabel = lastSeenRaw
+    ? new Date(lastSeenRaw).toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+  const visitCount = fullPatient?.site_visit_count;
 
   const fallbackSummary = isReal
     ? `Mrs. ${name}, ${age != null ? age : 'age unknown'}, ${gpStr || 'G?P?'}, currently ${weeks != null ? `${weeks} weeks` : 'EGA unknown'}. Risk: ${risk}.`
@@ -637,6 +681,12 @@ const PatientDetailPanel = () => {
               {patientCode && (
                 <p className="font-mono text-xs text-amber-200/80 mt-1 tracking-wide">{patientCode}</p>
               )}
+              {(lastSeenLabel || visitCount) && (
+                <p className="font-body-md text-white/50 text-[11px] mt-1">
+                  {lastSeenLabel ? `Last on site ${lastSeenLabel}` : 'Not seen on site yet'}
+                  {visitCount != null ? ` · ${visitCount} visit${visitCount === 1 ? '' : 's'}` : ''}
+                </p>
+              )}
             </div>
           </div>
 
@@ -657,6 +707,48 @@ const PatientDetailPanel = () => {
 
       {/* Main content — full-width container (desktop + mobile) */}
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 py-5 space-y-4 pb-36">
+        {(risk === 'HIGH' || risk === 'MEDIUM' || displayClinical.length > 0 || displayIncomplete.length > 0) && (
+          <section
+            className={`rounded-xl p-4 border ${
+              risk === 'HIGH'
+                ? 'bg-secondary/5 border-secondary/20'
+                : risk === 'MEDIUM'
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-white border-outline-variant/40'
+            }`}
+          >
+            <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-2">
+              {risk === 'LOW' ? 'Care team notes' : `Why this patient is ${risk} risk`}
+            </h3>
+            {displayClinical.length > 0 ? (
+              <ul className="space-y-1.5">
+                {displayClinical.map((reason) => (
+                  <li key={reason} className="font-body-md text-sm text-on-surface flex gap-2">
+                    <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-secondary shrink-0" />
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : risk === 'HIGH' || risk === 'MEDIUM' ? (
+              <p className="font-body-md text-sm text-on-surface-variant">
+                Flagged as {risk} risk — open self-reported data if the criteria are not listed here.
+              </p>
+            ) : null}
+            {displayIncomplete.length > 0 ? (
+              <div className={`${displayClinical.length ? 'mt-3 pt-3 border-t border-outline-variant/30' : ''}`}>
+                <p className="font-label-sm text-[10px] uppercase text-on-surface-variant mb-1">Incomplete clinic data</p>
+                <ul className="space-y-1">
+                  {displayIncomplete.map((reason) => (
+                    <li key={reason} className="font-body-md text-xs text-on-surface-variant">
+                      {reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        )}
+
         {/* AI Pre-Consult Summary */}
         <section>
           <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest mb-3">

@@ -3,6 +3,7 @@ import { aiService } from '../services/ai';
 import { termiiService } from '../services/termii';
 import { whatsappService } from '../services/whatsapp';
 import { logger } from '../utils/logger';
+import { isSmsPhone } from '../utils/contact';
 
 export async function dispatchWeeklyEducation() {
   logger.info('Starting weekly education dispatch job...');
@@ -56,6 +57,11 @@ export async function dispatchWeeklyEducation() {
       }
 
       const fullMessage = lesson.summary;
+
+      if (!isSmsPhone(patient.phone_number)) {
+        logger.warn({ patientId: patient.id }, 'Skipping education dispatch: no usable phone');
+        continue;
+      }
 
       // Dispatch via WhatsApp (if setup and phone number format allows)
       try {

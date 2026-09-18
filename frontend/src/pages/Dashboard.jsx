@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { getPatientDashboard, getPatientMe, askPatientAI } from '../lib/api';
 import { getPatientData, isPatientAuthenticated } from '../lib/auth';
+import WhatsAppContact from '../components/WhatsAppContact';
+import EmailPrompt from '../components/EmailPrompt';
 
 const AIChatPanel = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -139,6 +141,7 @@ const PatientDashboard = () => {
   const [patientData, setPatientData] = useState(getPatientData());
   const [showAI, setShowAI] = useState(false);
   const [loadingEga, setLoadingEga] = useState(true);
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
   useEffect(() => {
     if (!isPatientAuthenticated()) {
@@ -151,11 +154,23 @@ const PatientDashboard = () => {
       if (pending <= 0) setLoadingEga(false);
     };
     getPatientDashboard()
-      .then(r => setDashData(r.data))
+      .then(r => {
+        setDashData(r.data);
+        const dismissed = sessionStorage.getItem('mc_email_prompt_dismissed') === '1';
+        if (!dismissed && (r.data?.needs_email || r.data?.email_verified === false)) {
+          setShowEmailPrompt(true);
+        }
+      })
       .catch(() => {})
       .finally(done);
     getPatientMe()
-      .then(r => setPatientData(r.data))
+      .then(r => {
+        setPatientData(r.data);
+        const dismissed = sessionStorage.getItem('mc_email_prompt_dismissed') === '1';
+        if (!dismissed && (r.data?.needs_email || r.data?.email_verified === false)) {
+          setShowEmailPrompt(true);
+        }
+      })
       .catch(() => {})
       .finally(done);
   }, [navigate]);
@@ -501,6 +516,22 @@ const PatientDashboard = () => {
 
       {/* AI Chat Panel */}
       {showAI && <AIChatPanel onClose={() => setShowAI(false)} />}
+
+      <WhatsAppContact number={dashData?.support_whatsapp} />
+
+      {showEmailPrompt ? (
+        <EmailPrompt
+          mode={patientData?.needs_email || dashData?.needs_email ? 'add' : 'verify'}
+          initialEmail={patientData?.email || dashData?.email || ''}
+          onClose={() => {
+            sessionStorage.setItem('mc_email_prompt_dismissed', '1');
+            setShowEmailPrompt(false);
+          }}
+          onSaved={(p) => {
+            if (p) setPatientData((prev) => ({ ...prev, ...p }));
+          }}
+        />
+      ) : null}
     </div>
   );
 };

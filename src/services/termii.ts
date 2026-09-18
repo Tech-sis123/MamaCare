@@ -1,6 +1,7 @@
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import prisma from '../config/prisma';
+import { isSmsPhone } from '../utils/contact';
 
 interface TermiiSMSPayload {
   to: string;
@@ -21,6 +22,36 @@ export const termiiService = {
    * Send an SMS via Termii API
    */
   async sendSMS(payload: TermiiSMSPayload): Promise<{ message_id: string }> {
+    if (!isSmsPhone(payload.to)) {
+      logger.warn({ to: payload.to }, 'SMS skipped: invalid or placeholder phone');
+      await prisma.notificationsLog.create({
+        data: {
+          channel: 'sms',
+          recipient: payload.to,
+          payload: { message: payload.sms },
+          provider_message_id: null,
+          status: 'skipped',
+          error: 'invalid_phone',
+        },
+      });
+      return { message_id: 'skipped-invalid-phone' };
+    }
+
+    if (!env.TERMII_API_KEY) {
+      logger.warn({ to: payload.to }, 'SMS skipped: TERMII_API_KEY not set');
+      await prisma.notificationsLog.create({
+        data: {
+          channel: 'sms',
+          recipient: payload.to,
+          payload: { message: payload.sms },
+          provider_message_id: null,
+          status: 'skipped',
+          error: 'missing_api_key',
+        },
+      });
+      return { message_id: 'skipped-no-key' };
+    }
+
     const url = `${env.TERMII_BASE_URL}/sms/send`;
     
     try {

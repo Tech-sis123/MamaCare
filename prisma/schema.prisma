@@ -11,6 +11,8 @@ model Patient {
   id                    String   @id @default(uuid())
   phone_number          String   @unique
   email                 String?  @unique
+  /// Set when the patient confirms the email via the verification link
+  email_verified_at     DateTime?
   password_hash         String?
   name                  String?
   age                   Int?
@@ -30,6 +32,10 @@ model Patient {
   /// Set on first successful questionnaire submit; used for 7-day edit window
   intake_first_submitted_at DateTime?
   intake_last_saved_at  DateTime?
+  /// Last time the patient opened the app (site visit tracking)
+  last_seen_at          DateTime?
+  /// Count of unique calendar-day visits to the patient app
+  site_visit_count      Int      @default(0)
   created_at            DateTime @default(now())
 
   pregnancies           Pregnancy[]
@@ -39,6 +45,7 @@ model Patient {
   danger_alerts         DangerAlert[]
   appointments          Appointment[]
   education_progress    EducationProgress[]
+  site_visits           PatientSiteVisit[]
 
   @@map("patients")
 }
@@ -48,6 +55,8 @@ model Doctor {
   name          String
   email         String   @unique
   password_hash String
+  /// Optional. Used for SMS / WhatsApp alerts (onboarding, danger signs).
+  phone_number  String?
   role          String   // doctor / department_head
   created_at    DateTime @default(now())
 
@@ -209,6 +218,19 @@ model Visit {
   appointment    Appointment @relation(fields: [appointment_id], references: [id])
 
   @@map("visits")
+}
+
+/// One row per calendar-day the patient opened the app (conversion / retention).
+model PatientSiteVisit {
+  id         String   @id @default(uuid())
+  patient_id String
+  visited_at DateTime @default(now())
+  path       String?
+
+  patient    Patient  @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+
+  @@index([patient_id, visited_at])
+  @@map("patient_site_visits")
 }
 
 model EducationModule {

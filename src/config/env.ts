@@ -23,6 +23,9 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().default('info'),
   GROQ_API_KEY: z.string().default(''),
   CRON_SECRET: z.string().default('my-super-secret-cron-key'),
+  /// Clinic WhatsApp number for patient support (digits with country code, no +).
+  /// Live number: +234 803 402 7044
+  SUPPORT_WHATSAPP_NUMBER: z.string().default('2348034027044'),
 });
 
 const parsed = envSchema.safeParse(process.env);

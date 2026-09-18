@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPatientMe, setPatientCredentials, upsertProfile } from '../lib/api';
 import { getPatientData, setPatientAuth, clearPatientAuth } from '../lib/auth';
+import WhatsAppContact from '../components/WhatsAppContact';
+import EmailPrompt from '../components/EmailPrompt';
 
 const PatientProfile = () => {
   const navigate = useNavigate();
@@ -37,6 +39,7 @@ const PatientProfile = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [showEmailPrompt, setShowEmailPrompt] = useState(false);
 
   useEffect(() => {
     getPatientMe()
@@ -389,6 +392,15 @@ const PatientProfile = () => {
                 <InfoRow label="Full Name"    value={patient?.name || '—'}                             icon="person" />
                 <InfoRow label="Age"           value={patient?.age ? `${patient.age} years` : '—'}      icon="today" />
                 <InfoRow label="Phone"         value={patient?.phone_number || '—'}                     icon="phone" />
+                <InfoRow
+                  label="Email"
+                  value={
+                    patient?.email
+                      ? `${patient.email}${patient.email_verified ? ' (verified)' : ' (unverified)'}`
+                      : 'Not set'
+                  }
+                  icon="mail"
+                />
                 <InfoRow label="Language"      value={lang}                                              icon="translate" />
                 <InfoRow label="Address"       value={patient?.address || '—'}                          icon="location_on" />
                 <InfoRow label="Occupation"    value={patient?.occupation || '—'}                       icon="work" />
@@ -412,6 +424,13 @@ const PatientProfile = () => {
                 </p>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowEmailPrompt(true)}
+              className="w-full py-3 rounded-xl font-label-sm text-sm border-2 bg-surface-container border-outline text-on-surface hover:bg-surface-container-high transition-colors"
+            >
+              {patient?.email ? 'Update / verify email' : 'Add email address'}
+            </button>
             <button
               onClick={() => {
                 setPasswordError('');
@@ -655,6 +674,27 @@ const PatientProfile = () => {
           </div>
         </div>
       )}
+
+      <WhatsAppContact />
+
+      {showEmailPrompt ? (
+        <EmailPrompt
+          mode={patient?.needs_email || !patient?.email ? 'add' : 'verify'}
+          initialEmail={patient?.email || ''}
+          onClose={() => setShowEmailPrompt(false)}
+          onSaved={(p) => {
+            if (p) {
+              setPatient((prev) => ({ ...prev, ...p }));
+              const existing = getPatientData();
+              setPatientAuth(
+                localStorage.getItem('mc_patient_token'),
+                localStorage.getItem('mc_patient_refresh'),
+                { ...existing, ...p }
+              );
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 };

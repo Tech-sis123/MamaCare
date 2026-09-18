@@ -15,6 +15,8 @@ import {
   doctorRegisterSchema,
   doctorForgotPasswordSchema,
   resetPasswordSchema,
+  patientEmailRequestSchema,
+  patientEmailVerifySchema,
 } from './schemas';
 
 const router = Router();
@@ -94,5 +96,24 @@ router.post(
 
 // Token refresh
 router.post('/refresh', validate(refreshTokenSchema), authController.refreshToken);
+
+// Patient email add / change + verification (complements OTP sign-up)
+router.post(
+  '/patient/email/request-verification',
+  authenticate,
+  rbac('patient'),
+  authRateLimiter,
+  validate(patientEmailRequestSchema),
+  authController.patientRequestEmailVerification
+);
+
+router.post(
+  '/patient/email/verify',
+  authRateLimiter,
+  validate(patientEmailVerifySchema),
+  authController.patientVerifyEmail
+);
+
+router.get('/patient/email/verify', authController.patientVerifyEmail);
 
 export default router;

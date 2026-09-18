@@ -1,6 +1,7 @@
 // App.jsx
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import WhatsAppContact from '../components/WhatsAppContact';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -482,6 +483,7 @@ const Landing = () => {
           </div>
         </div>
       </footer>
+      <WhatsAppContact />
     </div>
   );
 };

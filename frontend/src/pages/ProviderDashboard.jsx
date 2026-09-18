@@ -51,7 +51,7 @@ const toQueuePatient = (apt) => {
     age: apt.patient.age || '—',
     weeks: apt.patient.ega_weeks || '—',
     risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
-    flags: [],
+    flags: Array.isArray(apt.patient.risk_reasons) ? apt.patient.risk_reasons : [],
     time: slotDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
     dateLabel,
     isToday,
@@ -67,7 +67,9 @@ const toPatientRow = (p) => ({
   age: p.age || '—',
   weeks: p.ega_weeks || '—',
   risk: (p.risk_tier || 'LOW').toUpperCase(),
-  flags: [],
+  flags: Array.isArray(p.risk_reasons) ? p.risk_reasons : [],
+  lastSeen: p.last_seen_at || null,
+  visitCount: p.site_visit_count || 0,
   initials: (p.name || 'P').split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'P',
 });
 
@@ -99,10 +101,11 @@ const QueueView = ({ navigate, sseAlerts, onDismiss, fromTab }) => {
       <div className="fixed top-24 right-6 z-[60] flex flex-col gap-3 max-w-sm w-full">
         {(sseAlerts || []).map((alert, i) => {
           const isBooking = alert.type === 'booking';
-          const bgClass = isBooking ? 'bg-primary' : 'bg-secondary';
-          const borderClass = isBooking ? 'border-primary/50' : 'border-secondary/50';
-          const icon = isBooking ? 'event_available' : 'warning';
-          const title = isBooking ? 'New Booking' : 'Critical Alert';
+          const isOnboarding = alert.type === 'onboarding';
+          const bgClass = isBooking || isOnboarding ? 'bg-primary' : 'bg-secondary';
+          const borderClass = isBooking || isOnboarding ? 'border-primary/50' : 'border-secondary/50';
+          const icon = isBooking ? 'event_available' : isOnboarding ? 'person_add' : 'warning';
+          const title = isBooking ? 'New Booking' : isOnboarding ? 'Onboarding complete' : 'Critical Alert';
           
           return (
             <div key={alert.id || i} className={`${bgClass} text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-4 border ${borderClass} animate-slide-up`}>
@@ -526,6 +529,22 @@ const PatientsView = ({ navigate, fromTab }) => {
                     {p.code ? <span className="font-mono text-xs mr-2 text-primary/80">{p.code}</span> : null}
                     Age {p.age} · Week {p.weeks}
                   </p>
+                  {p.flags.length > 0 && (
+                    <div className="flex gap-2 mt-1.5 flex-wrap">
+                      {p.flags.slice(0, 3).map((f) => (
+                        <span
+                          key={f}
+                          className={`font-label-sm text-[10px] px-2 py-0.5 rounded-full border ${
+                            p.risk === 'HIGH' ? 'bg-secondary text-white border-secondary' :
+                            p.risk === 'MEDIUM' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                            'bg-primary/5 text-primary border-primary/10'
+                          }`}
+                        >
+                          {f}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">

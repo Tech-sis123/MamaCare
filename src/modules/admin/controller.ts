@@ -3,7 +3,9 @@ import prisma from '../../config/prisma';
 import { AuthRequest } from '../../utils/types';
 import { logger } from '../../utils/logger';
 import { termiiService } from '../../services/termii';
-import { NotFoundError } from '../../utils/errors';
+import { NotFoundError, ValidationError } from '../../utils/errors';
+import { processRetentionSms } from '../../jobs/retentionSms';
+import { isSmsPhone } from '../../utils/contact';
 
 export const adminController = {
   /**
@@ -54,11 +56,22 @@ export const adminController = {
         where: { status: 'open' },
       });
 
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - 7);
+      const [patientsSeenLast7Days, totalSiteVisits] = await Promise.all([
+        prisma.patient.count({ where: { last_seen_at: { gte: weekStart } } }),
+        prisma.patient.aggregate({ _sum: { site_visit_count: true } }),
+      ]);
+
       res.status(200).json({
         risk_distribution: distribution,
         total_active_patients: totalActive,
         alerts_this_week: alertsThisWeek,
         open_alerts: openAlerts,
+        site_visits: {
+          patients_seen_last_7_days: patientsSeenLast7Days,
+          total_recorded_visits: totalSiteVisits._sum.site_visit_count || 0,
+        },
       });
     } catch (err) {
       next(err);
@@ -135,6 +148,42 @@ export const adminController = {
       logger.info({ patientId, doctor_id }, 'Assigned doctor to patient');
 
       res.status(200).json({ message: 'Doctor assigned successfully', patient });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /admin/sms/retention
+   * Manually trigger the weekly retention SMS job.
+   */
+  async triggerRetentionSms(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const result = await processRetentionSms();
+      res.status(200).json({ message: 'Retention SMS job finished', ...result });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /admin/sms/test
+   * Send a single test SMS so the team can confirm Termii is live.
+   */
+  async sendTestSms(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { phone_number, message } = req.body as {
+        phone_number: string;
+        message?: string;
+      };
+      if (!isSmsPhone(phone_number)) {
+        throw new ValidationError('A valid phone number is required');
+      }
+      const sms =
+        message ||
+        '9Care test: SMS is working. You can ignore this message.';
+      const result = await termiiService.sendSMS({ to: phone_number, sms });
+      res.status(200).json({ message: 'Test SMS sent', ...result });
     } catch (err) {
       next(err);
     }

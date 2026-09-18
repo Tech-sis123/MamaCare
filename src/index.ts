@@ -9,6 +9,8 @@ import prisma from './config/prisma';
 import { redis } from './config/redis';
 import { initWhatsApp } from './services/whatsapp';
 import { processAppointmentReminders } from './jobs/appointmentReminder';
+import { dispatchWeeklyEducation } from './jobs/educationDispatcher';
+import { processRetentionSms } from './jobs/retentionSms';
 
 // ─── Route imports ──────────────────────────────────────────
 import authRoutes from './modules/auth/routes';
@@ -86,6 +88,36 @@ app.get('/cron/reminders', async (req, res, next) => {
     });
 
     res.status(200).json({ status: 'ok', message: 'Reminders triggered in the background' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/cron/education', async (req, res, next) => {
+  try {
+    if (req.query.secret !== env.CRON_SECRET) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    dispatchWeeklyEducation().catch((err) => {
+      logger.error({ err }, 'Background education dispatch failed');
+    });
+    res.status(200).json({ status: 'ok', message: 'Education SMS dispatch triggered' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get('/cron/retention', async (req, res, next) => {
+  try {
+    if (req.query.secret !== env.CRON_SECRET) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    processRetentionSms()
+      .then((result) => logger.info(result, 'Retention SMS finished'))
+      .catch((err) => logger.error({ err }, 'Background retention SMS failed'));
+    res.status(200).json({ status: 'ok', message: 'Retention SMS triggered' });
   } catch (err) {
     next(err);
   }

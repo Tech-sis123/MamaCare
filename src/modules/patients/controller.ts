@@ -5,6 +5,9 @@ import { NotFoundError } from '../../utils/errors';
 import { calculateEDD, calculateEGAWeeks, calculateEGADetailed } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
+import { recordPatientSiteVisit } from '../../services/site-visits';
+import { isUsableEmail } from '../../utils/contact';
+import { env } from '../../config/env';
 
 export const patientsController = {
   /**
@@ -173,9 +176,15 @@ export const patientsController = {
         password_hash?: string | null;
       };
 
+      void recordPatientSiteVisit(patientId, '/profile');
+
+      const email = safePatient.email ?? null;
+
       res.status(200).json({
         ...safePatient,
         has_password: !!_pw,
+        email_verified: !!patient.email_verified_at,
+        needs_email: !isUsableEmail(email),
         current_ega: ega,
       });
     } catch (err) {
@@ -196,6 +205,7 @@ export const patientsController = {
         where: { id: patientId },
         include: {
           pregnancies: { orderBy: { id: 'desc' }, take: 1 },
+          risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
         },
       });
 
@@ -230,6 +240,10 @@ export const patientsController = {
         },
       });
 
+      void recordPatientSiteVisit(patientId, '/dashboard');
+
+      const latestRisk = patient.risk_assessments[0] || null;
+
       res.status(200).json({
         current_ega: currentEga,
         edd: pregnancy?.edd_computed,
@@ -243,6 +257,15 @@ export const patientsController = {
             }
           : null,
         education_module: educationModule,
+        risk: latestRisk
+          ? { tier: latestRisk.tier, assessed_at: latestRisk.created_at }
+          : null,
+        email: patient.email ?? null,
+        email_verified: !!patient.email_verified_at,
+        needs_email: !isUsableEmail(patient.email),
+        support_whatsapp: env.SUPPORT_WHATSAPP_NUMBER,
+        last_seen_at: patient.last_seen_at,
+        site_visit_count: patient.site_visit_count,
       });
     } catch (err) {
       next(err);

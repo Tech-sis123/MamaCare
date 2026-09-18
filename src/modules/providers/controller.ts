@@ -6,6 +6,7 @@ import { generatePreConsultSummary } from '../../services/summary-generator';
 import { calculateEGAWeeks, calculateEDD } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
+import { splitRiskReasons } from '../../utils/contact';
 
 export const providersController = {
   /**
@@ -82,6 +83,7 @@ export const providersController = {
           phone_number: apt.patient.phone_number,
           age: apt.patient.age,
           risk_tier: apt.patient.risk_assessments[0]?.tier || null,
+          risk_reasons: splitRiskReasons(apt.patient.risk_assessments[0]?.reasons).clinical,
           ega_weeks: apt.patient.pregnancies[0]?.lmp_date
             ? calculateEGAWeeks(new Date(apt.patient.pregnancies[0].lmp_date))
             : null,
@@ -194,16 +196,16 @@ export const providersController = {
       });
 
       const risk = patient.risk_assessments[0] || null;
-      const reasonsRaw = risk?.reasons;
-      const flags = Array.isArray(reasonsRaw)
-        ? reasonsRaw.map((r) => (typeof r === 'string' ? r : String(r)))
-        : [];
+      const split = splitRiskReasons(risk?.reasons);
+      const flags = [...split.clinical, ...split.incomplete];
 
       res.status(200).json({
         patient_id: id,
         summary,
         risk_tier: risk?.tier || null,
         flags,
+        risk_reasons: split.clinical,
+        incomplete_data: split.incomplete,
       });
     } catch (err) {
       next(err);
@@ -240,7 +242,7 @@ export const providersController = {
             risk_assessments: {
               orderBy: { created_at: 'desc' },
               take: 1,
-              select: { tier: true },
+              select: { tier: true, reasons: true },
             },
             // Only lmp_date is needed for EGA — avoid selecting clinic columns
             // that may not exist yet (P2022 on search looks like an empty list).
@@ -285,6 +287,9 @@ export const providersController = {
         age: p.age,
         phone_number: p.phone_number,
         risk_tier: p.risk_assessments[0]?.tier || null,
+        risk_reasons: splitRiskReasons(p.risk_assessments[0]?.reasons).clinical,
+        last_seen_at: p.last_seen_at,
+        site_visit_count: p.site_visit_count,
         ega_weeks: p.pregnancies[0]?.lmp_date
           ? calculateEGAWeeks(new Date(p.pregnancies[0].lmp_date))
           : null,

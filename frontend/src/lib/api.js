@@ -83,6 +83,14 @@ export const verifyOtp = (pin_id, code) =>
 export const setPatientCredentials = (data) =>
   patientApi.post('/auth/patient/credentials', data);
 
+/** Add or change email and send a verification link (OTP accounts). */
+export const requestEmailVerification = (email) =>
+  patientApi.post('/auth/patient/email/request-verification', { email });
+
+/** Confirm email from the inbox link token. */
+export const verifyPatientEmail = (token) =>
+  axios.post(`${BASE}/auth/patient/email/verify`, { token });
+
 /** Returning patients: email + password login (no OTP). */
 export const patientLogin = (email, password) =>
   axios.post(`${BASE}/auth/patient/login`, { email, password });

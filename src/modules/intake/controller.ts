@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import { normalizeIntakeDomain } from './schemas';
 import { getIntakeEditMeta } from './editWindow';
 import { runRiskEngine } from '../risk/engine';
+import { notifyDoctorOnboardingComplete } from '../../services/onboardingNotify';
 
 async function assertPatientCanEditIntake(patientId: string) {
   const patient = await prisma.patient.findUnique({ where: { id: patientId } });
@@ -273,6 +274,17 @@ export const intakeController = {
         .catch((err) => logger.warn({ err, patientId }, 'intake submit audit failed'));
 
       logger.info({ patientId, tier: result.tier }, 'Intake submitted, risk assessed');
+
+      const isFirstSubmit = !patient.intake_first_submitted_at;
+      if (isFirstSubmit) {
+        void notifyDoctorOnboardingComplete({
+          patientId,
+          patientName: patient.name,
+          patientPhone: patient.phone_number,
+          riskTier: result.tier,
+          reasons: result.reasons,
+        });
+      }
 
       const meta = getIntakeEditMeta({
         intake_status: 'submitted',

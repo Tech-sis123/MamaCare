@@ -63,3 +63,12 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token is required'),
   new_password: z.string().min(6, 'Password must be at least 6 characters'),
 });
+
+/** Patient adds or updates email (OTP accounts, or email change). */
+export const patientEmailRequestSchema = z.object({
+  email: z.string().email('Enter a valid email address, not a phone number or username'),
+});
+
+export const patientEmailVerifySchema = z.object({
+  token: z.string().min(1, 'Token is required'),
+});

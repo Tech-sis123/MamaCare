@@ -11,7 +11,7 @@ P H A S E 2 D U R A T I O N
 P I L O T T A R G E T
 200 Women
 0 1 What We're Building
-Mama Care AI is a mobile-first antenatal care platform targeting first-trimester pregnant
+9Care AI is a mobile-first antenatal care platform targeting first-trimester pregnant
 women at the University of Benin Teaching Hospital (UBTH). This scope covers the full build
 lifecycle: a lean 3-week MVP sprint with a 4-person team, a hackathon to stress-test and
 extend it, and a 3-month build with a full team to ship the complete product.
@@ -285,4 +285,4 @@ question. Usability test with real users before dev handoff.
 Medium 3-click maximum to see what she needs. No training required. Demo to
 clinical staff in Week 3 before pilot launch. Iterate immediately on
 feedback.
-Mama Care AI — Project Scope v1.0 — AI Women Rising Pilot: UBTH, Benin City — Confidential
+9Care AI — Project Scope v1.0 — AI Women Rising Pilot: UBTH, Benin City — Confidential

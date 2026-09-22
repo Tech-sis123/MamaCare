@@ -1,4 +1,6 @@
-# MamaCare session context (Grok Build)
+# 9Care AI (session context - Grok Build)
+
+> **Note on Naming:** This project is officially **9Care AI** (or **9Care**), even though the local directory is `MamaCare`.
 
 Last updated: 2026-08-22 (clerking report)  
 Purpose: keep continuity after chat compaction. Read this before continuing doctor UI / patient homepage work.

@@ -274,7 +274,7 @@ const PatientSelfReported = ({ patientName, fullPatient, summary, loading, onBac
             <header className="border-b-2 border-stone-900 pb-3 mb-1">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-[10px] tracking-[0.22em] uppercase text-stone-500">MamaCare · Confidential</p>
+                  <p className="text-[10px] tracking-[0.22em] uppercase text-stone-500">9Care AI · Confidential</p>
                   <h1 className="text-xl sm:text-2xl font-semibold tracking-tight mt-0.5">
                     Antenatal Clerking Record
                   </h1>

@@ -4,6 +4,7 @@ import { redis } from '../../config/redis';
 import { AuthRequest } from '../../utils/types';
 import { NotFoundError, ConflictError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
+import { notifyDoctorOfAppointment } from '../../services/appointmentNotify';
 
 // Clinic hours: 8:00 to 16:00 (30-minute slots)
 const CLINIC_START_HOUR = 8;
@@ -147,6 +148,15 @@ export const appointmentsController = {
       const responsePayload = { appointment };
       await redis.set(cacheKey, JSON.stringify(responsePayload), 'EX', 86400);
 
+      // Asynchronously notify doctor via WhatsApp / SMS / Email (non-blocking)
+      notifyDoctorOfAppointment({
+        appointmentId: appointment.id,
+        patientId,
+        doctorId: doctor_id,
+        slotStart: slotStartDate,
+        isReschedule: false,
+      }).catch(err => logger.error({ err, appointmentId: appointment.id }, 'Background doctor appointment notification failed'));
+
       res.status(201).json(responsePayload);
     } catch (err) {
       next(err);
@@ -203,6 +213,15 @@ export const appointmentsController = {
           after: { slot_start: newSlotStart, slot_end: newSlotEnd },
         },
       });
+
+      // Asynchronously notify doctor of reschedule via WhatsApp / SMS / Email (non-blocking)
+      notifyDoctorOfAppointment({
+        appointmentId: updated.id,
+        patientId: existing.patient_id,
+        doctorId: existing.doctor_id,
+        slotStart: newSlotStart,
+        isReschedule: true,
+      }).catch(err => logger.error({ err, appointmentId: updated.id }, 'Background doctor appointment reschedule notification failed'));
 
       res.status(200).json({ appointment: updated });
     } catch (err) {

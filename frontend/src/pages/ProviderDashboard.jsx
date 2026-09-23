@@ -1484,6 +1484,24 @@ const ProviderDashboard = () => {
         </header>
 
         <div className="max-w-[1100px] mx-auto p-6 lg:p-10">
+          {doctor && !doctor.phone_number && (
+            <div className="mb-6 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-amber-600 text-2xl shrink-0">phone_android</span>
+                <div>
+                  <p className="font-semibold text-sm">Add your WhatsApp number for appointment alerts</p>
+                  <p className="text-xs text-amber-800/80">You will receive instant WhatsApp notifications and quick patient links whenever an appointment is booked with you.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveView('profile')}
+                className="self-start sm:self-auto shrink-0 px-3.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors shadow-sm"
+              >
+                Add Number
+              </button>
+            </div>
+          )}
           <ActiveView
             navigate={navigate}
             fromTab={activeView}

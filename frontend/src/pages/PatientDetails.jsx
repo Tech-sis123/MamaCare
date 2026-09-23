@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   getPatientSummary,
   saveVisitNotes,
   getDoctorPatientDetail,
   updateDoctorPregnancy,
 } from '../lib/api';
+import { isDoctorAuthenticated } from '../lib/auth';
 import { readConsultationDraft, writeConsultationDraft } from '../lib/consultationDraft';
 import {
   emptyInvestigations,
@@ -198,15 +199,42 @@ const providerHomePath = (fromTab) => {
 const PatientDetailPanel = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const queryPatientId = searchParams.get('id') || searchParams.get('patient_id');
+
   const { patient: passedPatient, appointment_id, fromTab: fromTabState } = location.state || {};
+  const [directPatient, setDirectPatient] = useState(null);
+  const [loadingDirect, setLoadingDirect] = useState(false);
+
   const fromTab = fromTabState || (() => {
     try { return sessionStorage.getItem('mc_provider_tab'); } catch { return null; }
   })();
   const goBackToProvider = () => navigate(providerHomePath(fromTab));
+
+  useEffect(() => {
+    if (!passedPatient && queryPatientId) {
+      if (!isDoctorAuthenticated()) {
+        navigate('/provider', { replace: true });
+        return;
+      }
+      setLoadingDirect(true);
+      getDoctorPatientDetail(queryPatientId)
+        .then((r) => {
+          if (r.data?.patient) {
+            setDirectPatient(r.data.patient);
+            setFullPatient(r.data.patient);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingDirect(false));
+    }
+  }, [passedPatient, queryPatientId, navigate]);
+
+  const activePatient = passedPatient || directPatient;
   const isReal =
-    !!passedPatient?.id &&
-    typeof passedPatient.id === 'string' &&
-    passedPatient.id.length > 8;
+    !!activePatient?.id &&
+    typeof activePatient.id === 'string' &&
+    activePatient.id.length > 8;
 
   const [fullPatient, setFullPatient] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
@@ -225,7 +253,7 @@ const PatientDetailPanel = () => {
   const [investigations, setInvestigations] = useState(emptyInvestigations);
   const [consult, setConsult] = useState(emptyConsult);
 
-  const patientKey = passedPatient?.id || 'demo';
+  const patientKey = activePatient?.id || 'demo';
   const skipNextPersist = useRef(true);
   const persistInFlight = useRef(false);
   const persistToServerRef = useRef(async () => {});
@@ -234,20 +262,20 @@ const PatientDetailPanel = () => {
 
   const reloadPatient = useCallback(() => {
     if (!isReal) return Promise.resolve();
-    return getDoctorPatientDetail(passedPatient.id)
+    return getDoctorPatientDetail(activePatient.id)
       .then((r) => setFullPatient(r.data?.patient || null))
       .catch(() => {});
-  }, [isReal, passedPatient?.id]);
+  }, [isReal, activePatient?.id]);
 
   useEffect(() => {
     if (!isReal) return;
     reloadPatient();
-  }, [isReal, passedPatient?.id, reloadPatient]);
+  }, [isReal, activePatient?.id, reloadPatient]);
 
   useEffect(() => {
     if (!isReal) return;
     setLoadingSummary(true);
-    getPatientSummary(passedPatient.id)
+    getPatientSummary(activePatient.id)
       .then((r) => {
         setAiSummary(r.data?.summary || '');
         const clinical = Array.isArray(r.data?.risk_reasons) ? r.data.risk_reasons : [];
@@ -258,7 +286,7 @@ const PatientDetailPanel = () => {
       })
       .catch(() => {})
       .finally(() => setLoadingSummary(false));
-  }, [isReal, passedPatient?.id]);
+  }, [isReal, activePatient?.id]);
 
   // Hydrate from pregnancy + local draft (draft wins so outages don't drop work)
   useEffect(() => {
@@ -386,12 +414,12 @@ const PatientDetailPanel = () => {
 
   const liveEga = preg.lmp_date
     ? calcEgaWeeks(preg.lmp_date)
-    : passedPatient?.ega_weeks != null
-      ? Number(passedPatient.ega_weeks)
+    : activePatient?.ega_weeks != null
+      ? Number(activePatient.ega_weeks)
       : null;
 
-  const gravida = preg.gravidity ?? passedPatient?.gravida ?? (isReal ? null : MOCK.gravida);
-  const para = preg.parity ?? passedPatient?.para ?? (isReal ? null : MOCK.para);
+  const gravida = preg.gravidity ?? activePatient?.gravida ?? (isReal ? null : MOCK.gravida);
+  const para = preg.parity ?? activePatient?.para ?? (isReal ? null : MOCK.para);
   if (childrenAlive === null && para === 0) {
     childrenAlive = 0;
   }
@@ -399,7 +427,7 @@ const PatientDetailPanel = () => {
 
   const gpStr = formatGP(gravida, para, childrenAlive);
 
-  const name = fullPatient?.name || passedPatient?.name || MOCK.name;
+  const name = fullPatient?.name || activePatient?.name || MOCK.name;
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -407,29 +435,29 @@ const PatientDetailPanel = () => {
     .slice(0, 2)
     .toUpperCase();
   const risk = (
-    passedPatient?.risk_tier ||
+    activePatient?.risk_tier ||
     fullPatient?.risk_assessments?.[0]?.tier ||
-    passedPatient?.risk ||
+    activePatient?.risk ||
     MOCK.risk
   ).toUpperCase();
   const riskBadgeClass =
     risk === 'HIGH' ? 'bg-secondary' : risk === 'MEDIUM' ? 'bg-amber-500' : 'bg-primary';
 
-  const age = fullPatient?.age || passedPatient?.age || MOCK.age;
+  const age = fullPatient?.age || activePatient?.age || MOCK.age;
   const lmp = preg.lmp_date
     ? new Date(preg.lmp_date).toLocaleDateString('en-GB')
-    : passedPatient?.lmp || (isReal ? '—' : MOCK.lmp);
+    : activePatient?.lmp || (isReal ? '—' : MOCK.lmp);
   const edd = preg.edd_computed
     ? new Date(preg.edd_computed).toLocaleDateString('en-GB')
-    : passedPatient?.edd || (isReal ? '—' : MOCK.edd);
+    : activePatient?.edd || (isReal ? '—' : MOCK.edd);
   const bloodType =
     formatBloodType(booking.blood_group, booking.rhesus) ||
     formatBloodType(preg.blood_group, preg.rhesus) ||
-    passedPatient?.bloodType ||
-    passedPatient?.blood_group ||
+    activePatient?.bloodType ||
+    activePatient?.blood_group ||
     (isReal ? '—' : MOCK.bloodType);
   const patientCode =
-    fullPatient?.patient_code || formatPatientCode(fullPatient?.id || passedPatient?.id);
+    fullPatient?.patient_code || formatPatientCode(fullPatient?.id || activePatient?.id);
   const weeks = liveEga != null && !Number.isNaN(liveEga) ? liveEga : null;
 
   const assessmentReasons = fullPatient?.risk_assessments?.[0]?.reasons;
@@ -596,6 +624,33 @@ const PatientDetailPanel = () => {
   const invFilledCount = countFilledInvestigations(investigations, booking);
   const notesFilledCount = countFilledConsult(consult);
   const bookingFilled = bookingHasAnyValue(booking);
+
+  if (loadingDirect) {
+    return (
+      <div className="bg-background text-on-surface font-body-md min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-on-surface-variant font-medium">Loading patient details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activePatient && queryPatientId) {
+    return (
+      <div className="bg-background text-on-surface font-body-md min-h-screen flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-lg font-bold text-on-surface mb-2">Patient not found</p>
+        <p className="text-sm text-on-surface-variant mb-4">The patient record could not be loaded or you may not have permission to view it.</p>
+        <button
+          type="button"
+          onClick={goBackToProvider}
+          className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:opacity-95"
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   if (clinicScreen === 'investigations') {
     return (

@@ -57,6 +57,8 @@ model Doctor {
   password_hash String
   /// Optional. Used for SMS / WhatsApp alerts (onboarding, danger signs).
   phone_number  String?
+  /// Days of the week the doctor is available in clinic (e.g. ["Monday"]).
+  clinic_days   String[] @default([])
   role          String   // doctor / department_head
   created_at    DateTime @default(now())
 

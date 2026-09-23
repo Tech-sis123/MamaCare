@@ -582,4 +582,43 @@ export const providersController = {
       next(err);
     }
   },
+
+  /**
+   * GET /providers/me — get current logged-in doctor profile
+   */
+  async getMe(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const doctorId = req.user!.id;
+      const doctor = await prisma.doctor.findUnique({
+        where: { id: doctorId },
+        select: { id: true, name: true, email: true, role: true, phone_number: true },
+      });
+      if (!doctor) throw new NotFoundError('Doctor not found');
+      res.status(200).json({ doctor });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PATCH /providers/me — update doctor profile (e.g. WhatsApp / phone number)
+   */
+  async updateMe(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const doctorId = req.user!.id;
+      const { name, phone_number } = req.body;
+      const data: Record<string, any> = {};
+      if (name !== undefined) data.name = name;
+      if (phone_number !== undefined) data.phone_number = phone_number || null;
+
+      const doctor = await prisma.doctor.update({
+        where: { id: doctorId },
+        data,
+        select: { id: true, name: true, email: true, role: true, phone_number: true },
+      });
+      res.status(200).json({ doctor, message: 'Profile updated successfully' });
+    } catch (err) {
+      next(err);
+    }
+  },
 };

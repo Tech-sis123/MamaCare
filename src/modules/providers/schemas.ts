@@ -149,3 +149,8 @@ export const doctorPregnancyUpdateSchema = z.object({
   gravidity: z.coerce.number().int().min(0).optional().nullable(),
   parity: z.coerce.number().int().min(0).optional().nullable(),
 });
+
+export const updateDoctorProfileSchema = z.object({
+  name: z.string().min(2).optional(),
+  phone_number: z.string().trim().optional().nullable().transform(val => val === '' ? null : val),
+});

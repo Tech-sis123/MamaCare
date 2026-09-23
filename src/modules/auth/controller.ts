@@ -369,6 +369,7 @@ export const authController = {
           name: doctor.name,
           email: doctor.email,
           role: doctor.role,
+          phone_number: doctor.phone_number,
         },
       });
     } catch (err) {
@@ -382,7 +383,7 @@ export const authController = {
    */
   async doctorRegister(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password, name } = req.body;
+      const { email, password, name, phone_number } = req.body;
 
       const existing = await prisma.doctor.findUnique({ where: { email } });
       if (existing) {
@@ -395,6 +396,7 @@ export const authController = {
           email,
           password_hash,
           name,
+          phone_number: phone_number || null,
           role: 'doctor', // default role
         },
       });

@@ -53,6 +53,7 @@ export const doctorRegisterSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(2, 'Name is required'),
   hospital: z.string().optional(),
+  phone_number: z.string().trim().optional().nullable().transform(val => val === '' ? null : val),
 });
 
 export const doctorForgotPasswordSchema = z.object({

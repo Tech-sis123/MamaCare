@@ -9,10 +9,27 @@ import {
   visitIdParamSchema,
   askQuestionSchema,
   doctorPregnancyUpdateSchema,
+  updateDoctorProfileSchema,
 } from './schemas';
 import { patientIdParamSchema } from '../symptoms/schemas';
 
 const router = Router();
+
+// Doctor profile (current authenticated doctor)
+router.get(
+  '/me',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  providersController.getMe
+);
+
+router.patch(
+  '/me',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(updateDoctorProfileSchema),
+  providersController.updateMe
+);
 
 // List all doctors (for patients selecting who to book with)
 router.get(

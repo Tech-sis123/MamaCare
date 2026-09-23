@@ -8,6 +8,8 @@ import {
   searchPatients,
   acknowledgeAlert,
   askDoctorAI,
+  getDoctorProfile,
+  updateDoctorProfile,
 } from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 
@@ -673,9 +675,37 @@ const ResourcesView = () => (
   </div>
 );
 
-const ProfileView = ({ doctor }) => {
+const ProfileView = ({ doctor, onUpdateDoctor }) => {
   const d = doctor || {};
   const initials = (d.name || 'DR').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const [phone, setPhone] = useState(d.phone_number || '');
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    setPhone(d.phone_number || '');
+  }, [d.phone_number]);
+
+  const handleSavePhone = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setSavedMsg('');
+    setErrorMsg('');
+    try {
+      const res = await updateDoctorProfile({ phone_number: phone.trim() });
+      if (res.data?.doctor) {
+        onUpdateDoctor?.(res.data.doctor);
+        setSavedMsg('WhatsApp number saved! Critical patient alerts will be sent here.');
+        setTimeout(() => setSavedMsg(''), 4500);
+      }
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || 'Failed to update WhatsApp number');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
   <div className="space-y-6 animate-fade-in">
     <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
@@ -712,12 +742,14 @@ const ProfileView = ({ doctor }) => {
       </div>
 
       <div className="space-y-4">
+        {/* Contact details */}
         <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
           <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest">Contact</p>
           <div className="mt-4 space-y-3">
             {[
               { icon: 'mail',  label: 'Email', value: d.email || '—' },
               { icon: 'badge', label: 'Role',  value: d.role || '—' },
+              { icon: 'chat',  label: 'WhatsApp', value: d.phone_number ? `${d.phone_number}` : 'Not configured' },
             ].map(item => (
               <div key={item.label} className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -730,6 +762,57 @@ const ProfileView = ({ doctor }) => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* WhatsApp input card */}
+        <div className="bg-white rounded-2xl p-5 custom-shadow border border-amber-50">
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-label-sm text-on-surface-variant uppercase text-xs tracking-widest flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-emerald-600 text-base">chat</span>
+              WhatsApp Notifications
+            </p>
+            {d.phone_number ? (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Connected
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                Action required
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-on-surface-variant/80 mb-3">
+            Enter your WhatsApp number to receive immediate patient danger sign emergency alerts and onboarding updates.
+          </p>
+          <form onSubmit={handleSavePhone} className="space-y-3">
+            <div>
+              <label className="text-xs font-semibold text-stone-700 block mb-1">
+                WhatsApp Number
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="e.g. +2348012345678 or 08012345678"
+                  className="w-full px-3 py-2.5 pl-9 text-sm border border-stone-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-mono"
+                />
+                <span className="material-symbols-outlined text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px]">
+                  call
+                </span>
+              </div>
+            </div>
+            {savedMsg && <p className="text-xs font-medium text-emerald-600 bg-emerald-50 p-2 rounded-lg">{savedMsg}</p>}
+            {errorMsg && <p className="text-xs font-medium text-red-600 bg-red-50 p-2 rounded-lg">{errorMsg}</p>}
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full py-2.5 px-4 bg-primary text-white rounded-xl font-label-sm text-xs font-bold hover:bg-primary/90 transition-all flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-sm">save</span>
+              {saving ? 'Saving…' : 'Save WhatsApp Number'}
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -775,6 +858,10 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
               {d.role === 'department_head' ? 'Department Head' : 'Obstetrician'}
             </p>
             <p className="font-label-sm text-outline text-xs mt-1">{d.email || '—'}</p>
+            <p className="font-label-sm text-primary text-xs mt-1 flex items-center gap-1">
+              <span className="material-symbols-outlined text-[14px]">chat</span>
+              WhatsApp: {d.phone_number || 'Not configured'}
+            </p>
           </div>
         </div>
         <div className="px-6 pb-6">
@@ -782,7 +869,7 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
             onClick={onEditProfile}
             className="text-primary font-label-sm text-sm underline underline-offset-4"
           >
-            Edit profile
+            Edit profile & WhatsApp number
           </button>
         </div>
       </div>
@@ -794,7 +881,7 @@ const SettingsView = ({ onEditProfile, onSignOut, doctor }) => {
         <div className="divide-y divide-amber-50">
           {[
             { label: 'SMS Alerts',      sub: 'High-risk patient notifications', value: notifSMS,      set: setNotifSMS },
-            { label: 'WhatsApp Alerts', sub: 'Danger sign reports',             value: notifWhatsApp, set: setNotifWhatsApp },
+            { label: 'WhatsApp Alerts', sub: d.phone_number ? `Delivered to WhatsApp: ${d.phone_number}` : 'WhatsApp number not set — click "Edit profile" to configure', value: notifWhatsApp, set: setNotifWhatsApp },
             { label: 'Email Digest',    sub: 'Daily summary report',            value: notifEmail,    set: setNotifEmail },
           ].map(n => (
             <div key={n.label} className="flex justify-between items-center px-6 py-4">
@@ -843,6 +930,7 @@ const DoctorAuthScreen = ({ onLogin }) => {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [name, setName] = useState('');
   const [hospital, setHospital] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
@@ -865,7 +953,13 @@ const DoctorAuthScreen = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true); setError(''); setMsg('');
     try {
-      await apiRegisterDoctor({ email, password, name, hospital });
+      await apiRegisterDoctor({
+        email,
+        password,
+        name,
+        hospital,
+        phone_number: phoneNumber.trim() || undefined,
+      });
       setMsg('Registration successful! Please log in.');
       setView('login');
     } catch (err) {
@@ -953,6 +1047,19 @@ const DoctorAuthScreen = ({ onLogin }) => {
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Hospital / Clinic</label>
               <input type="text" value={hospital} onChange={e => setHospital(e.target.value)} className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md" required />
+            </div>
+            <div>
+              <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">WhatsApp Phone Number</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={e => setPhoneNumber(e.target.value)}
+                placeholder="e.g. +2348012345678 or 08012345678"
+                className="w-full px-4 py-3 border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary outline-none font-body-md"
+              />
+              <p className="text-[11px] text-on-surface-variant/70 mt-1">
+                Used to deliver emergency danger sign alerts & patient onboarding notifications.
+              </p>
             </div>
             <div>
               <label className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest block mb-2">Email</label>
@@ -1208,8 +1315,26 @@ const ProviderDashboard = () => {
     try { sessionStorage.setItem('mc_provider_tab', activeView); } catch {}
   }, [activeView]);
 
+  const handleUpdateDoctor = (updatedDoctor) => {
+    setDoctor(updatedDoctor);
+    try {
+      localStorage.setItem('mc_doctor', JSON.stringify(updatedDoctor));
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    getDoctorProfile()
+      .then(res => {
+        if (res.data?.doctor) {
+          handleUpdateDoctor(res.data.doctor);
+        }
+      })
+      .catch(() => {});
+  }, [loggedIn]);
+
   const handleDoctorLogin = (doc) => {
-    setDoctor(doc);
+    handleUpdateDoctor(doc);
     setLoggedIn(true);
   };
 
@@ -1367,6 +1492,7 @@ const ProviderDashboard = () => {
             sseAlerts={sseAlerts}
             onDismiss={handleDismissAlert}
             doctor={doctor}
+            onUpdateDoctor={handleUpdateDoctor}
           />
         </div>
       </main>

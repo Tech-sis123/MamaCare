@@ -144,6 +144,12 @@ export const getProviders = () => patientApi.get('/providers');
 
 // ── Doctor ────────────────────────────────────────────────────────────────────
 
+export const getDoctorProfile = () =>
+  doctorApi.get('/providers/me');
+
+export const updateDoctorProfile = (data) =>
+  doctorApi.patch('/providers/me', data);
+
 export const getDoctorQueue = (date) =>
   doctorApi.get('/providers/queue', date ? { params: { date } } : {});
 

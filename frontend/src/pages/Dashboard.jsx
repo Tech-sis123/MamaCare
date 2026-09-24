@@ -344,7 +344,7 @@ const PatientDashboard = () => {
           </div>
           <div className="space-y-1 mb-6 pl-16">
             <p className="font-body-md text-on-surface">
-              {nextAppt?.doctor?.name || nextAppt?.doctor || (nextApptLabel ? 'Your clinician' : '—')}
+              {nextAppt?.doctor?.name ? (nextAppt.doctor.name.toLowerCase().startsWith('dr') ? nextAppt.doctor.name : `Dr. ${nextAppt.doctor.name}`) : (nextApptLabel ? 'Your clinician' : '—')}
             </p>
             <p className="font-body-md text-on-surface-variant text-sm">
               {nextAppt?.location || (nextApptLabel ? 'ANC Clinic' : 'Book a visit when you are ready')}

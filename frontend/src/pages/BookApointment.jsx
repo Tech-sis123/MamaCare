@@ -71,6 +71,7 @@ const BookAppointment = () => {
   const [apiError, setApiError] = useState('');
   const [bookingRef, setBookingRef] = useState('');
   const [defaultDoctorId, setDefaultDoctorId] = useState(null);
+  const [doctorsList, setDoctorsList] = useState([]);
   // Track existing appointment for reschedule
   const [existingAppointment, setExistingAppointment] = useState(null);
 
@@ -98,20 +99,36 @@ const BookAppointment = () => {
 
     if (location.state?.doctor_id) {
       setDefaultDoctorId(location.state.doctor_id);
-      return;
     }
     getProviders()
       .then(({ data }) => {
-        if (data.doctors?.length > 0) setDefaultDoctorId(data.doctors[0].id);
+        if (data.doctors?.length > 0) {
+          setDoctorsList(data.doctors);
+          if (!location.state?.doctor_id) {
+            setDefaultDoctorId(data.doctors[0].id);
+          }
+        }
       })
       .catch(() => {
         getPatientMe()
           .then(({ data }) => {
-            if (data.primary_doctor_id) setDefaultDoctorId(data.primary_doctor_id);
+            if (data.primary_doctor_id && !location.state?.doctor_id) {
+              setDefaultDoctorId(data.primary_doctor_id);
+            }
           })
           .catch(() => {});
       });
-  }, []);
+  }, [location.state?.appointment_id, location.state?.doctor_id]);
+
+  const resolveDoctorForDate = (dayNum) => {
+    if (!dayNum) return location.state?.doctor_id || defaultDoctorId;
+    const dateObj = new Date(calYear, calMonth, dayNum);
+    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+    const matching = doctorsList.find(
+      (d) => Array.isArray(d.clinic_days) && d.clinic_days.some((day) => day.toLowerCase() === dayOfWeek.toLowerCase())
+    );
+    return matching?.id || location.state?.doctor_id || defaultDoctorId;
+  };
 
   const isReschedule = !!existingAppointment?.id;
 
@@ -148,7 +165,7 @@ const BookAppointment = () => {
     setApiError('');
     try {
       const slot_start = buildSlotStart(calYear, calMonth, selectedDate, selectedTime);
-      const doctor_id = location.state?.doctor_id || defaultDoctorId;
+      const doctor_id = resolveDoctorForDate(selectedDate);
 
       let data;
       if (isReschedule) {

@@ -15,7 +15,7 @@ export const providersController = {
   async listDoctors(req: AuthRequest, res: Response, next: NextFunction) {
     try {
       const doctors = await prisma.doctor.findMany({
-        select: { id: true, name: true, role: true },
+        select: { id: true, name: true, role: true, clinic_days: true },
         orderBy: { name: 'asc' },
       });
       res.status(200).json({ doctors });

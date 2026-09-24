@@ -84,10 +84,18 @@ export const appointmentsController = {
       const slotStartDate = new Date(slot_start);
       const slotEndDate = new Date(slotStartDate.getTime() + SLOT_DURATION_MIN * 60 * 1000);
 
+      // Automatically assign to the doctor assigned to this day of week if configured (e.g. Monday -> Dr. Delight)
+      const dayName = slotStartDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Lagos' });
+      const dayDoctor = await prisma.doctor.findFirst({
+        where: { clinic_days: { has: dayName } },
+        select: { id: true },
+      });
+      const effectiveDoctorId = dayDoctor ? dayDoctor.id : doctor_id;
+
       // Check for conflicts
       const conflict = await prisma.appointment.findFirst({
         where: {
-          doctor_id,
+          doctor_id: effectiveDoctorId,
           slot_start: slotStartDate,
           status: { in: ['booked', 'completed'] },
         },
@@ -100,7 +108,7 @@ export const appointmentsController = {
       const appointment = await prisma.appointment.create({
         data: {
           patient_id: patientId,
-          doctor_id,
+          doctor_id: effectiveDoctorId,
           slot_start: slotStartDate,
           slot_end: slotEndDate,
           status: 'booked',
@@ -152,7 +160,7 @@ export const appointmentsController = {
       notifyDoctorOfAppointment({
         appointmentId: appointment.id,
         patientId,
-        doctorId: doctor_id,
+        doctorId: effectiveDoctorId,
         slotStart: slotStartDate,
         isReschedule: false,
       }).catch(err => logger.error({ err, appointmentId: appointment.id }, 'Background doctor appointment notification failed'));
@@ -179,10 +187,18 @@ export const appointmentsController = {
       const newSlotStart = new Date(slot_start);
       const newSlotEnd = new Date(newSlotStart.getTime() + SLOT_DURATION_MIN * 60 * 1000);
 
+      // Automatically assign to doctor assigned to this day of week if configured
+      const dayName = newSlotStart.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Lagos' });
+      const dayDoctor = await prisma.doctor.findFirst({
+        where: { clinic_days: { has: dayName } },
+        select: { id: true },
+      });
+      const effectiveDoctorId = dayDoctor ? dayDoctor.id : existing.doctor_id;
+
       // Check for conflicts at new time
       const conflict = await prisma.appointment.findFirst({
         where: {
-          doctor_id: existing.doctor_id,
+          doctor_id: effectiveDoctorId,
           slot_start: newSlotStart,
           status: { in: ['booked', 'completed'] },
           id: { not: id },
@@ -196,6 +212,7 @@ export const appointmentsController = {
       const updated = await prisma.appointment.update({
         where: { id },
         data: {
+          doctor_id: effectiveDoctorId,
           slot_start: newSlotStart,
           slot_end: newSlotEnd,
         },
@@ -218,7 +235,7 @@ export const appointmentsController = {
       notifyDoctorOfAppointment({
         appointmentId: updated.id,
         patientId: existing.patient_id,
-        doctorId: existing.doctor_id,
+        doctorId: effectiveDoctorId,
         slotStart: newSlotStart,
         isReschedule: true,
       }).catch(err => logger.error({ err, appointmentId: updated.id }, 'Background doctor appointment reschedule notification failed'));

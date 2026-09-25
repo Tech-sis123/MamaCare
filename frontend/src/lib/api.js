@@ -194,7 +194,11 @@ export const rescheduleAppointment = (appointment_id, slot_start) =>
 
 // ── Education ─────────────────────────────────────────────────────────────────
 
-export const getEducationModules = () => patientApi.get('/education/modules');
+export const getEducationModules = (week) =>
+  patientApi.get('/education/modules', week ? { params: { week } } : {});
+
+export const getEducationModule = (id) =>
+  patientApi.get(`/education/modules/${id}`);
 
 export const markModuleComplete = module_id =>
   patientApi.patch('/education/progress', { module_id });

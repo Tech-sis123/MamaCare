@@ -5,9 +5,9 @@ export const educationModulesQuerySchema = z.object({
 });
 
 export const moduleIdParamSchema = z.object({
-  id: z.string().uuid('Invalid module ID'),
+  id: z.string().min(1, 'Invalid module ID'),
 });
 
 export const markProgressSchema = z.object({
-  module_id: z.string().uuid('Invalid module ID'),
+  module_id: z.string().min(1, 'Invalid module ID'),
 });

@@ -28,7 +28,7 @@ async function main() {
 
     let englishLesson = `This is the default detailed lesson for Week ${mod.week_number}. It covers key clinical insights, self-care routines, and what to expect during this stage of pregnancy.`;
     let pidginLesson = `Dis na di detailed lesson for Week ${mod.week_number}. E go help you understand wetin dey happen to your body and your baby dis week.`;
-    let videoUrl = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; // Fallback trusted video link
+    let videoUrl: string | null = null;
 
     // 1. Mock/Actual call to OpenAI
     if (process.env.OPENAI_API_KEY) {

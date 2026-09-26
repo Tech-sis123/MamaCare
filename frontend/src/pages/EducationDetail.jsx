@@ -12,7 +12,7 @@ const STATIC_MODULES = {
     duration: '8 min',
     title: "Understanding Your Baby's Rapid Growth",
     subtitle: "Your baby is now the size of a lime — and almost fully formed.",
-    video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    video_url: null,
     nextModule: { id: 'mindful-breathing', type: 'Audio', duration: '12 min', title: 'Mindful Breathing for Relief', icon: 'music_note' },
     sections: [
       {
@@ -178,7 +178,7 @@ const STATIC_MODULES = {
     duration: '15 min',
     title: 'First Scan: What to Expect',
     subtitle: 'A guide to your dating ultrasound.',
-    video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    video_url: null,
     nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
     sections: [
       {
@@ -356,10 +356,23 @@ const EducationDetail = () => {
                 />
               )
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-white/80 bg-stone-900">
-                <span className="material-symbols-outlined text-5xl mb-2 text-white/60">smart_display</span>
-                <p className="text-sm font-semibold">Video Demonstration</p>
-                <p className="text-xs text-white/50 max-w-xs mt-1">Video is currently loading or being prepared.</p>
+              <div className="w-full h-full relative flex flex-col items-center justify-center p-6 text-center overflow-hidden bg-gradient-to-br from-stone-900 via-stone-850 to-stone-950">
+                <div
+                  className="absolute inset-0 opacity-15 bg-cover bg-center pointer-events-none"
+                  style={{ backgroundImage: `url('https://images.unsplash.com/photo-1584515933487-779824d29309?w=640&q=80')` }}
+                />
+                <div className="relative z-10 flex flex-col items-center max-w-xs">
+                  <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 mb-3 shadow-lg">
+                    <span className="material-symbols-outlined text-3xl text-amber-200">smart_display</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-white/15 text-white/90 border border-white/15 mb-2">
+                    Clinical Video Lesson
+                  </span>
+                  <p className="text-sm font-semibold text-white">Video Demonstration in Preparation</p>
+                  <p className="text-xs text-white/60 mt-1 leading-relaxed">
+                    Our medical team is producing this video demonstration. Please review the complete clinical guide and care instructions below.
+                  </p>
+                </div>
               </div>
             )}
           </div>

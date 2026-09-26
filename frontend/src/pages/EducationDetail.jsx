@@ -4,6 +4,7 @@ import { getEducationModule, markModuleComplete } from '../lib/api';
 
 const STATIC_MODULES = {
   'baby-growth': {
+    id: 'baby-growth',
     type: 'Video',
     typeIcon: 'play_circle',
     week: 'Week 12',
@@ -55,9 +56,21 @@ const STATIC_MODULES = {
           'No longer feeling pregnant — sudden disappearance of all symptoms',
         ],
       },
+      {
+        kind: 'body',
+        heading: 'Your Antenatal Appointment',
+        body: `Your first major antenatal scan — called the dating or nuchal scan — usually happens between 11 and 13 weeks. If you have not had yours yet, book it at your clinic. The scan checks that your baby is growing well, confirms the due date, and screens for certain chromosomal conditions. Your midwife will measure the fluid at the back of the baby's neck (the nuchal fold) and check the blood flow in the placenta.\n\nBring your antenatal card and a full bladder. The ultrasound gel may feel cold, but the scan is painless and usually takes 20–30 minutes.`,
+      },
+      {
+        kind: 'highlight',
+        icon: 'restaurant',
+        heading: 'Nutrition Tip for Week 12',
+        body: `Iron-rich foods are especially important right now as your blood volume grows. In Nigeria, excellent sources include ugu (fluted pumpkin leaves), ofe akwu (palm nut soup with fish), egusi soup with beef liver, and garden eggs. Pair them with vitamin C — like fresh orange or tomato — to help your body absorb the iron better.`,
+      },
     ],
   },
   'mindful-breathing': {
+    id: 'mindful-breathing',
     type: 'Audio',
     typeIcon: 'music_note',
     week: 'Week 12',
@@ -69,7 +82,12 @@ const STATIC_MODULES = {
     sections: [
       {
         kind: 'intro',
-        body: `Breathing is something we do without thinking — but learning to breathe intentionally is one of the most powerful tools you have during pregnancy. In this module, you will learn simple techniques that can help ease nausea, reduce anxiety, and give you more energy on difficult days.`,
+        body: `Breathing is something we do without thinking — but learning to breathe intentionally is one of the most powerful tools you have during pregnancy. In this module, you will learn three simple techniques that can help ease nausea, reduce anxiety, and give you more energy on difficult days.`,
+      },
+      {
+        kind: 'body',
+        heading: 'Why Breathing Matters in Pregnancy',
+        body: `During pregnancy, your body needs about 20% more oxygen than usual to support both you and your growing baby. At the same time, the hormonal changes of the first trimester can leave many women feeling anxious, short of breath, or overwhelmed.\n\nSlow, deep breathing activates the parasympathetic nervous system — the part of your body that controls rest and digestion. This reduces stress hormones like cortisol, calms the heart rate, and can even settle nausea by reducing the body's fight-or-flight response.`,
       },
       {
         kind: 'takeaways',
@@ -80,30 +98,128 @@ const STATIC_MODULES = {
           'Belly Breathing: Place one hand on your chest, one on your belly. Breathe so only the belly hand rises.',
         ],
       },
+      {
+        kind: 'highlight',
+        icon: 'self_improvement',
+        heading: 'When to Use These Techniques',
+        body: `Try 4-7-8 breathing when you feel nausea coming on, especially in the morning. Use box breathing before your antenatal appointments if you feel nervous. Practise belly breathing at night to help you fall asleep more easily.`,
+      },
+      {
+        kind: 'warning',
+        heading: 'Stop and Rest If You Feel',
+        items: [
+          'Dizziness or lightheadedness during any breathing exercise',
+          'Shortness of breath that does not improve with rest',
+          'Chest tightness or palpitations lasting more than a few seconds',
+        ],
+      },
     ],
   },
   'nutrition-iron-zinc': {
+    id: 'nutrition-iron-zinc',
     type: 'Article',
     typeIcon: 'description',
     week: 'Week 12',
     tag: 'Nutrition',
     duration: '5 min read',
     title: 'Nutrition Essentials: Iron & Zinc',
-    subtitle: 'Fueling your body and baby with local, nutrient-dense Nigerian foods.',
+    subtitle: 'The best local foods to keep you and your baby strong.',
+    nextModule: { id: 'first-scan', type: 'Video', duration: '15 min', title: 'First Scan: What to Expect', icon: 'play_circle' },
+    sections: [
+      {
+        kind: 'intro',
+        body: `What you eat during pregnancy directly affects how your baby grows. Two minerals that are especially important in the first trimester are iron and zinc. Many women in Nigeria enter pregnancy with low iron stores, which is why understanding your food choices now can make a real difference to your health and your baby's development.`,
+      },
+      {
+        kind: 'body',
+        heading: 'Why Iron Matters',
+        body: `Iron is needed to make haemoglobin — the protein in red blood cells that carries oxygen to your baby. During pregnancy, your blood volume increases by up to 50%, so your iron needs almost double. Without enough iron, you may feel very tired, dizzy, or short of breath. Severe iron deficiency (anaemia) is one of the most common causes of complications during labour in Nigeria.\n\nThe good news: many of the foods already eaten regularly in Southern Nigeria are excellent iron sources.`,
+      },
+      {
+        kind: 'takeaways',
+        heading: 'Best Local Sources of Iron',
+        items: [
+          'Ugu (fluted pumpkin) — one of the richest plant sources of iron available locally',
+          'Beef liver and kidney — eaten in small portions 2–3 times per week',
+          'Egusi soup with meat or fish',
+          'Ofe onugbu (bitter leaf soup) with stock fish',
+          'Beans — black-eyed peas, honey beans (oloyin), or black beans',
+        ],
+      },
+      {
+        kind: 'highlight',
+        icon: 'tips_and_updates',
+        heading: 'Boost Absorption with Vitamin C',
+        body: `Your body absorbs iron from plant foods much better when eaten alongside vitamin C. Add fresh tomatoes, orange slices, or lime juice to your iron-rich meals. Avoid drinking tea or coffee with meals — the tannins in tea can reduce iron absorption by up to 60%.`,
+      },
+      {
+        kind: 'body',
+        heading: 'Why Zinc Matters',
+        body: `Zinc supports your baby's cell growth and the development of a healthy immune system. It is also important for healing and for your own immune function during pregnancy. Zinc deficiency is linked to low birth weight and preterm delivery.\n\nGood sources of zinc in Nigerian cuisine include beef, chicken, turkey, egusi seeds, groundnuts (peanuts), and dried crayfish. Eating a varied diet that includes these foods most days will help you meet your needs without supplements.`,
+      },
+      {
+        kind: 'warning',
+        heading: 'Foods to Limit or Avoid',
+        items: [
+          'Raw or undercooked meat, fish, or eggs — risk of foodborne illness',
+          'Soft unpasteurised cheese (like some local wara) — risk of listeria',
+          'Excess vitamin A supplements or liver more than once a week — can be harmful in high doses',
+          'Alcohol — no safe amount in pregnancy',
+        ],
+      },
+    ],
+  },
+  'first-scan': {
+    id: 'first-scan',
+    type: 'Video',
+    typeIcon: 'play_circle',
+    week: 'Week 11–13',
+    tag: 'Antenatal Care',
+    duration: '15 min',
+    title: 'First Scan: What to Expect',
+    subtitle: 'A guide to your dating ultrasound.',
+    video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
     sections: [
       {
         kind: 'intro',
-        body: `As your blood volume doubles and your baby’s organs develop, iron and zinc become essential daily building blocks. Choosing local, accessible foods ensures healthy development for baby and keeps mama strong.`,
+        body: `Your first ultrasound scan is one of the most exciting moments of early pregnancy. It is the first time you will see your baby on screen — and it provides your midwife with important information about how your pregnancy is progressing. This guide will help you know what to expect before, during, and after the scan at your clinic.`,
+      },
+      {
+        kind: 'body',
+        heading: 'What the Scan Checks',
+        body: `The dating scan (also called the nuchal translucency scan) is done between 11 and 13 weeks and 6 days. It checks that your baby has a heartbeat and is growing in the right place — in the uterus, not the fallopian tube. The sonographer will measure your baby from head to bottom (crown-rump length) to confirm your due date.\n\nThe scan also measures the fluid at the back of your baby's neck, called the nuchal fold. A thicker measurement may indicate a higher chance of chromosomal conditions like Down syndrome. If this is a concern, your midwife will explain what the next steps are — in most cases, everything is completely normal.`,
       },
       {
         kind: 'takeaways',
-        heading: 'Top Nigerian Food Sources',
+        heading: 'How to Prepare',
         items: [
-          'Ugu (Fluted Pumpkin Leaves) — rich in iron and folate.',
-          'Beans and Moin Moin — excellent plant-based protein and zinc.',
-          'Fish and Eggs — highly absorbable iron and healthy fats.',
-          'Citrus fruits (Oranges, Tangerines) — Vitamin C boosts iron absorption.',
+          'Drink 4–6 glasses of water in the hour before the scan and do not use the toilet — a full bladder helps the image quality.',
+          'Bring your antenatal card and any previous scan reports.',
+          'Wear loose, comfortable clothing you can lift or roll down easily.',
+          'You may bring one support person with you — a partner, mother, or friend.',
+          'The scan is painless. Cold gel will be applied to your belly.',
+        ],
+      },
+      {
+        kind: 'highlight',
+        icon: 'ultrasound',
+        heading: 'What You Will See',
+        body: `At 12 weeks, your baby looks remarkably like a tiny person on the screen. You will be able to see the head, body, arms, and legs moving. You may see the heart flickering rapidly — a healthy baby's heart rate at this stage is between 150 and 170 beats per minute. The sonographer will show you where to look and explain what you are seeing.`,
+      },
+      {
+        kind: 'body',
+        heading: 'After the Scan',
+        body: `You will receive printed scan images to take home. Your midwife will review the measurements and results with you, usually at the same appointment or shortly after. If everything looks normal, your next scan will be at around 20 weeks — the anatomy scan.\n\nIf any measurements are outside the normal range, do not panic. Your midwife will refer you to an obstetrician who will carry out further assessments. Most concerns found at the dating scan turn out to be nothing serious.`,
+      },
+      {
+        kind: 'warning',
+        heading: 'Contact Your Clinic If You Have',
+        items: [
+          'Not yet had a scan and are past 13 weeks and 6 days',
+          'Vaginal bleeding or cramping before your appointment',
+          'Lost all pregnancy symptoms suddenly',
+          'Any questions or concerns about the scan results',
         ],
       },
     ],
@@ -131,38 +247,39 @@ const EducationDetail = () => {
   const { id } = useParams();
   const [completed, setCompleted] = useState(false);
   const [apiModule, setApiModule] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    // If it's one of the known static rich articles, we already have full content
+    if (STATIC_MODULES[id]) {
+      return;
+    }
+    // Otherwise fetch from backend API
     getEducationModule(id)
       .then((r) => {
         if (r.data?.module) {
           setApiModule(r.data.module);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, [id]);
 
-  // Merge static or API data
-  const staticFallback = STATIC_MODULES[id] || STATIC_MODULES['baby-growth'];
+  // Priority: static rich article > API module > fallback static
+  const staticMatch = STATIC_MODULES[id];
   
-  const mod = apiModule
+  const mod = staticMatch || (apiModule
     ? {
         id: apiModule.id,
         type: apiModule.video_url ? 'Video' : apiModule.audio_url ? 'Audio' : 'Article',
         typeIcon: apiModule.video_url ? 'play_circle' : apiModule.audio_url ? 'music_note' : 'description',
         week: apiModule.week_number ? `Week ${apiModule.week_number}` : 'Pregnancy Guide',
-        tag: 'Antenatal Education',
+        tag: 'Clinical Guidance',
         duration: apiModule.video_url ? '8 min' : apiModule.audio_url ? '10 min' : '5 min read',
         title: apiModule.title,
-        subtitle: apiModule.summary ? apiModule.summary.slice(0, 110) + '...' : 'Clinical guidance and self-care for your pregnancy.',
+        subtitle: apiModule.summary ? apiModule.summary.slice(0, 110) + '...' : 'Antenatal care and maternal guidance.',
         video_url: apiModule.video_url,
         audio_url: apiModule.audio_url,
-        transcript: apiModule.transcript,
-        nextModule: staticFallback.nextModule,
+        nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
         sections: [
           { kind: 'intro', body: apiModule.summary || 'Welcome to this week\'s pregnancy lesson.' },
           ...(apiModule.transcript ? [{ kind: 'highlight', icon: 'record_voice_over', heading: 'Pidgin Summary / Audio Transcript', body: apiModule.transcript }] : []),
@@ -187,7 +304,7 @@ const EducationDetail = () => {
           },
         ],
       }
-    : staticFallback;
+    : STATIC_MODULES['baby-growth']);
 
   const tc = typeColors[mod.type] || typeColors.Article;
   const isVideo = mod.type === 'Video' || !!mod.video_url;
@@ -218,7 +335,7 @@ const EducationDetail = () => {
           </div>
         </header>
 
-        {/* ── VIDEO / AUDIO / ARTICLE BANNER ── */}
+        {/* ── VIDEO / AUDIO / ARTICLE HEADER ── */}
         {isVideo ? (
           <div className="relative aspect-video bg-black overflow-hidden shadow-xl flex-shrink-0">
             {embedUrl ? (
@@ -241,8 +358,8 @@ const EducationDetail = () => {
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-white/80 bg-stone-900">
                 <span className="material-symbols-outlined text-5xl mb-2 text-white/60">smart_display</span>
-                <p className="text-sm font-semibold">Video Demo</p>
-                <p className="text-xs text-white/50 max-w-xs mt-1">This module is currently an article lesson. Video demonstration will be available once uploaded.</p>
+                <p className="text-sm font-semibold">Video Demonstration</p>
+                <p className="text-xs text-white/50 max-w-xs mt-1">Video is currently loading or being prepared.</p>
               </div>
             )}
           </div>
@@ -257,12 +374,8 @@ const EducationDetail = () => {
               <p className="font-headline-md text-on-primary text-base font-bold">{mod.title}</p>
               <p className="text-on-primary-container text-xs opacity-80 mt-1">{mod.week} • {mod.duration}</p>
             </div>
-            {mod.audio_url ? (
+            {mod.audio_url && (
               <audio controls className="w-full max-w-sm mt-2" src={mod.audio_url} />
-            ) : (
-              <div className="bg-white/10 px-4 py-2 rounded-xl text-center text-xs text-white/80">
-                Audio player ready for voice notes and relaxation exercises.
-              </div>
             )}
           </div>
         ) : (
@@ -272,7 +385,7 @@ const EducationDetail = () => {
             </div>
             <div>
               <span className="font-label-sm text-[10px] uppercase tracking-widest text-primary font-bold">
-                {mod.week} • Reading Lesson
+                {mod.week} • Reading Article
               </span>
               <h3 className="font-headline-md text-sm text-primary font-bold leading-snug">{mod.title}</h3>
             </div>
@@ -395,6 +508,29 @@ const EducationDetail = () => {
 
           {/* Divider */}
           <div className="h-px bg-outline-variant/20 mx-5" />
+
+          {/* Up Next */}
+          {mod.nextModule && (
+            <div className="px-5 py-6 space-y-3">
+              <h3 className="font-headline-md text-on-surface text-base">Up Next</h3>
+              <button
+                type="button"
+                onClick={() => navigate(`/education/${mod.nextModule.id}`)}
+                className="w-full flex items-center gap-4 p-4 bg-surface-container-lowest rounded-xl organic-shadow hover:shadow-md transition-shadow active:scale-[0.99] text-left cursor-pointer"
+              >
+                <div className={`w-12 h-12 ${typeColors[mod.nextModule.type]?.bg || 'bg-surface-container'} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                  <span className={`material-symbols-outlined ${typeColors[mod.nextModule.type]?.text || 'text-on-surface-variant'}`}>
+                    {mod.nextModule.icon}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-on-surface text-sm leading-snug">{mod.nextModule.title}</p>
+                  <p className="text-xs text-on-surface-variant">{mod.nextModule.type} · {mod.nextModule.duration}</p>
+                </div>
+                <span className="material-symbols-outlined text-outline-variant flex-shrink-0">chevron_right</span>
+              </button>
+            </div>
+          )}
 
           {/* Source note */}
           <p className="px-5 py-6 text-center italic text-outline font-body-md text-xs">

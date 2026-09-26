@@ -20,24 +20,58 @@ const getModuleType = (mod) => {
   return 'article';
 };
 
-const STATIC_FALLBACK_MODULES = [
-  { id: 'baby-growth',        type: 'video',   week_number: 12, title: "Understanding Baby's Growth",    summary: "Week 12 · 8 min · Your baby is now the size of a lime.", completed: true,  recommended: true },
-  { id: 'mindful-breathing',  type: 'audio',   week_number: 12, title: 'Mindful Breathing for Relief',  summary: 'Simple exercises for managing morning sickness.',         completed: false, recommended: false },
-  { id: 'nutrition-iron-zinc',type: 'article', week_number: 12, title: 'Nutrition Essentials: Iron & Zinc', summary: 'Best local foods to boost your energy levels.',        completed: false, recommended: false },
-  { id: 'first-scan',         type: 'video',   week_number: 12, title: 'First Scan: What to Expect',    summary: 'A guide to your first ultrasound.',               completed: false, recommended: false },
+const CORE_FEATURED_MODULES = [
+  {
+    id: 'baby-growth',
+    type: 'video',
+    week_number: 12,
+    title: "Understanding Baby's Growth",
+    summary: "Week 12 • 8 min • Your baby is now the size of a lime and almost fully formed.",
+    video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    completed: true,
+    recommended: true,
+  },
+  {
+    id: 'mindful-breathing',
+    type: 'audio',
+    week_number: 12,
+    title: 'Mindful Breathing for Relief',
+    summary: 'Simple exercises for managing morning sickness, anxiety, and fatigue.',
+    completed: false,
+    recommended: false,
+  },
+  {
+    id: 'nutrition-iron-zinc',
+    type: 'article',
+    week_number: 12,
+    title: 'Nutrition Essentials: Iron & Zinc',
+    summary: 'The best local Nigerian foods (Ugu, Beans, Egusi, Fish) to keep you and your baby strong.',
+    completed: false,
+    recommended: false,
+  },
+  {
+    id: 'first-scan',
+    type: 'video',
+    week_number: 12,
+    title: 'First Scan: What to Expect',
+    summary: 'A guide to your dating ultrasound between weeks 11 and 13.',
+    video_url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    completed: false,
+    recommended: false,
+  },
 ];
 
 const TABS = [
   { id: 'all', label: 'All' },
+  { id: 'article', label: 'Articles' },
   { id: 'video', label: 'Videos' },
   { id: 'audio', label: 'Audio' },
-  { id: 'article', label: 'Articles' },
   { id: 'completed', label: 'Completed' },
 ];
 
 const PregnancyEducation = () => {
   const navigate = useNavigate();
-  const [modules, setModules] = useState([]);
+  const [dbModules, setDbModules] = useState([]);
   const [modulesLoading, setModulesLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
@@ -48,7 +82,7 @@ const PregnancyEducation = () => {
       .then((r) => {
         const data = Array.isArray(r.data) ? r.data : r.data?.modules || [];
         if (data.length > 0) {
-          setModules(data);
+          setDbModules(data);
         }
         if (r.data?.patient?.current_ega_weeks != null) {
           setCurrentWeek(r.data.patient.current_ega_weeks);
@@ -68,29 +102,32 @@ const PregnancyEducation = () => {
       .catch(() => {});
   }, []);
 
-  const allModules = modules.length > 0 ? modules : STATIC_FALLBACK_MODULES;
+  // Merge core rich articles with database modules (avoiding duplicate IDs)
+  const coreIds = new Set(CORE_FEATURED_MODULES.map((m) => m.id));
+  const additionalDbModules = dbModules.filter((m) => !coreIds.has(m.id));
+  const allModules = [...CORE_FEATURED_MODULES, ...additionalDbModules];
 
   // Counts for tabs
+  const articleCount = allModules.filter((m) => getModuleType(m) === 'article').length;
   const videoCount = allModules.filter((m) => getModuleType(m) === 'video').length;
   const audioCount = allModules.filter((m) => getModuleType(m) === 'audio').length;
-  const articleCount = allModules.filter((m) => getModuleType(m) === 'article').length;
   const completedCount = allModules.filter((m) => m.is_completed || m.completed).length;
   const totalCount = allModules.length;
 
   const tabCounts = {
     all: totalCount,
+    article: articleCount,
     video: videoCount,
     audio: audioCount,
-    article: articleCount,
     completed: completedCount,
   };
 
   // Filter modules based on selected tab
   const filteredModules = allModules.filter((m) => {
     if (activeTab === 'all') return true;
+    if (activeTab === 'article') return getModuleType(m) === 'article';
     if (activeTab === 'video') return getModuleType(m) === 'video';
     if (activeTab === 'audio') return getModuleType(m) === 'audio';
-    if (activeTab === 'article') return getModuleType(m) === 'article';
     if (activeTab === 'completed') return m.is_completed || m.completed;
     return true;
   });
@@ -112,7 +149,7 @@ const PregnancyEducation = () => {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container transition-colors"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-primary-container transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
@@ -171,7 +208,7 @@ const PregnancyEducation = () => {
             </div>
           </div>
 
-          {/* FILTER TABS & DOWNLOAD */}
+          {/* FILTER TABS */}
           <div className="px-6 space-y-4">
             <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
               {TABS.map((tab) => {
@@ -235,9 +272,9 @@ const PregnancyEducation = () => {
                 </h3>
                 <p className="text-on-surface-variant text-xs max-w-xs leading-relaxed mb-5">
                   {activeTab === 'video'
-                    ? 'Video lessons for this stage of your pregnancy are currently being prepared by our medical team.'
+                    ? 'Video lessons for this stage of your pregnancy will appear here as they are published.'
                     : activeTab === 'audio'
-                    ? 'Audio guides and relaxation exercises will appear here once published.'
+                    ? 'Audio recordings and relaxation exercises will appear here once published.'
                     : activeTab === 'article'
                     ? 'No articles found in this category at this time.'
                     : 'Modules you complete will appear here so you can easily review them whenever you want.'}
@@ -265,7 +302,7 @@ const PregnancyEducation = () => {
                   isCurrentWeekModule || mod.is_current_recommendation || mod.recommended || idx === 0;
                 const isCompleted = mod.is_completed || mod.completed;
                 const typeLabel = modType.charAt(0).toUpperCase() + modType.slice(1);
-                const duration = mod.duration || (modType === 'video' ? '8 min' : modType === 'audio' ? '10 min' : '5 min read');
+                const duration = mod.duration || (modType === 'video' ? '8 min' : modType === 'audio' ? '12 min' : '5 min read');
                 const weekLabel = mod.week_number ? `Week ${mod.week_number}` : mod.week || 'Pregnancy Guide';
                 const description = mod.summary || mod.description || mod.subtitle || '';
 

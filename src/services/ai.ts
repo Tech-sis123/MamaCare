@@ -32,10 +32,11 @@ export const aiService = {
       const prompt = `You are ${roleStr} at the University of Benin Teaching Hospital (UBTH), Nigeria. 
 Your patient is ${patientName}, age ${age}, in Week ${weekNumber} of pregnancy.
 Write a highly personalized, warm antenatal lesson for her current week of pregnancy entirely in ${langStr}.
+Write in very simple, conversational, everyday words that a mother with zero medical background can easily understand. Avoid technical clinical jargon (like 'parasympathetic', 'nuchal fold', 'hemoglobin', 'edema', 'gestational age'); instead use warm everyday words like 'blood level', 'baby bump', 'baby water bag', 'calming your body', 'clinic checks'.
 Do NOT provide a translation in another language, just write the lesson strictly in ${langStr}.
 Never mention a risk level, risk tier, risk score, or whether she is low/medium/high risk.
 Finally, on a new line, recommend a real, educational YouTube search link about "Pregnancy week ${weekNumber}" or a trusted channel like WHO/Mayo Clinic (e.g., https://www.youtube.com/results?search_query=pregnancy+week+${weekNumber}).
-Address her directly by name ("${patientName}") and mention her current gestational week. Use common warm Nigerian pregnancy phrases.
+Address her directly by name ("${patientName}") and mention her current pregnancy week. Use common warm Nigerian pregnancy phrases.
 Keep the total output under 250 words. Format with standard paragraphs.`;
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEducationModules, getPatientDashboard } from '../lib/api';
+import WhatsAppContact from '../components/WhatsAppContact';
 
 const TYPE_STYLE = {
   video:   { icon: 'play_circle',  bg: 'bg-primary-fixed-dim', color: 'text-primary-container', border: 'border-tertiary-fixed' },
@@ -26,7 +27,7 @@ const CORE_FEATURED_MODULES = [
     type: 'video',
     week_number: 12,
     title: "Understanding Baby's Growth",
-    summary: "Week 12 • 8 min • Your baby is now the size of a lime and almost fully formed.",
+    summary: "Week 12 • 8 min • Your baby is now the size of a sweet lime and almost fully formed.",
     video_url: null,
     completed: true,
     recommended: true,
@@ -36,7 +37,7 @@ const CORE_FEATURED_MODULES = [
     type: 'audio',
     week_number: 12,
     title: 'Mindful Breathing for Relief',
-    summary: 'Simple exercises for managing morning sickness, anxiety, and fatigue.',
+    summary: 'Simple calming exercises to ease morning sickness, anxiety, and fatigue.',
     completed: false,
     recommended: false,
   },
@@ -44,7 +45,7 @@ const CORE_FEATURED_MODULES = [
     id: 'nutrition-iron-zinc',
     type: 'article',
     week_number: 12,
-    title: 'Nutrition Essentials: Iron & Zinc',
+    title: 'Nutrition Essentials: Foods That Build Blood',
     summary: 'The best local Nigerian foods (Ugu, Beans, Egusi, Fish) to keep you and your baby strong.',
     completed: false,
     recommended: false,
@@ -53,8 +54,8 @@ const CORE_FEATURED_MODULES = [
     id: 'first-scan',
     type: 'video',
     week_number: 12,
-    title: 'First Scan: What to Expect',
-    summary: 'A guide to your dating ultrasound between weeks 11 and 13.',
+    title: 'First Photo Scan: What to Expect',
+    summary: 'A gentle, comforting guide to your first clinic ultrasound picture scan.',
     video_url: null,
     completed: false,
     recommended: false,
@@ -353,6 +354,9 @@ const PregnancyEducation = () => {
               })}
           </div>
         </section>
+
+        {/* Floating WhatsApp Contact with Speech Bubble */}
+        <WhatsAppContact bubbleText="Have questions? Chat with our clinic 👋" />
       </main>
 
       {/* Bottom Navigation */}

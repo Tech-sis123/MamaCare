@@ -16,7 +16,7 @@ export default function WhatsAppContact({ number, customMessage, bubbleText }) {
     digitsOf(import.meta.env.VITE_SUPPORT_WHATSAPP) ||
     PLACEHOLDER;
 
-  const defaultMessage = customMessage || 'Hello, I need help with 9Care.';
+  const defaultMessage = customMessage || 'Hello Doctor, I need help with 9Care.';
   const href = `https://wa.me/${digits}?text=${encodeURIComponent(defaultMessage)}`;
 
   return (
@@ -39,10 +39,10 @@ export default function WhatsAppContact({ number, customMessage, bubbleText }) {
 
             <div className="text-left pr-2">
               <p className="text-[11.5px] font-bold text-stone-900 leading-tight">
-                {bubbleText || 'Need help? Chat with a Midwife 👋'}
+                {bubbleText || 'Need help? Chat with a Doctor 👋'}
               </p>
               <p className="text-[10px] text-stone-500 leading-tight mt-0.5">
-                Online · Ask any pregnancy question
+                Online · Ask our doctor anything
               </p>
             </div>
           </a>

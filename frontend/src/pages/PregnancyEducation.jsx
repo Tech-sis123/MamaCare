@@ -356,7 +356,7 @@ const PregnancyEducation = () => {
         </section>
 
         {/* Floating WhatsApp Contact with Speech Bubble */}
-        <WhatsAppContact bubbleText="Have questions? Chat with our clinic 👋" />
+        <WhatsAppContact bubbleText="Have questions? Chat with a Doctor 👋" />
       </main>
 
       {/* Bottom Navigation */}

@@ -35,7 +35,7 @@ const STATIC_MODULES = {
       {
         kind: 'body',
         heading: "How Your Body Is Changing",
-        body: `Here is comforting news: for most mothers, early morning sickness, nausea, and heavy tiredness start easing up around week 12! Your womb has grown to about the size of a grapefruit, and your midwife can now gently feel the top of it just above your lower belly bone.\n\nYour body is also creating extra blood — up to 50% more than usual — to feed your baby. Because of all this extra blood circulating, you may feel warmer than usual or notice your heart beating a bit faster. These are healthy signs that your body is doing wonderful work.`,
+        body: `Here is comforting news: for most mothers, early morning sickness, nausea, and heavy tiredness start easing up around week 12! Your womb has grown to about the size of a grapefruit, and your doctor can now gently feel the top of it just above your lower belly bone.\n\nYour body is also creating extra blood — up to 50% more than usual — to feed your baby. Because of all this extra blood circulating, you may feel warmer than usual or notice your heart beating a bit faster. These are healthy signs that your body is doing wonderful work.`,
       },
       {
         kind: 'takeaways',
@@ -45,12 +45,12 @@ const STATIC_MODULES = {
           "All major body parts and organs are formed; baby is now growing larger every day.",
           "Your baby already has tiny fingernails and can curl their toes.",
           "Morning sickness and nausea usually start reducing from this week onward.",
-          "Your midwife can now gently feel your womb from the outside during clinic checks.",
+          "Your doctor can now gently feel your womb from the outside during clinic checks.",
         ],
       },
       {
         kind: 'warning',
-        heading: 'Contact Your Midwife or Clinic If You Notice',
+        heading: 'Contact Your Doctor or Clinic If You Notice',
         items: [
           'Any bright red vaginal bleeding or spotting',
           'Sharp belly cramps or lower tummy pain that does not ease',
@@ -66,7 +66,7 @@ const STATIC_MODULES = {
       {
         kind: 'highlight',
         icon: 'restaurant',
-        heading: 'Midwife Nutrition Tip for Week 12',
+        heading: "Doctor's Nutrition Tip for Week 12",
         body: `Blood-building foods are super important right now! Excellent local Nigerian foods include fresh Ugu leaves, Ofe Akwu (banga soup with fish), Egusi soup with fish or meat, garden eggs, and beans. Squeeze a fresh orange or eat fresh tomatoes with your food — vitamin C helps your body absorb all the blood-building nutrients!`,
       },
     ],
@@ -120,7 +120,7 @@ const STATIC_MODULES = {
       {
         kind: 'highlight',
         icon: 'restaurant',
-        heading: 'Nurse Advice for Week 12 Food',
+        heading: 'Doctor Advice for Week 12 Food',
         body: `Chop foods wey dey give plenty blood! Local foods like fresh Ugu, Egusi soup with fish or beef, Ofe Akwu, and beans. Drink fresh orange juice or chop tomato join — vitamin C dey help your body absorb the blood food fast!`,
       },
     ],
@@ -242,7 +242,7 @@ const STATIC_MODULES = {
       {
         kind: 'highlight',
         icon: 'tips_and_updates',
-        heading: 'Midwife Secret: Boost Blood with Vitamin C!',
+        heading: "Doctor's Secret: Boost Blood with Vitamin C!",
         body: `Your body absorbs iron from vegetables much faster when you eat them with vitamin C! Squeeze fresh orange or lemon into your water, or enjoy fresh oranges, tomatoes, and watermelon with your meals. Important tip: Avoid drinking hot black tea or coffee with your meals, because tea stops your body from absorbing blood nutrients!`,
       },
       {
@@ -347,7 +347,7 @@ const STATIC_MODULES = {
       {
         kind: 'body',
         heading: 'After Your Scan',
-        body: `The clinic will give you printed photo pictures of your baby to take home and treasure! Your midwife will review the measurements with you and confirm your delivery date. If the doctor ever wants an extra checkup, do not be afraid — doctors do extra checks out of an abundance of caution to ensure mama and baby are protected.`,
+        body: `The clinic will give you printed photo pictures of your baby to take home and treasure! Your doctor will review the measurements with you and confirm your delivery date. If the doctor ever wants an extra checkup, do not be afraid — doctors do extra checks out of an abundance of caution to ensure mama and baby are protected.`,
       },
       {
         kind: 'warning',
@@ -867,8 +867,8 @@ const EducationDetail = () => {
 
         {/* ── FLOATING WHATSAPP CONTACT WITH BUBBLE ── */}
         <WhatsAppContact
-          bubbleText="Question about this lesson? Chat on WhatsApp 👋"
-          customMessage={`Hello Nurse, I was reading the lesson on "${mod.title}" in 9Care and wanted to ask a question.`}
+          bubbleText="Question about this lesson? Chat with a Doctor 👋"
+          customMessage={`Hello Doctor, I was reading the lesson on "${mod.title}" in 9Care and wanted to ask a question.`}
         />
 
         {/* ── STICKY COMPLETION FOOTER ── */}
@@ -974,7 +974,7 @@ const EducationDetail = () => {
               <div className="p-4 bg-stone-50 border-t border-stone-200 flex items-center justify-between">
                 <p className="text-[11px] text-stone-500">Still confused about any medical term?</p>
                 <a
-                  href={`https://wa.me/2348034027044?text=${encodeURIComponent('Hello Midwife, could you please explain a medical term from the app?')}`}
+                  href={`https://wa.me/2348034027044?text=${encodeURIComponent('Hello Doctor, could you please explain a medical term from the app?')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3.5 py-2 bg-[#25D366] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs hover:opacity-95 cursor-pointer"

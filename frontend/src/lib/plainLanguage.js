@@ -162,8 +162,8 @@ export const MEDICAL_GLOSSARY = {
   },
   'fundal height': {
     simple: "belly measurement tape check",
-    definition: "When the midwife stretches a measuring tape from your pelvic bone to top of your womb to check baby's growth.",
-    pidgin: "when nurse take tape measure how tall your belle don grow"
+    definition: "When the doctor stretches a measuring tape from your pelvic bone to top of your womb to check baby's growth.",
+    pidgin: "when doctor take tape measure how tall your belle don grow"
   },
   'palpitations': {
     simple: "racing or fluttering heartbeat",

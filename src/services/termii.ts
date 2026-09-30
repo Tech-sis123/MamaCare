@@ -115,7 +115,7 @@ export const termiiService = {
           pin_time_to_live: 10,
           pin_length: 6,
           pin_placeholder: '< 1234 >',
-          message_text: 'Your Mama Care verification code is < 1234 >. Valid for 10 minutes.',
+          message_text: 'Your 9Care verification code is < 1234 >. Valid for 10 minutes.',
           pin_type: 'NUMERIC',
         }),
       });

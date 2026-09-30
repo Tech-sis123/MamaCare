@@ -46,14 +46,14 @@ exports.educationController = {
                 include: {
                     pregnancies: { orderBy: { id: 'desc' }, take: 1 },
                     risk_assessments: { orderBy: { created_at: 'desc' }, take: 1 },
-                    education_progresses: true,
+                    education_progress: true,
                 },
             });
             if (!patient) {
                 res.status(200).json({ modules });
                 return;
             }
-            const completedIds = new Set(patient.education_progresses.map((p) => p.module_id));
+            const completedIds = new Set(patient.education_progress.map((p) => p.module_id));
             const pregnancy = patient.pregnancies[0] || null;
             const riskTier = patient.risk_assessments[0]?.tier || 'LOW';
             // 2. Compute active gestational age
@@ -115,7 +115,6 @@ exports.educationController = {
                 patient: {
                     name: patient.name,
                     current_ega_weeks: egaWeeks,
-                    risk_tier: riskTier,
                 },
                 recommendations: {
                     weekly_target: aiRecommendation || currentRecommendation, // Use AI if active, fallback to database clinical content
@@ -134,7 +133,7 @@ exports.educationController = {
      */
     async getModule(req, res, next) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const module = await prisma_1.default.educationModule.findUnique({ where: { id } });
             if (!module) {
                 throw new errors_1.NotFoundError('Education module not found');

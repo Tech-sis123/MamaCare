@@ -1,5 +1,5 @@
 /**
- * MAMA CARE AI — Risk Stratification Engine
+ * 9Care AI — Risk Stratification Engine
  *
  * CLINICAL SAFETY CRITICAL CODE
  * This is a PURE FUNCTION. No database access, no side effects.

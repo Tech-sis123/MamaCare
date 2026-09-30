@@ -15,7 +15,7 @@ exports.riskController = {
      */
     async runRisk(req, res, next) {
         try {
-            const { patientId } = req.params;
+            const patientId = req.params.patientId;
             // Fetch patient and pregnancy data
             const patient = await prisma_1.default.patient.findUnique({
                 where: { id: patientId },
@@ -95,7 +95,7 @@ exports.riskController = {
      */
     async getLatest(req, res, next) {
         try {
-            const { patientId } = req.params;
+            const patientId = req.params.patientId;
             const assessment = await prisma_1.default.riskAssessment.findFirst({
                 where: { patient_id: patientId },
                 orderBy: { created_at: 'desc' },

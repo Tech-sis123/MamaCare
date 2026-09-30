@@ -7,6 +7,8 @@ exports.appointmentsController = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const redis_1 = require("../../config/redis");
 const errors_1 = require("../../utils/errors");
+const logger_1 = require("../../utils/logger");
+const appointmentNotify_1 = require("../../services/appointmentNotify");
 // Clinic hours: 8:00 to 16:00 (30-minute slots)
 const CLINIC_START_HOUR = 8;
 const CLINIC_END_HOUR = 16;
@@ -74,10 +76,17 @@ exports.appointmentsController = {
             }
             const slotStartDate = new Date(slot_start);
             const slotEndDate = new Date(slotStartDate.getTime() + SLOT_DURATION_MIN * 60 * 1000);
+            // Automatically assign to the doctor assigned to this day of week if configured (e.g. Monday -> Dr. Delight)
+            const dayName = slotStartDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Lagos' });
+            const dayDoctor = await prisma_1.default.doctor.findFirst({
+                where: { clinic_days: { has: dayName } },
+                select: { id: true },
+            });
+            const effectiveDoctorId = dayDoctor ? dayDoctor.id : doctor_id;
             // Check for conflicts
             const conflict = await prisma_1.default.appointment.findFirst({
                 where: {
-                    doctor_id,
+                    doctor_id: effectiveDoctorId,
                     slot_start: slotStartDate,
                     status: { in: ['booked', 'completed'] },
                 },
@@ -88,7 +97,7 @@ exports.appointmentsController = {
             const appointment = await prisma_1.default.appointment.create({
                 data: {
                     patient_id: patientId,
-                    doctor_id,
+                    doctor_id: effectiveDoctorId,
                     slot_start: slotStartDate,
                     slot_end: slotEndDate,
                     status: 'booked',
@@ -107,8 +116,36 @@ exports.appointmentsController = {
                     after: appointment,
                 },
             });
+            // Send SSE Booking Alert to the Doctor
+            const patient = await prisma_1.default.patient.findUnique({
+                where: { id: patientId },
+                select: { name: true },
+            });
+            const alertPayload = {
+                id: `booking-${appointment.id}`,
+                type: 'booking',
+                patient_name: patient?.name || 'A patient',
+                message: `New booking for ${slotStartDate.toLocaleDateString()} at ${slotStartDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+                timestamp: new Date().toISOString(),
+            };
+            const alertJson = JSON.stringify(alertPayload);
+            // Notify all doctors in the clinic
+            const doctors = await prisma_1.default.doctor.findMany({ select: { id: true } });
+            for (const doc of doctors) {
+                await redis_1.redis.lpush(`doctor:${doc.id}:active_alerts`, alertJson);
+                await redis_1.redis.ltrim(`doctor:${doc.id}:active_alerts`, 0, 49);
+                await redis_1.redis.publish(`doctor:${doc.id}:alerts`, alertJson);
+            }
             const responsePayload = { appointment };
             await redis_1.redis.set(cacheKey, JSON.stringify(responsePayload), 'EX', 86400);
+            // Asynchronously notify doctor via WhatsApp / SMS / Email (non-blocking)
+            (0, appointmentNotify_1.notifyDoctorOfAppointment)({
+                appointmentId: appointment.id,
+                patientId,
+                doctorId: effectiveDoctorId,
+                slotStart: slotStartDate,
+                isReschedule: false,
+            }).catch(err => logger_1.logger.error({ err, appointmentId: appointment.id }, 'Background doctor appointment notification failed'));
             res.status(201).json(responsePayload);
         }
         catch (err) {
@@ -120,7 +157,7 @@ exports.appointmentsController = {
      */
     async reschedule(req, res, next) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const { slot_start } = req.body;
             const existing = await prisma_1.default.appointment.findUnique({ where: { id } });
             if (!existing) {
@@ -128,10 +165,17 @@ exports.appointmentsController = {
             }
             const newSlotStart = new Date(slot_start);
             const newSlotEnd = new Date(newSlotStart.getTime() + SLOT_DURATION_MIN * 60 * 1000);
+            // Automatically assign to doctor assigned to this day of week if configured
+            const dayName = newSlotStart.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Africa/Lagos' });
+            const dayDoctor = await prisma_1.default.doctor.findFirst({
+                where: { clinic_days: { has: dayName } },
+                select: { id: true },
+            });
+            const effectiveDoctorId = dayDoctor ? dayDoctor.id : existing.doctor_id;
             // Check for conflicts at new time
             const conflict = await prisma_1.default.appointment.findFirst({
                 where: {
-                    doctor_id: existing.doctor_id,
+                    doctor_id: effectiveDoctorId,
                     slot_start: newSlotStart,
                     status: { in: ['booked', 'completed'] },
                     id: { not: id },
@@ -143,6 +187,7 @@ exports.appointmentsController = {
             const updated = await prisma_1.default.appointment.update({
                 where: { id },
                 data: {
+                    doctor_id: effectiveDoctorId,
                     slot_start: newSlotStart,
                     slot_end: newSlotEnd,
                 },
@@ -159,6 +204,14 @@ exports.appointmentsController = {
                     after: { slot_start: newSlotStart, slot_end: newSlotEnd },
                 },
             });
+            // Asynchronously notify doctor of reschedule via WhatsApp / SMS / Email (non-blocking)
+            (0, appointmentNotify_1.notifyDoctorOfAppointment)({
+                appointmentId: updated.id,
+                patientId: existing.patient_id,
+                doctorId: effectiveDoctorId,
+                slotStart: newSlotStart,
+                isReschedule: true,
+            }).catch(err => logger_1.logger.error({ err, appointmentId: updated.id }, 'Background doctor appointment reschedule notification failed'));
             res.status(200).json({ appointment: updated });
         }
         catch (err) {
@@ -170,7 +223,7 @@ exports.appointmentsController = {
      */
     async cancel(req, res, next) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const existing = await prisma_1.default.appointment.findUnique({ where: { id } });
             if (!existing) {
                 throw new errors_1.NotFoundError('Appointment not found');

@@ -1,5 +1,5 @@
 /**
- * MAMA CARE AI — Symptom Controller + Danger Alert Pipeline
+ * 9Care AI — Symptom Controller + Danger Alert Pipeline
  *
  * CLINICAL SAFETY CRITICAL CODE
  *
@@ -141,7 +141,7 @@ export const symptomsController = {
           // Send SMS to patient
           await termiiService.sendSMS({
             to: patient.phone_number,
-            sms: `🚨 MAMA CARE ALERT: ${triggerDescriptions.join('; ')}. Please proceed to the hospital immediately.`,
+            sms: `🚨 9CARE ALERT: ${triggerDescriptions.join('; ')}. Please proceed to the hospital immediately.`,
           });
           smsSentAt = new Date();
         } catch (err) {
@@ -152,7 +152,7 @@ export const symptomsController = {
           // Send WhatsApp to patient
           await whatsappService.sendMessage({
             to: patient.phone_number,
-            message: `🚨 MAMA CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
+            message: `🚨 9CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
           });
           whatsappSentAt = new Date();
         } catch (err) {

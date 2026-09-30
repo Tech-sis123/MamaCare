@@ -1,6 +1,6 @@
 "use strict";
 /**
- * MAMA CARE AI — Danger Sign Detection Engine
+ * 9Care AI — Danger Sign Detection Engine
  *
  * CLINICAL SAFETY CRITICAL CODE
  * Pure function. No DB access.
@@ -93,8 +93,8 @@ function detectDangerSigns(symptoms, context) {
             symptoms_involved: ['high_fever'],
         });
     }
-    // 8. Severe vomiting / unable to keep fluids down
-    if (hasSevereSymptom(symptoms, 'severe_vomiting')) {
+    // 8. Severe / persistent vomiting (including >5 episodes reported)
+    if (hasSymptom(symptoms, 'severe_vomiting') || hasSevereSymptom(symptoms, 'severe_vomiting')) {
         triggers.push({
             trigger_key: 'severe_vomiting',
             description: 'Severe vomiting — unable to keep fluids down, possible hyperemesis',
@@ -108,6 +108,14 @@ function detectDangerSigns(symptoms, context) {
             trigger_key: 'swelling_headache',
             description: 'Sudden facial/hand swelling with headache — possible pre-eclampsia',
             symptoms_involved: ['facial_swelling', 'severe_headache'],
+        });
+    }
+    // 10. Drainage / leakage of liquor (possible PROM)
+    if (hasSymptom(symptoms, 'liquor_drainage') || hasSymptom(symptoms, 'leakage_of_liquor')) {
+        triggers.push({
+            trigger_key: 'liquor_drainage',
+            description: 'Drainage of liquor — possible premature rupture of membranes',
+            symptoms_involved: ['liquor_drainage'],
         });
     }
     return {

@@ -17,15 +17,19 @@ const envSchema = zod_1.z.object({
     JWT_ACCESS_EXPIRY: zod_1.z.string().default('15m'),
     JWT_REFRESH_EXPIRY: zod_1.z.string().default('7d'),
     TERMII_API_KEY: zod_1.z.string().default(''),
-    TERMII_SENDER_ID: zod_1.z.string().default('MamaCare'),
+    TERMII_SENDER_ID: zod_1.z.string().default('9Care'),
     TERMII_BASE_URL: zod_1.z.string().default('https://api.ng.termii.com/api'),
     BREVO_API_KEY: zod_1.z.string().default(''),
-    BREVO_SENDER_EMAIL: zod_1.z.string().default('noreply@mamacare.ng'),
+    BREVO_SENDER_EMAIL: zod_1.z.string().default('noreply@9care.ng'),
     SENTRY_DSN: zod_1.z.string().default(''),
     NODE_ENV: zod_1.z.enum(['development', 'production', 'test']).default('development'),
     CORS_ORIGIN: zod_1.z.string().default('http://localhost:5173'),
     LOG_LEVEL: zod_1.z.string().default('info'),
-    OPENAI_API_KEY: zod_1.z.string().default(''),
+    GROQ_API_KEY: zod_1.z.string().default(''),
+    CRON_SECRET: zod_1.z.string().default('my-super-secret-cron-key'),
+    /// Clinic WhatsApp number for patient support (digits with country code, no +).
+    /// Live number: +234 803 402 7044
+    SUPPORT_WHATSAPP_NUMBER: zod_1.z.string().default('2348034027044'),
 });
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {

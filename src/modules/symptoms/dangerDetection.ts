@@ -1,5 +1,5 @@
 /**
- * MAMA CARE AI — Danger Sign Detection Engine
+ * 9Care AI — Danger Sign Detection Engine
  *
  * CLINICAL SAFETY CRITICAL CODE
  * Pure function. No DB access.

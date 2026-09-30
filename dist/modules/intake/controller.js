@@ -1,37 +1,4 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -40,51 +7,78 @@ exports.intakeController = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const errors_1 = require("../../utils/errors");
 const logger_1 = require("../../utils/logger");
+const schemas_1 = require("./schemas");
+const editWindow_1 = require("./editWindow");
+const engine_1 = require("../risk/engine");
+const onboardingNotify_1 = require("../../services/onboardingNotify");
+async function assertPatientCanEditIntake(patientId) {
+    const patient = await prisma_1.default.patient.findUnique({ where: { id: patientId } });
+    if (!patient)
+        throw new errors_1.NotFoundError('Patient not found');
+    const meta = (0, editWindow_1.getIntakeEditMeta)(patient);
+    // TEMPORARILY DISABLED: 7-day edit lock — patients can edit whenever.
+    // Restore by uncommenting the can_edit check below (and INTAKE_EDIT_WINDOW_ENABLED in editWindow.ts).
+    // if (!meta.can_edit) {
+    //   throw new ForbiddenError(
+    //     'Your questionnaire can no longer be edited. The 7-day edit window after your first submission has ended.'
+    //   );
+    // }
+    return { patient, meta };
+}
 exports.intakeController = {
     /**
      * PATCH /intake/:patientId
      * Partial save — one question or one domain at a time.
      * Upserts each response by patient_id + domain + question_key.
+     * TEMPORARILY: not blocked after first submit + 7 days (edit lock disabled).
+     * Restore: Blocked after first submit + 7 days.
      */
     async patchIntake(req, res, next) {
         try {
-            const { patientId } = req.params;
+            const patientId = req.params.patientId;
             const { domain, responses } = req.body;
-            // Verify patient exists
-            const patient = await prisma_1.default.patient.findUnique({ where: { id: patientId } });
-            if (!patient) {
-                throw new errors_1.NotFoundError('Patient not found');
-            }
-            const upserted = [];
-            for (const resp of responses) {
-                const existing = await prisma_1.default.intakeResponse.findFirst({
-                    where: {
-                        patient_id: patientId,
-                        domain,
-                        question_key: resp.question_key,
-                    },
-                });
+            const normalizedDomain = (0, schemas_1.normalizeIntakeDomain)(domain);
+            const { patient } = await assertPatientCanEditIntake(patientId);
+            const keys = responses.map((r) => r.question_key);
+            // One query for existing rows instead of N findFirst calls
+            const existingRows = await prisma_1.default.intakeResponse.findMany({
+                where: {
+                    patient_id: patientId,
+                    domain: normalizedDomain,
+                    question_key: { in: keys },
+                },
+            });
+            const byKey = new Map(existingRows.map((r) => [r.question_key, r]));
+            // Parallel upserts within the domain
+            const upserted = await Promise.all(responses.map(async (resp) => {
+                const existing = byKey.get(resp.question_key);
                 if (existing) {
-                    const updated = await prisma_1.default.intakeResponse.update({
+                    return prisma_1.default.intakeResponse.update({
                         where: { id: existing.id },
                         data: { answer: resp.answer },
                     });
-                    upserted.push(updated);
                 }
-                else {
-                    const created = await prisma_1.default.intakeResponse.create({
-                        data: {
-                            patient_id: patientId,
-                            domain,
-                            question_key: resp.question_key,
-                            answer: resp.answer,
-                        },
-                    });
-                    upserted.push(created);
-                }
-            }
-            // Audit log
-            await prisma_1.default.auditLog.create({
+                return prisma_1.default.intakeResponse.create({
+                    data: {
+                        patient_id: patientId,
+                        domain: normalizedDomain,
+                        question_key: resp.question_key,
+                        answer: resp.answer,
+                    },
+                });
+            }));
+            // Single patient update (reuse edit-window patient; avoid extra findUnique)
+            const nextStatus = patient.intake_status === 'submitted' ? 'submitted' : 'in_progress';
+            const updatedPatient = await prisma_1.default.patient.update({
+                where: { id: patientId },
+                data: {
+                    intake_status: nextStatus,
+                    intake_last_saved_at: new Date(),
+                },
+            });
+            // Fire-and-forget audit — do not block the response on logging
+            prisma_1.default.auditLog
+                .create({
                 data: {
                     actor_type: 'patient',
                     actor_id: patientId,
@@ -92,10 +86,12 @@ exports.intakeController = {
                     resource_type: 'intake_response',
                     resource_id: patientId,
                     before: null,
-                    after: { domain, question_count: responses.length },
+                    after: { domain: normalizedDomain, question_count: responses.length },
                 },
-            });
-            res.status(200).json({ saved: upserted.length, domain });
+            })
+                .catch((err) => logger_1.logger.warn({ err, patientId }, 'intake audit log failed'));
+            const meta = (0, editWindow_1.getIntakeEditMeta)(updatedPatient);
+            res.status(200).json({ saved: upserted.length, domain: normalizedDomain, meta });
         }
         catch (err) {
             next(err);
@@ -103,16 +99,18 @@ exports.intakeController = {
     },
     /**
      * GET /intake/:patientId
-     * Return everything captured so far, grouped by domain.
+     * Return everything captured so far, grouped by domain, plus edit-window meta.
      */
     async getIntake(req, res, next) {
         try {
-            const { patientId } = req.params;
+            const patientId = req.params.patientId;
+            const patient = await prisma_1.default.patient.findUnique({ where: { id: patientId } });
+            if (!patient)
+                throw new errors_1.NotFoundError('Patient not found');
             const responses = await prisma_1.default.intakeResponse.findMany({
                 where: { patient_id: patientId },
                 orderBy: [{ domain: 'asc' }, { question_key: 'asc' }],
             });
-            // Group by domain
             const grouped = {};
             for (const r of responses) {
                 if (!grouped[r.domain])
@@ -123,7 +121,18 @@ exports.intakeController = {
                     updated_at: r.updated_at,
                 });
             }
-            res.status(200).json({ patient_id: patientId, domains: grouped });
+            // Infer in_progress if answers exist but status never updated
+            let status = patient.intake_status || 'not_started';
+            if (status === 'not_started' && responses.length > 0) {
+                status = 'in_progress';
+            }
+            const meta = (0, editWindow_1.getIntakeEditMeta)({ ...patient, intake_status: status });
+            res.status(200).json({
+                patient_id: patientId,
+                domains: grouped,
+                meta,
+                status,
+            });
         }
         catch (err) {
             next(err);
@@ -131,62 +140,100 @@ exports.intakeController = {
     },
     /**
      * POST /intake/:patientId/submit
-     * Marks intake as complete, triggers risk engine internally.
+     * Marks intake as complete, triggers risk engine.
+     * TEMPORARILY: re-submit allowed at any time (7-day edit lock disabled).
+     * Restore: First submit starts the 7-day edit window; re-submit allowed only within that window.
      */
     async submitIntake(req, res, next) {
         try {
-            const { patientId } = req.params;
-            // Verify patient exists
-            const patient = await prisma_1.default.patient.findUnique({ where: { id: patientId } });
-            if (!patient) {
-                throw new errors_1.NotFoundError('Patient not found');
-            }
-            // Internally trigger risk engine (import the controller)
-            // We do a direct import to call the risk run logic
-            const { riskController } = await Promise.resolve().then(() => __importStar(require('../risk/controller')));
-            // Create a mock request/response to call the risk controller
-            // Instead, let's directly call the engine and persist
-            const { runRiskEngine } = await Promise.resolve().then(() => __importStar(require('../risk/engine')));
-            const pregnancy = await prisma_1.default.pregnancy.findFirst({
-                where: { patient_id: patientId },
-                orderBy: { id: 'desc' },
-            });
-            const intakeResponses = await prisma_1.default.intakeResponse.findMany({
-                where: { patient_id: patientId },
-            });
+            const patientId = req.params.patientId;
+            const { patient } = await assertPatientCanEditIntake(patientId);
+            const [pregnancy, intakeResponses] = await Promise.all([
+                prisma_1.default.pregnancy.findFirst({
+                    where: { patient_id: patientId },
+                    orderBy: { id: 'desc' },
+                }),
+                prisma_1.default.intakeResponse.findMany({
+                    where: { patient_id: patientId },
+                }),
+            ]);
             const intakeMap = new Map();
             for (const ir of intakeResponses) {
                 intakeMap.set(ir.question_key, ir.answer);
             }
+            // Derive obstetric history flags from child cards when explicit keys are absent
+            let previousCsection = intakeMap.get('previous_csection');
+            let previousStillbirth = intakeMap.get('previous_stillbirth');
+            if (previousCsection == null || previousStillbirth == null) {
+                for (const [key, answer] of intakeMap.entries()) {
+                    if (key.endsWith('_delivery_mode') && String(answer) === 'cs')
+                        previousCsection = true;
+                    if (key.endsWith('_state_now') && (String(answer) === 'died_at_birth' || String(answer) === 'stillbirth'))
+                        previousStillbirth = true;
+                }
+            }
+            // Genotype / blood may live on pregnancy or (fallback) nowhere if save failed earlier
+            const genotypeRaw = pregnancy?.genotype ?? intakeMap.get('genotype') ?? null;
+            const parityRaw = pregnancy?.parity ??
+                (intakeMap.get('parity') != null ? Number(intakeMap.get('parity')) : null);
             const riskInput = {
-                age: patient.age,
+                age: patient.age ?? null,
                 bp_systolic: pregnancy?.booking_bp_systolic ?? null,
                 bp_diastolic: pregnancy?.booking_bp_diastolic ?? null,
                 hemoglobin: pregnancy?.pcv ?? null,
-                genotype: pregnancy?.genotype ?? null,
-                previous_csection: intakeMap.get('previous_csection') ?? null,
-                previous_stillbirth: intakeMap.get('previous_stillbirth') ?? null,
+                genotype: genotypeRaw,
+                previous_csection: previousCsection === true || previousCsection === 'yes' || previousCsection === 'true'
+                    ? true
+                    : previousCsection === false || previousCsection === 'no'
+                        ? false
+                        : null,
+                previous_stillbirth: previousStillbirth === true || previousStillbirth === 'yes' || previousStillbirth === 'true'
+                    ? true
+                    : previousStillbirth === false || previousStillbirth === 'no'
+                        ? false
+                        : null,
                 previous_eclampsia: intakeMap.get('previous_eclampsia') ?? null,
-                parity: pregnancy?.parity ?? null,
-                is_twin_pregnancy: intakeMap.get('is_twin_pregnancy') ?? null,
+                parity: parityRaw != null && !Number.isNaN(Number(parityRaw)) ? Number(parityRaw) : null,
+                is_twin_pregnancy: intakeMap.get('is_twin_pregnancy') === true ||
+                    intakeMap.get('is_twin_pregnancy') === 'true' ||
+                    intakeMap.get('is_twin_pregnancy') === 'yes'
+                    ? true
+                    : intakeMap.get('is_twin_pregnancy') === false ||
+                        intakeMap.get('is_twin_pregnancy') === 'false' ||
+                        intakeMap.get('is_twin_pregnancy') === 'no'
+                        ? false
+                        : null,
                 hiv_positive: pregnancy?.rvd_status === 'positive'
                     ? true
                     : pregnancy?.rvd_status === 'negative'
                         ? false
                         : null,
             };
-            const result = runRiskEngine(riskInput);
-            const assessment = await prisma_1.default.riskAssessment.create({
-                data: {
-                    patient_id: patientId,
-                    tier: result.tier,
-                    reasons: result.reasons,
-                    engine_version: result.engine_version,
-                    input_snapshot: riskInput,
-                },
-            });
-            // Audit
-            await prisma_1.default.auditLog.create({
+            // Pure sync rules engine — milliseconds
+            const result = (0, engine_1.runRiskEngine)(riskInput);
+            const firstSubmitted = patient.intake_first_submitted_at ?? new Date();
+            // Persist assessment + patient status in parallel
+            const [assessment] = await Promise.all([
+                prisma_1.default.riskAssessment.create({
+                    data: {
+                        patient_id: patientId,
+                        tier: result.tier,
+                        reasons: result.reasons,
+                        engine_version: result.engine_version,
+                        input_snapshot: riskInput,
+                    },
+                }),
+                prisma_1.default.patient.update({
+                    where: { id: patientId },
+                    data: {
+                        intake_status: 'submitted',
+                        intake_first_submitted_at: firstSubmitted,
+                        intake_last_saved_at: new Date(),
+                    },
+                }),
+            ]);
+            prisma_1.default.auditLog
+                .create({
                 data: {
                     actor_type: 'patient',
                     actor_id: patientId,
@@ -194,18 +241,32 @@ exports.intakeController = {
                     resource_type: 'intake_response',
                     resource_id: patientId,
                     before: null,
-                    after: { risk_tier: result.tier, assessment_id: assessment.id },
+                    after: {
+                        risk_tier: result.tier,
+                        assessment_id: assessment.id,
+                        first_submit: !patient.intake_first_submitted_at,
+                    },
                 },
-            });
+            })
+                .catch((err) => logger_1.logger.warn({ err, patientId }, 'intake submit audit failed'));
             logger_1.logger.info({ patientId, tier: result.tier }, 'Intake submitted, risk assessed');
+            const isFirstSubmit = !patient.intake_first_submitted_at;
+            if (isFirstSubmit) {
+                void (0, onboardingNotify_1.notifyDoctorOnboardingComplete)({
+                    patientId,
+                    patientName: patient.name,
+                    patientPhone: patient.phone_number,
+                    riskTier: result.tier,
+                    reasons: result.reasons,
+                });
+            }
+            const meta = (0, editWindow_1.getIntakeEditMeta)({
+                intake_status: 'submitted',
+                intake_first_submitted_at: firstSubmitted,
+            });
             res.status(200).json({
                 message: 'Intake submitted successfully',
-                risk: {
-                    id: assessment.id,
-                    tier: result.tier,
-                    reasons: result.reasons,
-                    engine_version: result.engine_version,
-                },
+                meta,
             });
         }
         catch (err) {

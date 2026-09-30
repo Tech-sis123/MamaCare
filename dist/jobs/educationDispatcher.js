@@ -9,6 +9,7 @@ const ai_1 = require("../services/ai");
 const termii_1 = require("../services/termii");
 const whatsapp_1 = require("../services/whatsapp");
 const logger_1 = require("../utils/logger");
+const contact_1 = require("../utils/contact");
 async function dispatchWeeklyEducation() {
     logger_1.logger.info('Starting weekly education dispatch job...');
     try {
@@ -54,6 +55,10 @@ async function dispatchWeeklyEducation() {
                 continue;
             }
             const fullMessage = lesson.summary;
+            if (!(0, contact_1.isSmsPhone)(patient.phone_number)) {
+                logger_1.logger.warn({ patientId: patient.id }, 'Skipping education dispatch: no usable phone');
+                continue;
+            }
             // Dispatch via WhatsApp (if setup and phone number format allows)
             try {
                 await whatsapp_1.whatsappService.sendMessage({

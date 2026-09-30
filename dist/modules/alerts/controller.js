@@ -1,6 +1,6 @@
 "use strict";
 /**
- * MAMA CARE AI — SSE Alert Controller
+ * 9Care AI — SSE Alert Controller
  *
  * CLINICAL SAFETY CRITICAL CODE
  *
@@ -76,8 +76,29 @@ exports.alertsController = {
      */
     async acknowledge(req, res, next) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const doctorId = req.user.id;
+            if (id.startsWith('booking-')) {
+                const alerts = await redis_1.redis.lrange(`doctor:${doctorId}:active_alerts`, 0, -1);
+                for (const alertJson of alerts) {
+                    try {
+                        const parsed = JSON.parse(alertJson);
+                        if (parsed.id === id || parsed.alert_id === id) {
+                            await redis_1.redis.lrem(`doctor:${doctorId}:active_alerts`, 1, alertJson);
+                            break;
+                        }
+                    }
+                    catch {
+                        // skip malformed entries
+                    }
+                }
+                res.status(200).json({
+                    id,
+                    status: 'acknowledged',
+                    acknowledged_at: new Date(),
+                });
+                return;
+            }
             const alert = await prisma_1.default.dangerAlert.findUnique({ where: { id } });
             if (!alert) {
                 throw new errors_1.NotFoundError('Alert not found');

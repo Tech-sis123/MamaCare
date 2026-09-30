@@ -145,7 +145,7 @@ const PORT = parseInt(env.PORT, 10);
 if (env.NODE_ENV !== 'test') {
   initWhatsApp();
   app.listen(PORT, () => {
-    logger.info(`🏥 Mama Care AI server listening on port ${PORT}`);
+    logger.info(`🏥 9Care AI server listening on port ${PORT}`);
   });
 }
 

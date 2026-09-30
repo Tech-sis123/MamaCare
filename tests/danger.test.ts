@@ -40,6 +40,9 @@ vi.mock('../src/config/prisma', () => {
       systemConfig: {
         findFirst: vi.fn(),
       },
+      doctor: {
+        findUnique: vi.fn(),
+      },
     },
   };
 });
@@ -158,6 +161,10 @@ describe('Danger Alert Pipeline Integration', () => {
       pregnancies: [],
     });
     vi.mocked(prisma.symptom.create).mockResolvedValue({} as any);
+    vi.mocked(prisma.doctor.findUnique).mockResolvedValue({
+      id: 'doctor-uuid-999',
+      phone_number: '+2348099999999',
+    } as any);
     vi.mocked(prisma.dangerAlert.create).mockResolvedValue({
       id: 'alert-uuid-555',
       patient_id: 'patient-uuid-123',

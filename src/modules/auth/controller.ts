@@ -430,7 +430,7 @@ export const authController = {
       
       const htmlContent = `
         <p>Hello ${doctor.name},</p>
-        <p>You requested a password reset for your Mama Care Provider Portal.</p>
+        <p>You requested a password reset for your 9Care Provider Portal.</p>
         <p>Please click the link below to reset your password. This link is valid for 15 minutes.</p>
         <p><a href="${resetLink}">Reset Password</a></p>
         <p>If you did not request this, please ignore this email.</p>
@@ -438,7 +438,7 @@ export const authController = {
 
       await brevoService.sendEmail({
         to: email,
-        subject: 'Mama Care Provider Portal - Password Reset',
+        subject: '9Care Provider Portal - Password Reset',
         htmlContent,
       });
 

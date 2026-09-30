@@ -24,17 +24,17 @@ const initWhatsApp = () => {
     });
     client.on('ready', () => {
         isReady = true;
-        logger_1.logger.info('✅ WhatsApp client is ready!');
+        logger_1.logger.info(' WhatsApp client is ready!');
     });
     client.on('auth_failure', (msg) => {
-        logger_1.logger.error('WhatsApp authentication failure', { msg });
+        logger_1.logger.error({ msg }, 'WhatsApp authentication failure');
     });
     client.on('disconnected', (reason) => {
         isReady = false;
-        logger_1.logger.warn('WhatsApp disconnected', { reason });
+        logger_1.logger.warn({ reason }, 'WhatsApp disconnected');
     });
     client.initialize().catch((err) => {
-        logger_1.logger.error('Failed to initialize WhatsApp client', { err });
+        logger_1.logger.error({ err }, 'Failed to initialize WhatsApp client');
     });
 };
 exports.initWhatsApp = initWhatsApp;
@@ -85,7 +85,7 @@ exports.whatsappService = {
      * Send an emergency alert via WhatsApp
      */
     async sendEmergencyAlert(params) {
-        const alertMessage = `🚨 MAMA CARE EMERGENCY ALERT 🚨\n\nPatient: ${params.patientName}\nDanger Signs: ${params.triggers.join(', ')}\n\nPlease respond immediately.`;
+        const alertMessage = `🚨 9CARE EMERGENCY ALERT 🚨\n\nPatient: ${params.patientName}\nDanger Signs: ${params.triggers.join(', ')}\n\nPlease respond immediately.`;
         const patientMessage = `🚨 URGENT: Your symptoms indicate a potential emergency.\n\nDanger Signs: ${params.triggers.join(', ')}\n\nPlease proceed to the hospital immediately or call your doctor.`;
         // Send both in parallel to minimize latency
         await Promise.allSettled([

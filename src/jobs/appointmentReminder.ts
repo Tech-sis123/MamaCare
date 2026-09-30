@@ -42,7 +42,7 @@ async function sendReminders(hoursAhead: number, label: string) {
 
       await termiiService.sendSMS({
         to: apt.patient.phone_number,
-        sms: `Mama Care Reminder: You have an appointment with ${apt.doctor.name} at ${timeStr}. Please arrive 15 minutes early.`,
+        sms: `9Care Reminder: You have an appointment with ${apt.doctor.name} at ${timeStr}. Please arrive 15 minutes early.`,
       });
 
       logger.info(

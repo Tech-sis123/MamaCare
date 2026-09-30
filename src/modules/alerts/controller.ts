@@ -1,5 +1,5 @@
 /**
- * MAMA CARE AI — SSE Alert Controller
+ * 9Care AI — SSE Alert Controller
  *
  * CLINICAL SAFETY CRITICAL CODE
  *

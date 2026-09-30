@@ -7,6 +7,7 @@
  * In production, use a cron scheduler (node-cron) or external scheduler.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.processAppointmentReminders = processAppointmentReminders;
 const client_1 = require("@prisma/client");
 const termii_1 = require("../services/termii");
 const logger_1 = require("../utils/logger");
@@ -37,7 +38,7 @@ async function sendReminders(hoursAhead, label) {
             });
             await termii_1.termiiService.sendSMS({
                 to: apt.patient.phone_number,
-                sms: `Mama Care Reminder: You have an appointment with ${apt.doctor.name} at ${timeStr}. Please arrive 15 minutes early.`,
+                sms: `9Care Reminder: You have an appointment with ${apt.doctor.name} at ${timeStr}. Please arrive 15 minutes early.`,
             });
             logger_1.logger.info({ appointmentId: apt.id, patient: apt.patient.phone_number }, `${label} reminder sent`);
         }
@@ -46,17 +47,20 @@ async function sendReminders(hoursAhead, label) {
         }
     }
 }
-async function run() {
+async function processAppointmentReminders() {
     logger_1.logger.info('🔔 Running appointment reminder job...');
     await sendReminders(48, '48-hour');
     await sendReminders(2, '2-hour');
     logger_1.logger.info('✅ Reminder job complete');
 }
-run()
-    .catch((err) => {
-    logger_1.logger.error({ err }, 'Reminder job failed');
-    process.exit(1);
-})
-    .finally(async () => {
-    await prisma.$disconnect();
-});
+// If run directly from the command line (e.g., npx tsx src/jobs/appointmentReminder.ts)
+if (require.main === module) {
+    processAppointmentReminders()
+        .catch((err) => {
+        logger_1.logger.error({ err }, 'Reminder job failed');
+        process.exit(1);
+    })
+        .finally(async () => {
+        await prisma.$disconnect();
+    });
+}

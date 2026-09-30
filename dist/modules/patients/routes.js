@@ -11,4 +11,5 @@ router.post('/profile', auth_1.authenticate, (0, rbac_1.rbac)('patient'), (0, va
 router.post('/pregnancy', auth_1.authenticate, (0, rbac_1.rbac)('patient'), (0, validate_1.validate)(schemas_1.createPregnancySchema), controller_1.patientsController.createPregnancy);
 router.get('/me', auth_1.authenticate, (0, rbac_1.rbac)('patient'), controller_1.patientsController.getMe);
 router.get('/me/dashboard', auth_1.authenticate, (0, rbac_1.rbac)('patient'), controller_1.patientsController.getDashboard);
+router.post('/me/ask', auth_1.authenticate, (0, rbac_1.rbac)('patient'), (0, validate_1.validate)(schemas_1.askQuestionSchema), controller_1.patientsController.askAI);
 exports.default = router;

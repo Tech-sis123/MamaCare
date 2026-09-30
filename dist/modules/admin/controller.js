@@ -8,6 +8,8 @@ const prisma_1 = __importDefault(require("../../config/prisma"));
 const logger_1 = require("../../utils/logger");
 const termii_1 = require("../../services/termii");
 const errors_1 = require("../../utils/errors");
+const retentionSms_1 = require("../../jobs/retentionSms");
+const contact_1 = require("../../utils/contact");
 exports.adminController = {
     /**
      * GET /admin/risk-overview
@@ -50,11 +52,21 @@ exports.adminController = {
             const openAlerts = await prisma_1.default.dangerAlert.count({
                 where: { status: 'open' },
             });
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() - 7);
+            const [patientsSeenLast7Days, totalSiteVisits] = await Promise.all([
+                prisma_1.default.patient.count({ where: { last_seen_at: { gte: weekStart } } }),
+                prisma_1.default.patient.aggregate({ _sum: { site_visit_count: true } }),
+            ]);
             res.status(200).json({
                 risk_distribution: distribution,
                 total_active_patients: totalActive,
                 alerts_this_week: alertsThisWeek,
                 open_alerts: openAlerts,
+                site_visits: {
+                    patients_seen_last_7_days: patientsSeenLast7Days,
+                    total_recorded_visits: totalSiteVisits._sum.site_visit_count || 0,
+                },
             });
         }
         catch (err) {
@@ -102,7 +114,7 @@ exports.adminController = {
      */
     async assignDoctor(req, res, next) {
         try {
-            const { id: patientId } = req.params;
+            const patientId = req.params.id;
             const { doctor_id } = req.body;
             // Verify doctor exists
             const doctor = await prisma_1.default.doctor.findUnique({ where: { id: doctor_id } });
@@ -117,10 +129,42 @@ exports.adminController = {
             // Send SMS notification
             await termii_1.termiiService.sendSMS({
                 to: patient.phone_number,
-                sms: `Hello Mama! Dr. ${doctor.name} has been assigned to you on MamaCare. They will be reviewing your updates. Have a safe delivery!`,
+                sms: `Hello Mama! Dr. ${doctor.name} has been assigned to you on 9Care. They will be reviewing your updates. Have a safe delivery!`,
             });
             logger_1.logger.info({ patientId, doctor_id }, 'Assigned doctor to patient');
             res.status(200).json({ message: 'Doctor assigned successfully', patient });
+        }
+        catch (err) {
+            next(err);
+        }
+    },
+    /**
+     * POST /admin/sms/retention
+     * Manually trigger the weekly retention SMS job.
+     */
+    async triggerRetentionSms(req, res, next) {
+        try {
+            const result = await (0, retentionSms_1.processRetentionSms)();
+            res.status(200).json({ message: 'Retention SMS job finished', ...result });
+        }
+        catch (err) {
+            next(err);
+        }
+    },
+    /**
+     * POST /admin/sms/test
+     * Send a single test SMS so the team can confirm Termii is live.
+     */
+    async sendTestSms(req, res, next) {
+        try {
+            const { phone_number, message } = req.body;
+            if (!(0, contact_1.isSmsPhone)(phone_number)) {
+                throw new errors_1.ValidationError('A valid phone number is required');
+            }
+            const sms = message ||
+                '9Care test: SMS is working. You can ignore this message.';
+            const result = await termii_1.termiiService.sendSMS({ to: phone_number, sms });
+            res.status(200).json({ message: 'Test SMS sent', ...result });
         }
         catch (err) {
             next(err);

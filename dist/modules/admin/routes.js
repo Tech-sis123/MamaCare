@@ -10,4 +10,6 @@ const router = (0, express_1.Router)();
 router.get('/risk-overview', auth_1.authenticate, (0, rbac_1.rbac)('department_head'), controller_1.adminController.riskOverview);
 router.get('/risk-overview/export', auth_1.authenticate, (0, rbac_1.rbac)('department_head'), controller_1.adminController.exportRiskOverview);
 router.post('/patients/:id/assign-doctor', auth_1.authenticate, (0, rbac_1.rbac)('department_head', 'admin'), (0, validate_1.validate)(schemas_1.assignDoctorSchema), controller_1.adminController.assignDoctor);
+router.post('/sms/retention', auth_1.authenticate, (0, rbac_1.rbac)('department_head', 'admin'), controller_1.adminController.triggerRetentionSms);
+router.post('/sms/test', auth_1.authenticate, (0, rbac_1.rbac)('department_head', 'admin'), (0, validate_1.validate)(schemas_1.testSmsSchema), controller_1.adminController.sendTestSms);
 exports.default = router;

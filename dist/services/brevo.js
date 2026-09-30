@@ -22,7 +22,7 @@ exports.brevoService = {
                 },
                 body: JSON.stringify({
                     sender: {
-                        name: 'Mama Care AI',
+                        name: '9Care AI',
                         email: env_1.env.BREVO_SENDER_EMAIL,
                     },
                     to: [{ email: payload.to }],

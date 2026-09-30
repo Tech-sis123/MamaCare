@@ -1,6 +1,6 @@
 "use strict";
 /**
- * MAMA CARE AI — Symptom Controller + Danger Alert Pipeline
+ * 9Care AI — Symptom Controller + Danger Alert Pipeline
  *
  * CLINICAL SAFETY CRITICAL CODE
  *
@@ -27,6 +27,7 @@ const whatsapp_1 = require("../../services/whatsapp");
 const errors_1 = require("../../utils/errors");
 const logger_1 = require("../../utils/logger");
 const ega_calculator_1 = require("../../services/ega-calculator");
+const contact_1 = require("../../utils/contact");
 exports.symptomsController = {
     /**
      * POST /symptoms
@@ -112,16 +113,14 @@ exports.symptomsController = {
                 let doctorPhone = null;
                 if (doctorId) {
                     const doctor = await prisma_1.default.doctor.findUnique({ where: { id: doctorId } });
-                    // Doctors may not have phone numbers in this schema; use email for now
-                    // In production, add a phone_number field to doctors
-                    doctorPhone = null; // placeholder
+                    doctorPhone = doctor?.phone_number || null;
                 }
                 const triggerDescriptions = dangerResult.triggers.map((t) => t.description);
                 try {
                     // Send SMS to patient
                     await termii_1.termiiService.sendSMS({
                         to: patient.phone_number,
-                        sms: `🚨 MAMA CARE ALERT: ${triggerDescriptions.join('; ')}. Please proceed to the hospital immediately.`,
+                        sms: `🚨 9CARE ALERT: ${triggerDescriptions.join('; ')}. Please proceed to the hospital immediately.`,
                     });
                     smsSentAt = new Date();
                 }
@@ -132,12 +131,27 @@ exports.symptomsController = {
                     // Send WhatsApp to patient
                     await whatsapp_1.whatsappService.sendMessage({
                         to: patient.phone_number,
-                        message: `🚨 MAMA CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
+                        message: `🚨 9CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
                     });
                     whatsappSentAt = new Date();
                 }
                 catch (err) {
                     logger_1.logger.error({ err, patientId }, 'Failed to send patient WhatsApp alert');
+                }
+                if ((0, contact_1.isSmsPhone)(doctorPhone)) {
+                    const doctorMsg = `9Care: ${patient.name || 'A patient'} reported danger signs (${triggerDescriptions.join('; ')}). Call ${patient.phone_number}.`;
+                    try {
+                        await termii_1.termiiService.sendSMS({ to: doctorPhone, sms: doctorMsg });
+                    }
+                    catch (err) {
+                        logger_1.logger.error({ err, patientId }, 'Failed to send doctor SMS alert');
+                    }
+                    try {
+                        await whatsapp_1.whatsappService.sendMessage({ to: doctorPhone, message: doctorMsg });
+                    }
+                    catch (err) {
+                        logger_1.logger.error({ err, patientId }, 'Failed to send doctor WhatsApp alert');
+                    }
                 }
                 // Step 5: Update timestamps on alert row
                 await prisma_1.default.dangerAlert.update({
@@ -212,7 +226,7 @@ exports.symptomsController = {
      */
     async getSymptomTimeline(req, res, next) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const range = req.query.range || '30d';
             const days = parseInt(range.replace('d', ''), 10) || 30;
             const since = new Date();

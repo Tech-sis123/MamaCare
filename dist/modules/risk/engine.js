@@ -1,6 +1,6 @@
 "use strict";
 /**
- * MAMA CARE AI — Risk Stratification Engine
+ * 9Care AI — Risk Stratification Engine
  *
  * CLINICAL SAFETY CRITICAL CODE
  * This is a PURE FUNCTION. No database access, no side effects.
@@ -9,25 +9,36 @@
  * Rules validated against WHO Antenatal Care Guidelines and
  * Nigerian Federal Ministry of Health ANC protocols.
  *
- * GRACEFUL DEGRADATION POLICY:
- * If a critical input is missing or null, NEVER downgrade.
- * Escalate one tier and add the missing field to reasons.
+ * MISSING-DATA POLICY (self-serve + clinic hybrid):
+ * - HARD critical (age): missing → escalate tier (identity must exist).
+ * - SOFT incomplete (BP, unconfirmed genotype): flag for care team but do NOT
+ *   escalate to HIGH just because clinic vitals were never entered.
+ *   Escalating on missing BP alone was marking every mother HIGH.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ENGINE_VERSION = void 0;
 exports.runRiskEngine = runRiskEngine;
-exports.ENGINE_VERSION = '1.0.0';
-// Critical fields — if missing, we escalate
-const CRITICAL_FIELDS = [
-    'age',
+exports.ENGINE_VERSION = '1.1.0';
+/** Missing these forces a tier escalate (mother-path must provide them). */
+const HARD_CRITICAL_FIELDS = ['age'];
+/** Missing these are noted for clinicians but do not raise risk tier alone. */
+const SOFT_INCOMPLETE_FIELDS = [
     'bp_systolic',
     'bp_diastolic',
-    'genotype',
 ];
 function escalateTier(current) {
     if (current === 'LOW')
         return 'MEDIUM';
     return 'HIGH'; // MEDIUM → HIGH, HIGH stays HIGH
+}
+/** Known clinical genotypes. "Not sure" / Unknown / empty → null (unconfirmed). */
+function normalizeGenotype(value) {
+    if (value == null)
+        return null;
+    const gt = String(value).trim().toUpperCase();
+    if (!gt || gt === 'NOT SURE' || gt === 'UNKNOWN' || gt === 'N/A')
+        return null;
+    return gt;
 }
 function runRiskEngine(input) {
     let tier = 'LOW';
@@ -44,7 +55,7 @@ function runRiskEngine(input) {
             reasons.push('Advanced maternal age (>35)');
         }
     }
-    // Blood pressure rules
+    // Blood pressure rules (only when measured)
     if (input.bp_systolic != null && input.bp_diastolic != null) {
         if (input.bp_systolic >= 140 || input.bp_diastolic >= 90) {
             tier = applyTier(tier, 'HIGH');
@@ -62,12 +73,12 @@ function runRiskEngine(input) {
             reasons.push(`Moderate anaemia: Hb ${input.hemoglobin} g/dL`);
         }
     }
-    // Genotype rules
-    if (input.genotype != null) {
-        const gt = input.genotype.toUpperCase();
-        if (gt === 'SS' || gt === 'SC') {
+    // Genotype rules — only known high-risk genotypes raise tier
+    const knownGenotype = normalizeGenotype(input.genotype);
+    if (knownGenotype != null) {
+        if (knownGenotype === 'SS' || knownGenotype === 'SC') {
             tier = applyTier(tier, 'HIGH');
-            reasons.push(`High-risk genotype: ${gt}`);
+            reasons.push(`High-risk genotype: ${knownGenotype}`);
         }
     }
     // Previous C-section
@@ -100,13 +111,20 @@ function runRiskEngine(input) {
         tier = applyTier(tier, 'MEDIUM');
         reasons.push('HIV positive');
     }
-    // ─── Graceful degradation ─────────────────────────────────────
-    // Check for missing critical fields. If any are missing,
-    // escalate the tier and flag the missing field.
-    for (const field of CRITICAL_FIELDS) {
+    // ─── Missing-data handling ────────────────────────────────────
+    for (const field of HARD_CRITICAL_FIELDS) {
         if (input[field] === undefined || input[field] === null) {
             tier = escalateTier(tier);
             reasons.push(`Missing critical field: ${field}`);
+        }
+    }
+    // Unconfirmed genotype — note for care team, do not escalate by itself
+    if (knownGenotype === null) {
+        reasons.push('Genotype not confirmed');
+    }
+    for (const field of SOFT_INCOMPLETE_FIELDS) {
+        if (input[field] === undefined || input[field] === null) {
+            reasons.push(`Incomplete clinic data: ${field}`);
         }
     }
     return {

@@ -7,11 +7,40 @@ exports.termiiService = void 0;
 const env_1 = require("../config/env");
 const logger_1 = require("../utils/logger");
 const prisma_1 = __importDefault(require("../config/prisma"));
+const contact_1 = require("../utils/contact");
 exports.termiiService = {
     /**
      * Send an SMS via Termii API
      */
     async sendSMS(payload) {
+        if (!(0, contact_1.isSmsPhone)(payload.to)) {
+            logger_1.logger.warn({ to: payload.to }, 'SMS skipped: invalid or placeholder phone');
+            await prisma_1.default.notificationsLog.create({
+                data: {
+                    channel: 'sms',
+                    recipient: payload.to,
+                    payload: { message: payload.sms },
+                    provider_message_id: null,
+                    status: 'skipped',
+                    error: 'invalid_phone',
+                },
+            });
+            return { message_id: 'skipped-invalid-phone' };
+        }
+        if (!env_1.env.TERMII_API_KEY) {
+            logger_1.logger.warn({ to: payload.to }, 'SMS skipped: TERMII_API_KEY not set');
+            await prisma_1.default.notificationsLog.create({
+                data: {
+                    channel: 'sms',
+                    recipient: payload.to,
+                    payload: { message: payload.sms },
+                    provider_message_id: null,
+                    status: 'skipped',
+                    error: 'missing_api_key',
+                },
+            });
+            return { message_id: 'skipped-no-key' };
+        }
         const url = `${env_1.env.TERMII_BASE_URL}/sms/send`;
         try {
             const response = await fetch(url, {
@@ -69,7 +98,7 @@ exports.termiiService = {
                     pin_time_to_live: 10,
                     pin_length: 6,
                     pin_placeholder: '< 1234 >',
-                    message_text: 'Your Mama Care verification code is < 1234 >. Valid for 10 minutes.',
+                    message_text: 'Your 9Care verification code is < 1234 >. Valid for 10 minutes.',
                     pin_type: 'NUMERIC',
                 }),
             });

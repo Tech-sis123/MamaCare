@@ -1,11 +1,12 @@
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import prisma from '../config/prisma';
-import { isSmsPhone } from '../utils/contact';
+import { isSmsPhone, formatPhoneForTermii } from '../utils/contact';
 
 interface TermiiSMSPayload {
   to: string;
   sms: string;
+  type?: 'plain' | 'unicode';
 }
 
 interface TermiiOTPRequestPayload {
@@ -52,6 +53,10 @@ export const termiiService = {
       return { message_id: 'skipped-no-key' };
     }
 
+    const formattedTo = formatPhoneForTermii(payload.to);
+    const hasUnicode = /[^\u0000-\u007F]/.test(payload.sms);
+    const smsType = payload.type || (hasUnicode ? 'unicode' : 'plain');
+
     const url = `${env.TERMII_BASE_URL}/sms/send`;
     
     try {
@@ -59,10 +64,10 @@ export const termiiService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: payload.to,
+          to: formattedTo,
           from: env.TERMII_SENDER_ID,
           sms: payload.sms,
-          type: 'plain',
+          type: smsType,
           channel: 'generic',
           api_key: env.TERMII_API_KEY,
         }),
@@ -74,8 +79,8 @@ export const termiiService = {
       await prisma.notificationsLog.create({
         data: {
           channel: 'sms',
-          recipient: payload.to,
-          payload: { message: payload.sms },
+          recipient: formattedTo,
+          payload: { message: payload.sms, type: smsType },
           provider_message_id: data.message_id || null,
           status: response.ok ? 'sent' : 'failed',
           error: response.ok ? null : JSON.stringify(data),
@@ -87,10 +92,10 @@ export const termiiService = {
         throw new Error(`Termii SMS failed: ${JSON.stringify(data)}`);
       }
 
-      logger.info({ to: payload.to, message_id: data.message_id }, 'SMS sent via Termii');
+      logger.info({ to: formattedTo, message_id: data.message_id }, 'SMS sent via Termii');
       return { message_id: data.message_id };
     } catch (err) {
-      logger.error({ err, to: payload.to }, 'Failed to send SMS via Termii');
+      logger.error({ err, to: formattedTo }, 'Failed to send SMS via Termii');
       throw err;
     }
   },
@@ -101,6 +106,7 @@ export const termiiService = {
   async requestOTP(payload: TermiiOTPRequestPayload): Promise<{ pin_id: string }> {
     const url = `${env.TERMII_BASE_URL}/sms/otp/send`;
 
+    const formattedPhone = formatPhoneForTermii(payload.phone_number);
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -108,7 +114,7 @@ export const termiiService = {
         body: JSON.stringify({
           api_key: env.TERMII_API_KEY,
           message_type: 'NUMERIC',
-          to: payload.phone_number,
+          to: formattedPhone,
           from: env.TERMII_SENDER_ID,
           channel: 'generic',
           pin_attempts: 3,

@@ -10,6 +10,7 @@ import {
   askDoctorAI,
   getDoctorProfile,
   updateDoctorProfile,
+  sendDoctorSms,
 } from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 
@@ -62,6 +63,14 @@ const toQueuePatient = (apt) => {
   };
 };
 
+const isSmsPhone = (phone) => {
+  if (!phone) return false;
+  const str = String(phone).trim();
+  if (str.startsWith('email-')) return false;
+  const digits = str.replace(/\D/g, '');
+  return digits.length >= 10 && digits.length <= 15;
+};
+
 const toPatientRow = (p) => ({
   id: p.id,
   name: p.name || '—',
@@ -72,6 +81,8 @@ const toPatientRow = (p) => ({
   flags: Array.isArray(p.risk_reasons) ? p.risk_reasons : [],
   lastSeen: p.last_seen_at || null,
   visitCount: p.site_visit_count || 0,
+  phone: p.phone_number || '',
+  hasSms: p.has_sms !== undefined ? !!p.has_sms : isSmsPhone(p.phone_number),
   initials: (p.name || 'P').split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'P',
 });
 
@@ -308,7 +319,7 @@ const MetricsView = () => {
   );
 };
 
-const PatientsView = ({ navigate, fromTab }) => {
+const PatientsView = ({ navigate, fromTab, setActiveView, onSelectPatientForSms }) => {
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState('All');
   const [page, setPage] = useState(1);
@@ -397,7 +408,7 @@ const PatientsView = ({ navigate, fromTab }) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="font-headline-lg text-amber-900 text-2xl">All Patients</h2>
           <p className="font-body-md text-on-surface-variant/70 mt-1">
@@ -413,11 +424,23 @@ const PatientsView = ({ navigate, fromTab }) => {
             )}
           </p>
         </div>
-        {totalCount > 0 && (
-          <div className="text-xs font-label-sm text-on-surface-variant/80 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30 self-start sm:self-auto">
-            Page {page} of {totalPages}
-          </div>
-        )}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {setActiveView && (
+            <button
+              type="button"
+              onClick={() => setActiveView('sms')}
+              className="px-3.5 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/90 transition-all flex items-center gap-1.5 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">chat</span>
+              Send Patient SMS
+            </button>
+          )}
+          {totalCount > 0 && (
+            <div className="text-xs font-label-sm text-on-surface-variant/80 bg-surface-container-low px-3 py-1.5 rounded-full border border-outline-variant/30">
+              Page {page} of {totalPages}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3 flex-col sm:flex-row">
@@ -549,7 +572,23 @@ const PatientsView = ({ navigate, fromTab }) => {
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onSelectPatientForSms) onSelectPatientForSms(p.id);
+                  }}
+                  title={p.hasSms ? `Send SMS to ${p.name}` : 'No valid phone number'}
+                  disabled={!p.hasSms}
+                  className={`p-2 rounded-lg transition-all ${
+                    p.hasSms
+                      ? 'text-primary hover:bg-primary/10 border border-primary/20'
+                      : 'text-on-surface-variant/30 border border-transparent cursor-not-allowed opacity-40'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">chat</span>
+                </button>
                 <span className={`font-label-sm text-xs px-3 py-1 rounded-full border ${rc.badge} ${rc.border}`}>
                   {p.risk}
                 </span>
@@ -627,6 +666,646 @@ const PatientsView = ({ navigate, fromTab }) => {
               <span className="hidden xs:inline">Next</span>
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── SMS Broadcast View ──────────────────────────────────────────
+const SMS_TEMPLATES = [
+  {
+    id: 'education',
+    title: '🤰🏽 Educational Update',
+    badge: 'Latest',
+    text: `🤰🏽 There's an update waiting for you!\n\nWe’ve just added a new educational update to 9Care with information that can help you better understand your pregnancy and make decisions.\n\nLog into your account and take a look. 💜\nwww.9careai.com\n\nStay informed. Stay prepared.`,
+  },
+  {
+    id: 'anc_reminder',
+    title: '📅 Antenatal Visit Reminder',
+    badge: 'Clinical',
+    text: `Hello from 9Care! 🌸 This is a reminder for your upcoming antenatal clinic visit. Please remember to arrive on time and bring your antenatal record. Take care! www.9careai.com`,
+  },
+  {
+    id: 'checkin',
+    title: '💜 Wellbeing Check-in',
+    badge: 'Support',
+    text: `Hello from 9Care AI! 💜 How are you and your baby feeling today? Remember to log any symptoms or chat with our 24/7 AI health assistant at www.9careai.com`,
+  },
+  {
+    id: 'clinic_notice',
+    title: '📢 Clinic Announcement',
+    badge: 'Notice',
+    text: `Important update from 9Care: Our routine maternal care consultations and clinical screenings are holding as scheduled. Please check your account: www.9careai.com`,
+  },
+];
+
+const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) => {
+  const [mode, setMode] = useState(selectedSmsPatientId ? 'selected' : 'all');
+  const [message, setMessage] = useState(SMS_TEMPLATES[0].text);
+  const [activeTemplate, setActiveTemplate] = useState('education');
+  const [patients, setPatients] = useState([]);
+  const [loadingPatients, setLoadingPatients] = useState(true);
+  const [selectedIds, setSelectedIds] = useState(selectedSmsPatientId ? [selectedSmsPatientId] : []);
+  const [search, setSearch] = useState('');
+  const [riskFilter, setRiskFilter] = useState('All');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const [resultSummary, setResultSummary] = useState(null);
+
+  useEffect(() => {
+    if (selectedSmsPatientId) {
+      setMode('selected');
+      setSelectedIds((prev) => Array.from(new Set([...prev, selectedSmsPatientId])));
+    }
+  }, [selectedSmsPatientId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingPatients(true);
+    searchPatients({ limit: 100 })
+      .then(({ data }) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : data?.patients || [];
+        setPatients(list.map(toPatientRow));
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingPatients(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const reachableAll = patients.filter((p) => p.hasSms);
+  const reachableAllCount = reachableAll.length;
+
+  const filteredPatients = patients.filter((p) => {
+    const matchesSearch =
+      !search.trim() ||
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.code.toLowerCase().includes(search.toLowerCase()) ||
+      p.phone.includes(search);
+    const matchesRisk = riskFilter === 'All' || p.risk === riskFilter;
+    return matchesSearch && matchesRisk;
+  });
+
+  const selectedPatients = patients.filter((p) => selectedIds.includes(p.id));
+  const reachableSelected = selectedPatients.filter((p) => p.hasSms);
+
+  const targetCount = mode === 'all' ? reachableAllCount : reachableSelected.length;
+
+  const handleTogglePatient = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllReachable = () => {
+    const reachableFilteredIds = filteredPatients.filter((p) => p.hasSms).map((p) => p.id);
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...reachableFilteredIds])));
+  };
+
+  const handleSelectHighRisk = () => {
+    const highRiskIds = patients.filter((p) => p.risk === 'HIGH' && p.hasSms).map((p) => p.id);
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...highRiskIds])));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds([]);
+    if (onClearSelectedSmsPatient) onClearSelectedSmsPatient();
+  };
+
+  const charCount = message.length;
+  const isUnicode = /[^\u0000-\u007F]/.test(message);
+  const segmentSize = isUnicode ? (charCount > 70 ? 67 : 70) : (charCount > 160 ? 153 : 160);
+  const segments = charCount === 0 ? 0 : Math.ceil(charCount / segmentSize);
+
+  const handleApplyTemplate = (tpl) => {
+    setActiveTemplate(tpl.id);
+    setMessage(tpl.text);
+  };
+
+  const handleSend = async () => {
+    if (!message.trim()) {
+      setSendError('Please compose an SMS message before sending.');
+      return;
+    }
+    if (mode === 'selected' && reachableSelected.length === 0) {
+      setSendError('None of the selected patients have a valid SMS phone number.');
+      return;
+    }
+
+    setSending(true);
+    setSendError('');
+    setResultSummary(null);
+
+    try {
+      const payload = {
+        message: message.trim(),
+        send_all: mode === 'all',
+        patient_ids: mode === 'selected' ? selectedIds : undefined,
+      };
+
+      const { data } = await sendDoctorSms(payload);
+      setResultSummary(data);
+      setConfirmOpen(false);
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        'Failed to dispatch SMS';
+      setSendError(msg);
+      setConfirmOpen(false);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* View Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="font-headline-lg text-amber-900 text-2xl">Patient SMS Messaging</h2>
+          <p className="font-body-md text-on-surface-variant/70 mt-1">
+            Directly compose and broadcast SMS announcements, education updates, and reminders to patients.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-amber-50 border border-amber-200/80 px-3.5 py-1.5 rounded-full text-xs font-label-sm text-amber-900">
+          <span className="material-symbols-outlined text-sm text-emerald-600">verified</span>
+          <span>Sender: <strong>9Care AI</strong></span>
+        </div>
+      </div>
+
+      {/* Result Notification Banner */}
+      {resultSummary && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-3 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
+              <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+              <span>SMS Broadcast Successfully Dispatched!</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setResultSummary(null)}
+              className="text-emerald-700 hover:text-emerald-900 text-xs font-medium cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
+              <p className="text-on-surface-variant/70 text-[11px]">Total Targeted</p>
+              <p className="text-base font-bold text-emerald-900">{resultSummary.total_targeted}</p>
+            </div>
+            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
+              <p className="text-on-surface-variant/70 text-[11px]">Delivered</p>
+              <p className="text-base font-bold text-emerald-700">{resultSummary.sent}</p>
+            </div>
+            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
+              <p className="text-on-surface-variant/70 text-[11px]">Failed</p>
+              <p className={`text-base font-bold ${resultSummary.failed > 0 ? 'text-rose-600' : 'text-emerald-900'}`}>{resultSummary.failed}</p>
+            </div>
+            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
+              <p className="text-on-surface-variant/70 text-[11px]">Skipped (No Phone)</p>
+              <p className="text-base font-bold text-on-surface-variant">{resultSummary.skipped_no_phone || 0}</p>
+            </div>
+          </div>
+
+          {resultSummary.results && resultSummary.results.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-emerald-900 mb-2">Delivery Summary:</p>
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs">
+                {resultSummary.results.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between bg-white/70 px-3 py-1 rounded-lg border border-emerald-100">
+                    <span className="text-emerald-950 truncate mr-2">{r.name || 'Patient'} ({r.phone})</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${
+                      r.status === 'sent' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {r.status === 'sent' ? 'Sent ✓' : `Failed: ${r.error || 'error'}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {sendError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl p-4 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-rose-600">error</span>
+            <span>{sendError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSendError('')}
+            className="text-rose-700 hover:text-rose-900 text-xs font-semibold"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* Main Grid: Composer & Recipient Selector on Left, Preview on Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="lg:col-span-7 space-y-6">
+          {/* Target Audience Card */}
+          <div className="bg-white border border-amber-50 rounded-2xl p-6 custom-shadow space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-md text-amber-900 font-bold text-base flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">group</span>
+                Recipient Audience
+              </h3>
+              <span className="text-xs font-label-sm text-on-surface-variant/80 bg-surface-container-low px-3 py-1 rounded-full">
+                {targetCount} reachable recipient{targetCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Mode Toggle Buttons */}
+            <div className="grid grid-cols-2 gap-3 p-1 bg-surface-container-low rounded-xl border border-outline-variant/30">
+              <button
+                type="button"
+                onClick={() => setMode('all')}
+                className={`py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  mode === 'all'
+                    ? 'bg-white text-amber-950 shadow-sm border border-outline-variant/30'
+                    : 'text-on-surface-variant hover:text-amber-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">groups</span>
+                All Patients ({reachableAllCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('selected')}
+                className={`py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  mode === 'selected'
+                    ? 'bg-white text-amber-950 shadow-sm border border-outline-variant/30'
+                    : 'text-on-surface-variant hover:text-amber-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">checklist</span>
+                Selected Patients ({selectedIds.length})
+              </button>
+            </div>
+
+            {mode === 'all' ? (
+              <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4 text-xs text-amber-900 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
+                  Broadcast will be sent to all {reachableAllCount} registered patients with a phone number.
+                </p>
+                <p className="text-on-surface-variant/80 text-[11px]">
+                  Duplicate phone numbers and email-only accounts are automatically de-duplicated and filtered out.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                {/* Search & Risk Filter */}
+                <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
+                    <input
+                      type="text"
+                      placeholder="Search patient name, code, phone…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-outline-variant rounded-xl bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                    />
+                  </div>
+                  <select
+                    value={riskFilter}
+                    onChange={(e) => setRiskFilter(e.target.value)}
+                    className="px-2.5 py-2 text-xs border border-outline-variant rounded-xl bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+                  >
+                    <option value="All">All Tiers</option>
+                    <option value="HIGH">High Risk</option>
+                    <option value="MEDIUM">Medium Risk</option>
+                    <option value="LOW">Low Risk</option>
+                  </select>
+                </div>
+
+                {/* Quick Actions Row */}
+                <div className="flex items-center justify-between text-xs gap-2 pt-1 flex-wrap">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllReachable}
+                      className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      Select All Filtered ({filteredPatients.filter((p) => p.hasSms).length})
+                    </button>
+                    <span className="text-on-surface-variant/40">·</span>
+                    <button
+                      type="button"
+                      onClick={handleSelectHighRisk}
+                      className="text-[11px] font-semibold text-secondary hover:underline cursor-pointer"
+                    >
+                      Select High Risk
+                    </button>
+                  </div>
+                  {selectedIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleDeselectAll}
+                      className="text-[11px] text-on-surface-variant hover:text-amber-900 cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
+
+                {/* Patient Checklist Box */}
+                <div className="max-h-56 overflow-y-auto border border-outline-variant/40 rounded-xl divide-y divide-outline-variant/20 bg-white">
+                  {loadingPatients ? (
+                    <div className="p-6 text-center text-xs text-on-surface-variant">Loading patients…</div>
+                  ) : filteredPatients.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-on-surface-variant">No patients match this filter.</div>
+                  ) : (
+                    filteredPatients.map((p) => {
+                      const isSelected = selectedIds.includes(p.id);
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            if (p.hasSms) handleTogglePatient(p.id);
+                          }}
+                          className={`p-3 flex items-center justify-between gap-3 text-xs transition-colors ${
+                            p.hasSms ? 'cursor-pointer hover:bg-amber-50/60' : 'opacity-40 cursor-not-allowed bg-gray-50/40'
+                          } ${isSelected ? 'bg-amber-50/90' : ''}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={!p.hasSms}
+                              onChange={() => {}}
+                              className="rounded text-primary focus:ring-primary h-4 w-4"
+                            />
+                            <div className="truncate">
+                              <p className="font-semibold text-amber-950 truncate">{p.name}</p>
+                              <p className="text-[11px] text-on-surface-variant truncate">
+                                {p.code} · {p.phone || 'No phone'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {!p.hasSms ? (
+                              <span className="text-[10px] text-on-surface-variant/60 bg-gray-200/80 px-2 py-0.5 rounded-full">
+                                No SMS
+                              </span>
+                            ) : (
+                              <span
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                  p.risk === 'HIGH'
+                                    ? 'bg-secondary text-white border-secondary'
+                                    : p.risk === 'MEDIUM'
+                                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                                    : 'bg-primary/10 text-primary border-primary/20'
+                                }`}
+                              >
+                                {p.risk}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Message Composer Card */}
+          <div className="bg-white border border-amber-50 rounded-2xl p-6 custom-shadow space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-headline-md text-amber-900 font-bold text-base flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">edit_note</span>
+                Compose Message
+              </h3>
+              <div className="flex items-center gap-2">
+                {message && (
+                  <button
+                    type="button"
+                    onClick={() => setMessage('')}
+                    className="text-xs text-on-surface-variant hover:text-amber-900 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Templates Selector */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-label-sm text-on-surface-variant uppercase tracking-wider">
+                Quick Templates
+              </p>
+              <div className="flex gap-2 flex-wrap">
+                {SMS_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => handleApplyTemplate(tpl)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                      activeTemplate === tpl.id && message === tpl.text
+                        ? 'bg-amber-900 text-white border-amber-900 shadow-sm'
+                        : 'bg-surface-container-low text-amber-950 border-outline-variant/40 hover:bg-amber-50'
+                    }`}
+                  >
+                    <span>{tpl.title}</span>
+                    {tpl.badge && (
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                        activeTemplate === tpl.id && message === tpl.text ? 'bg-amber-700 text-amber-100' : 'bg-amber-200/70 text-amber-900'
+                      }`}>
+                        {tpl.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Textarea Input */}
+            <div className="space-y-2">
+              <textarea
+                rows={7}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type the message you want to send to patients…"
+                className="w-full p-4 text-sm font-body-md border border-outline-variant rounded-2xl focus:ring-2 focus:ring-primary focus:border-primary outline-none resize-y bg-[#FAF8F5] leading-relaxed"
+              />
+
+              {/* Character & Segment Info Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-on-surface-variant/80 gap-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-amber-950 font-semibold">{charCount}</span>
+                  <span>characters</span>
+                  <span>·</span>
+                  <span className="font-mono font-semibold text-amber-950">{segments}</span>
+                  <span>SMS part{segments !== 1 ? 's' : ''}</span>
+                  <span>·</span>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full ${isUnicode ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+                    {isUnicode ? 'Unicode (Emojis Enabled)' : 'Standard GSM'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-on-surface-variant/70">
+                  Target: <strong className="text-amber-900">{targetCount}</strong> patient{targetCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* Send CTA */}
+            <div className="pt-2 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={sending || targetCount === 0 || !message.trim()}
+                onClick={() => setConfirmOpen(true)}
+                className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <span className="material-symbols-outlined text-base">send</span>
+                Send SMS Broadcast
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Smartphone Preview Column */}
+        <div className="lg:col-span-5 space-y-4 sticky top-24">
+          <div className="bg-white border border-amber-50 rounded-2xl p-6 custom-shadow space-y-4">
+            <h3 className="font-headline-md text-amber-900 font-bold text-base flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl">phone_iphone</span>
+              Live Patient Preview
+            </h3>
+            <p className="text-xs text-on-surface-variant/70">
+              Real-time visualization of how the SMS will appear on a recipient’s phone screen.
+            </p>
+
+            {/* Smartphone Mockup */}
+            <div className="bg-[#1A1A18] p-5 rounded-3xl border border-amber-900/40 shadow-2xl text-white">
+              {/* Phone Status Bar */}
+              <div className="flex justify-between items-center text-[10px] text-amber-200/60 pb-3 border-b border-white/10 mb-4 px-1">
+                <span>9:41</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-xs">signal_cellular_alt</span>
+                  <span className="material-symbols-outlined text-xs">wifi</span>
+                  <span className="material-symbols-outlined text-xs">battery_full</span>
+                </div>
+              </div>
+
+              {/* Contact Header */}
+              <div className="flex items-center gap-3 pb-3 mb-4 border-b border-white/10">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400 font-bold text-sm">
+                  9C
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-xs text-white">9Care AI</p>
+                    <span className="material-symbols-outlined text-amber-400 text-xs" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  </div>
+                  <p className="text-[10px] text-amber-200/60">Official SMS Channel</p>
+                </div>
+              </div>
+
+              {/* Message Bubble Container */}
+              <div className="space-y-2 mb-4">
+                <div className="text-[10px] text-center text-amber-200/40 font-mono">Today · Just now</div>
+                <div className="bg-[#2D2A26] border border-amber-500/20 text-white rounded-2xl rounded-tl-sm p-4 text-xs font-body-md leading-relaxed whitespace-pre-wrap shadow-inner">
+                  {message ? (
+                    message
+                  ) : (
+                    <span className="italic text-white/30">Start typing your message to preview how patients will receive it…</span>
+                  )}
+                  <div className="mt-2.5 flex items-center justify-end gap-1 text-[9px] text-amber-200/50">
+                    <span>Delivered</span>
+                    <span className="material-symbols-outlined text-[11px] text-emerald-400">done_all</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Note */}
+              <div className="bg-amber-950/40 border border-amber-800/40 rounded-xl p-3 text-[11px] text-amber-300/80 flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-400 text-sm flex-shrink-0">sms</span>
+                <span>Sent directly via Termii Gateway with Unicode support.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Dialog Modal */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-amber-100 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-xl">send</span>
+              </div>
+              <div>
+                <h3 className="font-headline-md text-amber-900 font-bold text-lg">Confirm SMS Broadcast</h3>
+                <p className="text-xs text-on-surface-variant">Review message and target audience</p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Target Audience:</span>
+                <span className="font-semibold text-amber-900">
+                  {mode === 'all' ? `All Reachable Patients (${reachableAllCount})` : `${targetCount} Selected Patient(s)`}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Message Length:</span>
+                <span className="font-mono text-amber-900">{charCount} chars ({segments} part{segments !== 1 ? 's' : ''})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Encoding:</span>
+                <span className="font-medium text-amber-900">{isUnicode ? 'Unicode (Emojis Enabled)' : 'Standard GSM'}</span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-surface-container-low rounded-xl text-xs text-on-surface-variant font-mono max-h-32 overflow-y-auto whitespace-pre-wrap border border-outline-variant/30">
+              {message}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={sending}
+                onClick={() => setConfirmOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-on-surface-variant hover:bg-amber-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={handleSend}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-primary text-white hover:bg-primary/90 transition-all flex items-center gap-1.5 shadow-md shadow-primary/20 disabled:opacity-50 cursor-pointer"
+              >
+                {sending ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Dispatching via Termii…
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">send</span>
+                    Yes, Send SMS Broadcast
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1262,6 +1941,7 @@ const NAV_ITEMS = [
   { id: 'queue',    icon: 'dashboard',  label: 'Patient Queue' },
   { id: 'metrics',  icon: 'monitoring', label: 'Health Metrics' },
   { id: 'patients', icon: 'group',      label: 'Patients' },
+  { id: 'sms',      icon: 'chat',       label: 'Patient SMS' },
   { id: 'ask_ai',   icon: 'smart_toy',  label: 'Ask AI' },
   { id: 'resources',icon: 'menu_book',  label: 'Resources' },
   { id: 'profile',  icon: 'badge',      label: 'Profile' },
@@ -1280,6 +1960,7 @@ const ProviderDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loggedIn, setLoggedIn] = useState(isDoctorAuthenticated());
   const [doctor, setDoctor] = useState(getDoctorData());
+  const [selectedSmsPatientId, setSelectedSmsPatientId] = useState(null);
   const tabParam = searchParams.get('tab');
   const activeView = isProviderTab(tabParam) ? tabParam : 'queue';
   const setActiveView = (id) => {
@@ -1361,17 +2042,19 @@ const ProviderDashboard = () => {
     queue: QueueView,
     metrics: MetricsView,
     patients: PatientsView,
+    sms: BroadcastSmsView,
     ask_ai: AskAIView,
     resources: ResourcesView,
     profile: ProfileView,
     settings: SettingsView,
   };
-  const ActiveView = VIEWS[activeView];
+  const ActiveView = VIEWS[activeView] || QueueView;
 
   const TODAY_LABELS = {
     queue: "Today's Queue",
     metrics: 'Health Metrics',
     patients: 'All Patients',
+    sms: 'Patient SMS Messaging',
     ask_ai: 'Clinical AI Assistant',
     resources: 'Resources',
     profile: 'Provider Profile',
@@ -1511,6 +2194,13 @@ const ProviderDashboard = () => {
             onDismiss={handleDismissAlert}
             doctor={doctor}
             onUpdateDoctor={handleUpdateDoctor}
+            setActiveView={setActiveView}
+            selectedSmsPatientId={selectedSmsPatientId}
+            onSelectPatientForSms={(id) => {
+              setSelectedSmsPatientId(id);
+              setActiveView('sms');
+            }}
+            onClearSelectedSmsPatient={() => setSelectedSmsPatientId(null)}
           />
         </div>
       </main>

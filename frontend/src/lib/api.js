@@ -210,3 +210,6 @@ export const askPatientAI = (question) =>
 
 export const askDoctorAI = (question, patient_id) =>
   doctorApi.post('/providers/ask', patient_id ? { question, patient_id } : { question });
+
+export const sendDoctorSms = ({ message, patient_ids, send_all }) =>
+  doctorApi.post('/providers/sms', { message, patient_ids, send_all });

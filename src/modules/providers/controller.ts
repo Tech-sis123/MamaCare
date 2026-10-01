@@ -6,7 +6,8 @@ import { generatePreConsultSummary } from '../../services/summary-generator';
 import { calculateEGAWeeks, calculateEDD } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
-import { splitRiskReasons } from '../../utils/contact';
+import { splitRiskReasons, isSmsPhone, formatPhoneForTermii } from '../../utils/contact';
+import { termiiService } from '../../services/termii';
 
 export const providersController = {
   /**
@@ -290,6 +291,7 @@ export const providersController = {
         risk_reasons: splitRiskReasons(p.risk_assessments[0]?.reasons).clinical,
         last_seen_at: p.last_seen_at,
         site_visit_count: p.site_visit_count,
+        has_sms: isSmsPhone(p.phone_number),
         ega_weeks: p.pregnancies[0]?.lmp_date
           ? calculateEGAWeeks(new Date(p.pregnancies[0].lmp_date))
           : null,
@@ -617,6 +619,116 @@ export const providersController = {
         select: { id: true, name: true, email: true, role: true, phone_number: true },
       });
       res.status(200).json({ doctor, message: 'Profile updated successfully' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /providers/sms — send SMS directly to all or selected patients
+   */
+  async sendPatientSms(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { message, patient_ids, send_all } = req.body as {
+        message: string;
+        patient_ids?: string[];
+        send_all?: boolean;
+      };
+      const doctorId = req.user!.id;
+
+      let patients: Array<{ id: string; name: string | null; phone_number: string | null }> = [];
+
+      if (send_all) {
+        patients = await prisma.patient.findMany({
+          select: { id: true, name: true, phone_number: true },
+          orderBy: { name: 'asc' },
+        });
+      } else if (patient_ids && patient_ids.length > 0) {
+        patients = await prisma.patient.findMany({
+          where: { id: { in: patient_ids } },
+          select: { id: true, name: true, phone_number: true },
+          orderBy: { name: 'asc' },
+        });
+      }
+
+      const validPatients = patients.filter((p) => isSmsPhone(p.phone_number));
+
+      // Deduplicate by formatted phone number
+      const uniqueRecipients = new Map<
+        string,
+        { id: string; name: string | null; phone: string; formatted: string }
+      >();
+
+      for (const p of validPatients) {
+        if (!p.phone_number) continue;
+        const formatted = formatPhoneForTermii(p.phone_number);
+        if (!uniqueRecipients.has(formatted)) {
+          uniqueRecipients.set(formatted, {
+            id: p.id,
+            name: p.name,
+            phone: p.phone_number,
+            formatted,
+          });
+        }
+      }
+
+      const recipients = Array.from(uniqueRecipients.values());
+
+      let sentCount = 0;
+      let failCount = 0;
+      const results: Array<{ phone: string; name: string | null; status: string; error?: string }> = [];
+
+      for (const recipient of recipients) {
+        try {
+          await termiiService.sendSMS({
+            to: recipient.formatted,
+            sms: message,
+          });
+          sentCount++;
+          results.push({
+            phone: recipient.formatted,
+            name: recipient.name,
+            status: 'sent',
+          });
+        } catch (err: any) {
+          failCount++;
+          results.push({
+            phone: recipient.formatted,
+            name: recipient.name,
+            status: 'failed',
+            error: err.message || 'Send error',
+          });
+        }
+      }
+
+      // Log doctor action to auditLog
+      await prisma.auditLog.create({
+        data: {
+          actor_type: 'doctor',
+          actor_id: doctorId,
+          action: 'doctor_sms_broadcast',
+          resource_type: 'patient_sms',
+          resource_id: doctorId,
+          after: {
+            message,
+            total_targeted: patients.length,
+            unique_recipients: recipients.length,
+            sent: sentCount,
+            failed: failCount,
+            skipped_invalid: patients.length - validPatients.length,
+          },
+        },
+      });
+
+      res.status(200).json({
+        message: 'SMS dispatch completed',
+        total_targeted: patients.length,
+        unique_recipients: recipients.length,
+        sent: sentCount,
+        failed: failCount,
+        skipped_no_phone: patients.length - validPatients.length,
+        results,
+      });
     } catch (err) {
       next(err);
     }

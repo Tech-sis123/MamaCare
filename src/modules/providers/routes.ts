@@ -10,6 +10,7 @@ import {
   askQuestionSchema,
   doctorPregnancyUpdateSchema,
   updateDoctorProfileSchema,
+  doctorSendSmsSchema,
 } from './schemas';
 import { patientIdParamSchema } from '../symptoms/schemas';
 
@@ -101,6 +102,15 @@ router.post(
   rbac('doctor', 'department_head'),
   validate(askQuestionSchema),
   providersController.askAI
+);
+
+// Doctor send SMS to all or selected patients
+router.post(
+  '/sms',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(doctorSendSmsSchema),
+  providersController.sendPatientSms
 );
 
 export default router;

@@ -154,3 +154,16 @@ export const updateDoctorProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone_number: z.string().trim().optional().nullable().transform(val => val === '' ? null : val),
 });
+
+export const doctorSendSmsSchema = z
+  .object({
+    message: z.string().min(1, 'Message cannot be empty').max(1000, 'Message cannot exceed 1000 characters'),
+    patient_ids: z.array(z.string().uuid()).optional(),
+    send_all: z.boolean().optional(),
+  })
+  .refine(
+    (data) => data.send_all === true || (Array.isArray(data.patient_ids) && data.patient_ids.length > 0),
+    {
+      message: 'Please choose "Send to All Patients" or select at least one patient',
+    }
+  );

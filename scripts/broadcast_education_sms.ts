@@ -2,17 +2,17 @@ import prisma from '../src/config/prisma';
 import { termiiService } from '../src/services/termii';
 import { isSmsPhone, formatPhoneForTermii } from '../src/utils/contact';
 
-const MESSAGE = `🤰🏽 There's an update waiting for you!
+const MESSAGE = `There is an update waiting for you on 9Care!
 
-We’ve just added a new educational update to 9Care with information that can help you better understand your pregnancy and make decisions.
+We have just added a new educational update to help you better understand your pregnancy and make decisions.
 
-Log into your account and take a look. 💜
-https://www.9careai.com/education
+Log into your account and take a look:
+www.9careai.com/education
 
 Stay informed. Stay prepared.`;
 
 async function main() {
-  console.log('--- Starting 9Care Educational Update SMS Broadcast ---');
+  console.log('--- Starting 9Care Educational Update SMS Broadcast (Clean GSM) ---');
   console.log('Message:');
   console.log(MESSAGE);
   console.log('----------------------------------------------------');
@@ -65,7 +65,7 @@ async function main() {
       const res = await termiiService.sendSMS({
         to: recipient.formatted,
         sms: MESSAGE,
-        type: 'unicode',
+        type: 'plain',
       });
       console.log(`  ✓ Sent! Message ID: ${res.message_id}`);
       successCount++;

@@ -28,9 +28,9 @@ export function isSmsPhone(phone?: string | null): boolean {
 /** Format phone number to Termii expected international format without leading + (e.g. 2348012345678) */
 export function formatPhoneForTermii(phone: string): string {
   let cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('0') && cleaned.length === 11) {
+  if (cleaned.startsWith('0')) {
     cleaned = '234' + cleaned.slice(1);
-  } else if (cleaned.length === 10 && /^[789]/.test(cleaned)) {
+  } else if (!cleaned.startsWith('234') && cleaned.length === 10 && /^[789]/.test(cleaned)) {
     cleaned = '234' + cleaned;
   }
   return cleaned;

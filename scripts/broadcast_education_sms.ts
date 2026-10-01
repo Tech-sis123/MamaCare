@@ -7,7 +7,7 @@ const MESSAGE = `🤰🏽 There's an update waiting for you!
 We’ve just added a new educational update to 9Care with information that can help you better understand your pregnancy and make decisions.
 
 Log into your account and take a look. 💜
-www.9careai.com
+https://www.9careai.com/education
 
 Stay informed. Stay prepared.`;
 

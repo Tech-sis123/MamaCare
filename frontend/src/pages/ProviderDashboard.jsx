@@ -679,7 +679,7 @@ const SMS_TEMPLATES = [
     id: 'education',
     title: '🤰🏽 Educational Update',
     badge: 'Latest',
-    text: `🤰🏽 There's an update waiting for you!\n\nWe’ve just added a new educational update to 9Care with information that can help you better understand your pregnancy and make decisions.\n\nLog into your account and take a look. 💜\nwww.9careai.com\n\nStay informed. Stay prepared.`,
+    text: `🤰🏽 There's an update waiting for you!\n\nWe’ve just added a new educational update to 9Care with information that can help you better understand your pregnancy and make decisions.\n\nLog into your account and take a look. 💜\nhttps://www.9careai.com/education\n\nStay informed. Stay prepared.`,
   },
   {
     id: 'anc_reminder',

@@ -160,10 +160,15 @@ export const doctorSendSmsSchema = z
     message: z.string().min(1, 'Message cannot be empty').max(1000, 'Message cannot exceed 1000 characters'),
     patient_ids: z.array(z.string().uuid()).optional(),
     send_all: z.boolean().optional(),
+    // Extra numbers typed in manually by the doctor (not tied to a patient record)
+    phone_numbers: z.array(z.string().trim().min(1)).optional(),
   })
   .refine(
-    (data) => data.send_all === true || (Array.isArray(data.patient_ids) && data.patient_ids.length > 0),
+    (data) =>
+      data.send_all === true ||
+      (Array.isArray(data.patient_ids) && data.patient_ids.length > 0) ||
+      (Array.isArray(data.phone_numbers) && data.phone_numbers.length > 0),
     {
-      message: 'Please choose "Send to All Patients" or select at least one patient',
+      message: 'Please choose "Send to All Patients", select at least one patient, or add a phone number',
     }
   );

@@ -71,6 +71,26 @@ const isSmsPhone = (phone) => {
   return digits.length >= 10 && digits.length <= 15;
 };
 
+// Mirrors the backend's formatPhoneForTermii so duplicates are caught before sending
+const normalizeSmsPhone = (phone) => {
+  let digits = String(phone).replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = '234' + digits.slice(1);
+  else if (!digits.startsWith('234') && digits.length === 10 && /^[789]/.test(digits)) digits = '234' + digits;
+  return digits;
+};
+
+// Splits pasted text on commas, semicolons or new lines. A chunk that is too long to be
+// one number (e.g. "0801… 0809…") is split again on spaces, so "+234 801 234 5678" still works.
+const parseManualNumbers = (text) =>
+  String(text)
+    .split(/[,;\n\r]+/)
+    .flatMap((chunk) => {
+      const trimmed = chunk.trim();
+      if (!trimmed) return [];
+      return trimmed.replace(/\D/g, '').length > 15 ? trimmed.split(/\s+/) : [trimmed];
+    })
+    .filter(Boolean);
+
 const toPatientRow = (p) => ({
   id: p.id,
   name: p.name || '—',
@@ -714,6 +734,9 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [resultSummary, setResultSummary] = useState(null);
+  const [manualNumbers, setManualNumbers] = useState([]);
+  const [manualInput, setManualInput] = useState('');
+  const [manualError, setManualError] = useState('');
 
   useEffect(() => {
     if (selectedSmsPatientId) {
@@ -756,7 +779,32 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
   const selectedPatients = patients.filter((p) => selectedIds.includes(p.id));
   const reachableSelected = selectedPatients.filter((p) => p.hasSms);
 
-  const targetCount = mode === 'all' ? reachableAllCount : reachableSelected.length;
+  const audiencePatients = mode === 'all' ? reachableAll : mode === 'selected' ? reachableSelected : [];
+  const audiencePhones = new Set(audiencePatients.map((p) => normalizeSmsPhone(p.phone)));
+  // Manual numbers that belong to a patient already in the audience are only sent once
+  const extraManualCount = manualNumbers.filter((n) => !audiencePhones.has(n)).length;
+  const patientTargetCount = audiencePatients.length;
+  const targetCount = patientTargetCount + extraManualCount;
+
+  const handleAddManualNumbers = () => {
+    const entries = parseManualNumbers(manualInput);
+    if (entries.length === 0) return;
+
+    const invalid = entries.filter((n) => !isSmsPhone(n));
+    const valid = entries.filter((n) => isSmsPhone(n)).map(normalizeSmsPhone);
+
+    setManualNumbers((prev) => Array.from(new Set([...prev, ...valid])));
+    setManualInput(invalid.join('\n'));
+    setManualError(
+      invalid.length > 0
+        ? `${invalid.length} number${invalid.length !== 1 ? 's' : ''} could not be added. Check them and try again.`
+        : ''
+    );
+  };
+
+  const handleRemoveManualNumber = (number) => {
+    setManualNumbers((prev) => prev.filter((n) => n !== number));
+  };
 
   const handleTogglePatient = (id) => {
     setSelectedIds((prev) =>
@@ -794,8 +842,12 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
       setSendError('Please compose an SMS message before sending.');
       return;
     }
-    if (mode === 'selected' && reachableSelected.length === 0) {
-      setSendError('None of the selected patients have a valid SMS phone number.');
+    if (targetCount === 0) {
+      setSendError(
+        mode === 'manual'
+          ? 'Add at least one phone number before sending.'
+          : 'None of the selected patients have a valid SMS phone number.'
+      );
       return;
     }
 
@@ -807,7 +859,8 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
       const payload = {
         message: message.trim(),
         send_all: mode === 'all',
-        patient_ids: mode === 'selected' ? selectedIds : undefined,
+        patient_ids: mode === 'selected' && selectedIds.length > 0 ? selectedIds : undefined,
+        phone_numbers: manualNumbers.length > 0 ? manualNumbers : undefined,
       };
 
       const { data } = await sendDoctorSms(payload);
@@ -884,7 +937,7 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
               <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs">
                 {resultSummary.results.map((r, i) => (
                   <div key={i} className="flex items-center justify-between bg-white/70 px-3 py-1 rounded-lg border border-emerald-100">
-                    <span className="text-emerald-950 truncate mr-2">{r.name || 'Patient'} ({r.phone})</span>
+                    <span className="text-emerald-950 truncate mr-2">{r.name || (r.source === 'manual' ? 'Added number' : 'Patient')} ({r.phone})</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${
                       r.status === 'sent' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                     }`}>
@@ -931,7 +984,7 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
             </div>
 
             {/* Mode Toggle Buttons */}
-            <div className="grid grid-cols-2 gap-3 p-1 bg-surface-container-low rounded-xl border border-outline-variant/30">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 p-1 bg-surface-container-low rounded-xl border border-outline-variant/30">
               <button
                 type="button"
                 onClick={() => setMode('all')}
@@ -956,9 +1009,31 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
                 <span className="material-symbols-outlined text-base">checklist</span>
                 Selected Patients ({selectedIds.length})
               </button>
+              <button
+                type="button"
+                onClick={() => setMode('manual')}
+                className={`py-2.5 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  mode === 'manual'
+                    ? 'bg-white text-amber-950 shadow-sm border border-outline-variant/30'
+                    : 'text-on-surface-variant hover:text-amber-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">dialpad</span>
+                Numbers Only ({manualNumbers.length})
+              </button>
             </div>
 
-            {mode === 'all' ? (
+            {mode === 'manual' ? (
+              <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4 text-xs text-amber-900 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-emerald-600">dialpad</span>
+                  Only the phone numbers you add below will receive this message.
+                </p>
+                <p className="text-on-surface-variant/80 text-[11px]">
+                  Use this for numbers that are not linked to a registered patient.
+                </p>
+              </div>
+            ) : mode === 'all' ? (
               <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-4 text-xs text-amber-900 space-y-1">
                 <p className="font-semibold flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-sm text-emerald-600">check_circle</span>
@@ -1084,6 +1159,100 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
                 </div>
               </div>
             )}
+
+            {/* Manually Added Numbers */}
+            <div className="pt-4 border-t border-outline-variant/30 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-primary">add_call</span>
+                    {mode === 'manual' ? 'Phone Numbers' : 'Add Phone Numbers Manually'}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant/80 mt-0.5">
+                    {mode === 'manual'
+                      ? 'Type or paste as many numbers as you need.'
+                      : 'Optional. These numbers also receive the message, on top of the patients above.'}
+                  </p>
+                </div>
+                {manualNumbers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setManualNumbers([])}
+                    className="text-[11px] text-on-surface-variant hover:text-amber-900 cursor-pointer flex-shrink-0"
+                  >
+                    Remove All
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <textarea
+                  rows={2}
+                  value={manualInput}
+                  onChange={(e) => {
+                    setManualInput(e.target.value);
+                    if (manualError) setManualError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddManualNumbers();
+                    }
+                  }}
+                  placeholder={'e.g. 08012345678, +2348098765432\nPaste a list separated by commas or new lines'}
+                  className="flex-grow px-3 py-2 text-xs border border-outline-variant rounded-xl bg-white focus:ring-2 focus:ring-primary focus:border-primary outline-none resize-y font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddManualNumbers}
+                  disabled={!manualInput.trim()}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-900 text-white hover:bg-amber-800 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed sm:self-start"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  Add
+                </button>
+              </div>
+
+              {manualError && (
+                <p className="text-[11px] text-rose-700 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">error</span>
+                  {manualError} Numbers need 10–15 digits.
+                </p>
+              )}
+
+              {manualNumbers.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] text-on-surface-variant">
+                    {manualNumbers.length} number{manualNumbers.length !== 1 ? 's' : ''} added
+                    {manualNumbers.length !== extraManualCount && mode !== 'manual' && (
+                      <> · {manualNumbers.length - extraManualCount} already in the patient list</>
+                    )}
+                  </p>
+                  <div className="max-h-40 overflow-y-auto flex flex-wrap gap-1.5 p-2 border border-outline-variant/40 rounded-xl bg-[#FAF8F5]">
+                    {manualNumbers.map((n) => (
+                      <span
+                        key={n}
+                        className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full bg-white border border-amber-200 text-[11px] font-mono text-amber-950"
+                      >
+                        +{n}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveManualNumber(n)}
+                          aria-label={`Remove +${n}`}
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-rose-100 hover:text-rose-700 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-[12px]">close</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                mode === 'manual' && (
+                  <p className="text-[11px] text-on-surface-variant/70 italic">No numbers added yet.</p>
+                )
+              )}
+            </div>
           </div>
 
           {/* Message Composer Card */}
@@ -1160,7 +1329,7 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
                   </span>
                 </div>
                 <div className="text-[11px] text-on-surface-variant/70">
-                  Target: <strong className="text-amber-900">{targetCount}</strong> patient{targetCount !== 1 ? 's' : ''}
+                  Target: <strong className="text-amber-900">{targetCount}</strong> recipient{targetCount !== 1 ? 's' : ''}
                 </div>
               </div>
             </div>
@@ -1261,8 +1430,22 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Target Audience:</span>
                 <span className="font-semibold text-amber-900">
-                  {mode === 'all' ? `All Reachable Patients (${reachableAllCount})` : `${targetCount} Selected Patient(s)`}
+                  {mode === 'all'
+                    ? `All Reachable Patients (${reachableAllCount})`
+                    : mode === 'selected'
+                    ? `${patientTargetCount} Selected Patient(s)`
+                    : 'Manually Added Numbers'}
                 </span>
+              </div>
+              {extraManualCount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-on-surface-variant">{mode === 'manual' ? 'Phone Numbers:' : 'Extra Numbers:'}</span>
+                  <span className="font-semibold text-amber-900">{extraManualCount}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant">Total Recipients:</span>
+                <span className="font-semibold text-amber-900">{targetCount}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-on-surface-variant">Message Length:</span>

@@ -625,14 +625,16 @@ export const providersController = {
   },
 
   /**
-   * POST /providers/sms — send SMS directly to all or selected patients
+   * POST /providers/sms — send SMS directly to all or selected patients,
+   * plus any phone numbers the doctor typed in manually
    */
   async sendPatientSms(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { message, patient_ids, send_all } = req.body as {
+      const { message, patient_ids, send_all, phone_numbers } = req.body as {
         message: string;
         patient_ids?: string[];
         send_all?: boolean;
+        phone_numbers?: string[];
       };
       const doctorId = req.user!.id;
 
@@ -656,7 +658,7 @@ export const providersController = {
       // Deduplicate by formatted phone number
       const uniqueRecipients = new Map<
         string,
-        { id: string; name: string | null; phone: string; formatted: string }
+        { id: string | null; name: string | null; phone: string; formatted: string; source: 'patient' | 'manual' }
       >();
 
       for (const p of validPatients) {
@@ -668,6 +670,27 @@ export const providersController = {
             name: p.name,
             phone: p.phone_number,
             formatted,
+            source: 'patient',
+          });
+        }
+      }
+
+      // Manually entered numbers: skip invalid ones and any already covered by a patient
+      const manualNumbers = phone_numbers ?? [];
+      const invalidManual: string[] = [];
+      for (const raw of manualNumbers) {
+        if (!isSmsPhone(raw)) {
+          invalidManual.push(raw);
+          continue;
+        }
+        const formatted = formatPhoneForTermii(raw);
+        if (!uniqueRecipients.has(formatted)) {
+          uniqueRecipients.set(formatted, {
+            id: null,
+            name: null,
+            phone: raw,
+            formatted,
+            source: 'manual',
           });
         }
       }
@@ -676,7 +699,13 @@ export const providersController = {
 
       let sentCount = 0;
       let failCount = 0;
-      const results: Array<{ phone: string; name: string | null; status: string; error?: string }> = [];
+      const results: Array<{
+        phone: string;
+        name: string | null;
+        source: 'patient' | 'manual';
+        status: string;
+        error?: string;
+      }> = [];
 
       for (const recipient of recipients) {
         try {
@@ -688,6 +717,7 @@ export const providersController = {
           results.push({
             phone: recipient.formatted,
             name: recipient.name,
+            source: recipient.source,
             status: 'sent',
           });
         } catch (err: any) {
@@ -695,6 +725,7 @@ export const providersController = {
           results.push({
             phone: recipient.formatted,
             name: recipient.name,
+            source: recipient.source,
             status: 'failed',
             error: err.message || 'Send error',
           });
@@ -711,22 +742,26 @@ export const providersController = {
           resource_id: doctorId,
           after: {
             message,
-            total_targeted: patients.length,
+            total_targeted: patients.length + manualNumbers.length,
+            manual_numbers: manualNumbers.length,
             unique_recipients: recipients.length,
             sent: sentCount,
             failed: failCount,
             skipped_invalid: patients.length - validPatients.length,
+            skipped_invalid_manual: invalidManual.length,
           },
         },
       });
 
       res.status(200).json({
         message: 'SMS dispatch completed',
-        total_targeted: patients.length,
+        total_targeted: patients.length + manualNumbers.length,
+        manual_numbers: manualNumbers.length,
         unique_recipients: recipients.length,
         sent: sentCount,
         failed: failCount,
         skipped_no_phone: patients.length - validPatients.length,
+        invalid_manual_numbers: invalidManual,
         results,
       });
     } catch (err) {

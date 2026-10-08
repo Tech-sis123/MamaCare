@@ -213,3 +213,23 @@ export const askDoctorAI = (question, patient_id) =>
 
 export const sendDoctorSms = ({ message, patient_ids, send_all, phone_numbers }) =>
   doctorApi.post('/providers/sms', { message, patient_ids, send_all, phone_numbers });
+
+export const getDoctorSmsJob = (jobId) =>
+  doctorApi.get(`/providers/sms/${jobId}`);
+
+// ── Doctor education content management ──────────────────────────────────────
+
+export const getDoctorEducationModules = () =>
+  doctorApi.get('/education/manage/modules');
+
+export const createEducationModule = (data) =>
+  doctorApi.post('/education/manage/modules', data);
+
+export const updateEducationModule = (id, data) =>
+  doctorApi.put(`/education/manage/modules/${id}`, data);
+
+export const setEducationModuleStatus = (id, status) =>
+  doctorApi.patch(`/education/manage/modules/${id}/status`, { status });
+
+export const deleteEducationModule = (id) =>
+  doctorApi.delete(`/education/manage/modules/${id}`);

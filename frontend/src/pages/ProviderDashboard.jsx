@@ -11,8 +11,10 @@ import {
   getDoctorProfile,
   updateDoctorProfile,
   sendDoctorSms,
+  getDoctorSmsJob,
 } from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
+import DoctorEducationManager from '../components/DoctorEducationManager';
 
 const RISK_COLORS = {
   HIGH:   { bar: 'bg-secondary', badge: 'bg-secondary text-white',       border: 'border-secondary',   text: 'text-secondary' },
@@ -721,6 +723,192 @@ const SMS_TEMPLATES = [
   },
 ];
 
+const SMS_JOB_STORAGE_KEY = '9care_last_sms_job';
+const SMS_JOB_POLL_MS = 1500;
+
+const RECIPIENT_STATUS = {
+  queued:  { label: 'Waiting',  icon: 'schedule',     pill: 'bg-gray-100 text-on-surface-variant border-gray-200' },
+  sending: { label: 'Sending',  icon: 'progress_activity', pill: 'bg-amber-100 text-amber-800 border-amber-200' },
+  sent:    { label: 'Sent',     icon: 'check_circle', pill: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+  failed:  { label: 'Not sent', icon: 'error',        pill: 'bg-rose-100 text-rose-800 border-rose-200' },
+};
+
+const STATUS_FILTERS = [
+  { id: 'all',     label: 'All' },
+  { id: 'sent',    label: 'Sent' },
+  { id: 'failed',  label: 'Not sent' },
+  { id: 'pending', label: 'Waiting' },
+];
+
+// Live per-number delivery status for one SMS broadcast
+const SmsDeliveryStatus = ({ job, onDismiss, onRetryFailed, retrying }) => {
+  const [filter, setFilter] = useState('all');
+  const [confirmRetry, setConfirmRetry] = useState(false);
+
+  const results = job.results || [];
+  const total = results.length;
+  const pending = (job.queued || 0) + (job.sending || 0);
+  const done = (job.sent || 0) + (job.failed || 0);
+  const isSending = job.state === 'sending';
+  const pct = (n) => (total === 0 ? 0 : (n / total) * 100);
+
+  const visible = results.filter((r) =>
+    filter === 'all'
+      ? true
+      : filter === 'pending'
+      ? r.status === 'queued' || r.status === 'sending'
+      : r.status === filter
+  );
+  const filterCount = { all: total, sent: job.sent || 0, failed: job.failed || 0, pending };
+
+  return (
+    <div className="bg-white border border-amber-100 rounded-2xl p-5 space-y-4 custom-shadow animate-fade-in">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-amber-950">
+          {isSending ? (
+            <div className="w-4 h-4 border-2 border-amber-300 border-t-amber-700 rounded-full animate-spin flex-shrink-0" />
+          ) : (
+            <span className={`material-symbols-outlined ${job.failed > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {job.failed > 0 ? 'report' : 'check_circle'}
+            </span>
+          )}
+          <span>
+            {isSending
+              ? `Sending messages… ${done} of ${total}`
+              : job.failed > 0
+              ? `Finished: ${job.sent} sent, ${job.failed} not sent`
+              : `All ${job.sent} message${job.sent !== 1 ? 's' : ''} sent`}
+          </span>
+        </div>
+        {!isSending && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="text-on-surface-variant hover:text-amber-900 text-xs font-medium cursor-pointer flex-shrink-0"
+          >
+            Dismiss
+          </button>
+        )}
+      </div>
+
+      {/* Progress Bar */}
+      <div>
+        <div
+          className="h-2.5 w-full rounded-full bg-gray-100 overflow-hidden flex"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={done}
+          aria-label="SMS sending progress"
+        >
+          <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${pct(job.sent || 0)}%` }} />
+          <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${pct(job.failed || 0)}%` }} />
+          {isSending && (
+            <div className="h-full bg-amber-300/70 animate-pulse transition-all duration-500" style={{ width: `${pct(job.sending || 0)}%` }} />
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] text-on-surface-variant">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />Sent <strong className="text-emerald-800">{job.sent || 0}</strong></span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500" />Not sent <strong className="text-rose-700">{job.failed || 0}</strong></span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-gray-300" />Waiting <strong className="text-amber-950">{pending}</strong></span>
+          {job.skipped_no_phone > 0 && (
+            <span>Skipped (no phone): <strong className="text-amber-950">{job.skipped_no_phone}</strong></span>
+          )}
+        </div>
+      </div>
+
+      {/* Filters + Retry */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onClick={() => setFilter(f.id)}
+              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer ${
+                filter === f.id
+                  ? 'bg-amber-900 text-white border-amber-900'
+                  : 'bg-surface-container-low text-amber-950 border-outline-variant/40 hover:bg-amber-50'
+              }`}
+            >
+              {f.label} ({filterCount[f.id]})
+            </button>
+          ))}
+        </div>
+        {!isSending && job.failed > 0 && onRetryFailed && (
+          confirmRetry ? (
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-on-surface-variant">Resend to {job.failed} number{job.failed !== 1 ? 's' : ''}?</span>
+              <button
+                type="button"
+                disabled={retrying}
+                onClick={() => setConfirmRetry(false)}
+                className="px-2 py-1 rounded-lg text-on-surface-variant hover:bg-amber-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={retrying}
+                onClick={async () => {
+                  await onRetryFailed(results.filter((r) => r.status === 'failed').map((r) => r.phone), job.message);
+                  setConfirmRetry(false);
+                  setFilter('all');
+                }}
+                className="px-2.5 py-1 rounded-lg font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer disabled:opacity-50"
+              >
+                {retrying ? 'Resending…' : 'Yes, resend'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmRetry(true)}
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-sm">refresh</span>
+              Retry Not Sent ({job.failed})
+            </button>
+          )
+        )}
+      </div>
+
+      {/* Per-number list */}
+      <div className="max-h-72 overflow-y-auto border border-outline-variant/40 rounded-xl divide-y divide-outline-variant/20">
+        {visible.length === 0 ? (
+          <div className="p-5 text-center text-xs text-on-surface-variant">No numbers in this group.</div>
+        ) : (
+          visible.map((r) => {
+            const st = RECIPIENT_STATUS[r.status] || RECIPIENT_STATUS.queued;
+            return (
+              <div key={r.phone} className="px-3 py-2 flex items-center justify-between gap-3 text-xs">
+                <div className="min-w-0">
+                  <p className="font-semibold text-amber-950 truncate">
+                    {r.name || (r.source === 'manual' ? 'Added number' : 'Patient')}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant font-mono truncate">+{r.phone}</p>
+                  {r.status === 'failed' && r.error && (
+                    <p className="text-[11px] text-rose-700 truncate" title={r.error}>{r.error}</p>
+                  )}
+                </div>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border flex-shrink-0 ${st.pill}`}>
+                  <span className={`material-symbols-outlined text-[12px] ${r.status === 'sending' ? 'animate-spin' : ''}`}>{st.icon}</span>
+                  {st.label}
+                </span>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <p className="text-[11px] text-on-surface-variant/70">
+        “Sent” means the SMS gateway accepted the message for delivery to that number.
+      </p>
+    </div>
+  );
+};
+
 const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) => {
   const [mode, setMode] = useState(selectedSmsPatientId ? 'selected' : 'all');
   const [message, setMessage] = useState(SMS_TEMPLATES[0].text);
@@ -733,10 +921,64 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
-  const [resultSummary, setResultSummary] = useState(null);
   const [manualNumbers, setManualNumbers] = useState([]);
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState('');
+  const [job, setJob] = useState(null);
+  const [retrying, setRetrying] = useState(false);
+  // Remembered so the status comes back if the doctor leaves this view mid-send
+  const [jobId, setJobId] = useState(() => {
+    try {
+      return localStorage.getItem(SMS_JOB_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const rememberJob = (id) => {
+    setJobId(id);
+    try {
+      if (id) localStorage.setItem(SMS_JOB_STORAGE_KEY, id);
+      else localStorage.removeItem(SMS_JOB_STORAGE_KEY);
+    } catch {
+      // storage unavailable; status just won't survive navigation
+    }
+  };
+
+  const handleDismissJob = () => {
+    setJob(null);
+    rememberJob(null);
+  };
+
+  // Poll the broadcast until every number has a final status
+  useEffect(() => {
+    if (!jobId) return;
+    let cancelled = false;
+    let timer;
+    const poll = async () => {
+      try {
+        const { data } = await getDoctorSmsJob(jobId);
+        if (cancelled) return;
+        setJob(data);
+        if (data.state === 'sending') timer = setTimeout(poll, SMS_JOB_POLL_MS);
+      } catch (err) {
+        if (cancelled) return;
+        if (err.response?.status === 404) {
+          setJob(null);
+          rememberJob(null);
+        } else {
+          timer = setTimeout(poll, SMS_JOB_POLL_MS * 2);
+        }
+      }
+    };
+    poll();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [jobId]);
+
+  const jobInProgress = job?.state === 'sending';
 
   useEffect(() => {
     if (selectedSmsPatientId) {
@@ -853,7 +1095,6 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
 
     setSending(true);
     setSendError('');
-    setResultSummary(null);
 
     try {
       const payload = {
@@ -864,7 +1105,8 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
       };
 
       const { data } = await sendDoctorSms(payload);
-      setResultSummary(data);
+      setJob(data);
+      rememberJob(data.job_id);
       setConfirmOpen(false);
     } catch (err) {
       const msg =
@@ -876,6 +1118,20 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
       setConfirmOpen(false);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleRetryFailed = async (phones, retryMessage) => {
+    setRetrying(true);
+    setSendError('');
+    try {
+      const { data } = await sendDoctorSms({ message: retryMessage, phone_numbers: phones, send_all: false });
+      setJob(data);
+      rememberJob(data.job_id);
+    } catch (err) {
+      setSendError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to resend SMS');
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -895,60 +1151,15 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
         </div>
       </div>
 
-      {/* Result Notification Banner */}
-      {resultSummary && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-3 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
-              <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-              <span>SMS Broadcast Successfully Dispatched!</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setResultSummary(null)}
-              className="text-emerald-700 hover:text-emerald-900 text-xs font-medium cursor-pointer"
-            >
-              Dismiss
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
-              <p className="text-on-surface-variant/70 text-[11px]">Total Targeted</p>
-              <p className="text-base font-bold text-emerald-900">{resultSummary.total_targeted}</p>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
-              <p className="text-on-surface-variant/70 text-[11px]">Delivered</p>
-              <p className="text-base font-bold text-emerald-700">{resultSummary.sent}</p>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
-              <p className="text-on-surface-variant/70 text-[11px]">Failed</p>
-              <p className={`text-base font-bold ${resultSummary.failed > 0 ? 'text-rose-600' : 'text-emerald-900'}`}>{resultSummary.failed}</p>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-100">
-              <p className="text-on-surface-variant/70 text-[11px]">Skipped (No Phone)</p>
-              <p className="text-base font-bold text-on-surface-variant">{resultSummary.skipped_no_phone || 0}</p>
-            </div>
-          </div>
-
-          {resultSummary.results && resultSummary.results.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs font-semibold text-emerald-900 mb-2">Delivery Summary:</p>
-              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 font-mono text-xs">
-                {resultSummary.results.map((r, i) => (
-                  <div key={i} className="flex items-center justify-between bg-white/70 px-3 py-1 rounded-lg border border-emerald-100">
-                    <span className="text-emerald-950 truncate mr-2">{r.name || (r.source === 'manual' ? 'Added number' : 'Patient')} ({r.phone})</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${
-                      r.status === 'sent' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                    }`}>
-                      {r.status === 'sent' ? 'Sent ✓' : `Failed: ${r.error || 'error'}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Live Delivery Status */}
+      {job && (
+        <SmsDeliveryStatus
+          key={job.job_id}
+          job={job}
+          onDismiss={handleDismissJob}
+          onRetryFailed={handleRetryFailed}
+          retrying={retrying}
+        />
       )}
 
       {/* Error Banner */}
@@ -1338,7 +1549,8 @@ const BroadcastSmsView = ({ selectedSmsPatientId, onClearSelectedSmsPatient }) =
             <div className="pt-2 flex items-center justify-end gap-3">
               <button
                 type="button"
-                disabled={sending || targetCount === 0 || !message.trim()}
+                disabled={sending || jobInProgress || targetCount === 0 || !message.trim()}
+                title={jobInProgress ? 'Wait for the current broadcast to finish' : undefined}
                 onClick={() => setConfirmOpen(true)}
                 className="px-6 py-3 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -2125,6 +2337,7 @@ const NAV_ITEMS = [
   { id: 'metrics',  icon: 'monitoring', label: 'Health Metrics' },
   { id: 'patients', icon: 'group',      label: 'Patients' },
   { id: 'sms',      icon: 'chat',       label: 'Patient SMS' },
+  { id: 'education',icon: 'school',     label: 'Education' },
   { id: 'ask_ai',   icon: 'smart_toy',  label: 'Ask AI' },
   { id: 'resources',icon: 'menu_book',  label: 'Resources' },
   { id: 'profile',  icon: 'badge',      label: 'Profile' },
@@ -2226,6 +2439,7 @@ const ProviderDashboard = () => {
     metrics: MetricsView,
     patients: PatientsView,
     sms: BroadcastSmsView,
+    education: DoctorEducationManager,
     ask_ai: AskAIView,
     resources: ResourcesView,
     profile: ProfileView,
@@ -2238,6 +2452,7 @@ const ProviderDashboard = () => {
     metrics: 'Health Metrics',
     patients: 'All Patients',
     sms: 'Patient SMS Messaging',
+    education: 'Education Content',
     ask_ai: 'Clinical AI Assistant',
     resources: 'Resources',
     profile: 'Provider Profile',

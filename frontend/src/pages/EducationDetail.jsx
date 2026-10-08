@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getEducationModule, markModuleComplete } from '../lib/api';
 import WhatsAppContact from '../components/WhatsAppContact';
 import { MEDICAL_GLOSSARY, simplifyMedicalText, findGlossaryTerms } from '../lib/plainLanguage';
+import { getVideoSource } from '../lib/videoEmbed';
 
 const STATIC_MODULES = {
   'baby-growth': {
@@ -406,14 +407,57 @@ const STATIC_MODULES = {
   },
 };
 
-const getYouTubeEmbedUrl = (url) => {
-  if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = String(url).match(regExp);
-  if (match && match[2].length === 11) {
-    return `https://www.youtube.com/embed/${match[2]}?autoplay=0&rel=0`;
-  }
-  return url;
+const wordCount = (text) => (text ? String(text).trim().split(/\s+/).length : 0);
+
+// Content added from the doctor dashboard (has content_type set)
+const GENERIC_TAKEAWAYS = {
+  kind: 'takeaways',
+  heading: 'Key Things to Remember',
+  items: [
+    'Take your daily blood and vitamin tablets (iron and folic acid) as advised by the clinic.',
+    'Drink plenty of clean water every day to keep baby and yourself well hydrated.',
+    'Attend all scheduled antenatal clinic visits with your nurse or doctor.',
+  ],
+};
+
+const GENERIC_WARNING = {
+  kind: 'warning',
+  heading: 'When to Contact Your Clinic Immediately',
+  items: [
+    'Heavy vaginal bleeding or leaking of fluid from your private part',
+    'Severe persistent headache, vision changes, or sudden severe swelling',
+    'High fever or chills',
+    'Noticeable decrease in baby movements or kicks',
+  ],
+};
+
+const toManagedModule = (apiModule) => {
+  const isVideo = apiModule.content_type === 'video';
+  const isAudio = apiModule.content_type === 'audio';
+  const readMinutes = Math.max(1, Math.round(wordCount(apiModule.body) / 200));
+  const watchMinutes = Math.max(1, Math.round(wordCount(apiModule.transcript) / 150));
+  return {
+    id: apiModule.id,
+    type: isVideo ? 'Video' : isAudio ? 'Audio' : 'Article',
+    typeIcon: isVideo ? 'play_circle' : isAudio ? 'music_note' : 'description',
+    week: apiModule.week_number ? `Week ${apiModule.week_number}` : 'Pregnancy Guide',
+    tag: 'Pregnancy Care',
+    duration: isVideo
+      ? apiModule.transcript ? `${watchMinutes} min` : null
+      : apiModule.body ? `${readMinutes} min read` : null,
+    title: apiModule.title,
+    subtitle: apiModule.summary || 'Antenatal care and maternal guidance.',
+    video_url: isVideo ? apiModule.video_url : null,
+    audio_url: apiModule.audio_url,
+    article_url: apiModule.article_url,
+    transcript: isVideo ? apiModule.transcript : null,
+    nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
+    sections: [
+      ...(apiModule.body ? [{ kind: 'body', heading: null, body: apiModule.body }] : []),
+      GENERIC_TAKEAWAYS,
+      GENERIC_WARNING,
+    ],
+  };
 };
 
 const typeColors = {
@@ -432,6 +476,7 @@ const EducationDetail = () => {
   const [readingMode, setReadingMode] = useState('simple');
   const [selectedGlossaryTerm, setSelectedGlossaryTerm] = useState(null);
   const [showGlossaryModal, setShowGlossaryModal] = useState(false);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -449,7 +494,9 @@ const EducationDetail = () => {
 
   const staticMatch = STATIC_MODULES[id];
 
-  const mod = staticMatch || (apiModule
+  const mod = staticMatch || (apiModule?.content_type
+    ? toManagedModule(apiModule)
+    : apiModule
     ? {
         id: apiModule.id,
         type: apiModule.video_url ? 'Video' : apiModule.audio_url ? 'Audio' : 'Article',
@@ -514,8 +561,7 @@ const EducationDetail = () => {
   const isVideo = mod.type === 'Video' || !!mod.video_url;
   const isAudio = mod.type === 'Audio' || !!mod.audio_url;
 
-  const embedUrl = isVideo && mod.video_url ? getYouTubeEmbedUrl(mod.video_url) : null;
-  const isYouTubeEmbed = embedUrl && embedUrl.includes('youtube.com/embed');
+  const videoSource = isVideo ? getVideoSource(mod.video_url) : null;
 
   // Choose sections based on reading mode
   const rawSections = readingMode === 'pidgin' && mod.pidginSections ? mod.pidginSections : mod.sections;
@@ -565,23 +611,34 @@ const EducationDetail = () => {
         {/* ── VIDEO / AUDIO / ARTICLE HEADER ── */}
         {isVideo ? (
           <div className="relative aspect-video bg-black overflow-hidden shadow-xl flex-shrink-0">
-            {embedUrl ? (
-              isYouTubeEmbed ? (
-                <iframe
-                  className="w-full h-full"
-                  src={embedUrl}
-                  title={mod.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : (
-                <video
-                  controls
-                  className="w-full h-full object-contain"
-                  src={mod.video_url}
-                  poster="https://images.unsplash.com/photo-1584515933487-779824d29309?w=640&q=80"
-                />
-              )
+            {videoSource?.kind === 'iframe' ? (
+              <iframe
+                className="w-full h-full"
+                src={videoSource.src}
+                title={mod.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            ) : videoSource?.kind === 'file' ? (
+              <video
+                controls
+                className="w-full h-full object-contain"
+                src={videoSource.src}
+                poster="https://images.unsplash.com/photo-1584515933487-779824d29309?w=640&q=80"
+              />
+            ) : videoSource?.kind === 'link' ? (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-center bg-gradient-to-br from-stone-900 to-stone-950">
+                <span className="material-symbols-outlined text-4xl text-amber-200">smart_display</span>
+                <a
+                  href={videoSource.src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 rounded-full bg-white text-stone-900 text-xs font-bold flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-sm">open_in_new</span>
+                  Watch the video
+                </a>
+              </div>
             ) : (
               <div className="w-full h-full relative flex flex-col items-center justify-center p-6 text-center overflow-hidden bg-gradient-to-br from-stone-900 via-stone-850 to-stone-950">
                 <div
@@ -628,6 +685,36 @@ const EducationDetail = () => {
                 {mod.week} • Reading Article
               </span>
               <h3 className="font-headline-md text-sm text-primary font-bold leading-snug">{mod.title}</h3>
+            </div>
+          </div>
+        )}
+
+        {/* ── VIDEO TRANSCRIPT ── */}
+        {isVideo && mod.transcript && (
+          <div className="px-5 pt-4">
+            <div className="bg-surface-container-lowest border border-amber-900/10 rounded-2xl shadow-xs overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setTranscriptOpen((o) => !o)}
+                aria-expanded={transcriptOpen}
+                className="w-full px-4 py-3 flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary">subtitles</span>
+                  Video Transcript
+                </span>
+                <span className="text-[11px] font-semibold text-primary flex items-center gap-0.5">
+                  {transcriptOpen ? 'Hide' : 'Read along'}
+                  <span className="material-symbols-outlined text-[16px]">{transcriptOpen ? 'expand_less' : 'expand_more'}</span>
+                </span>
+              </button>
+              {transcriptOpen ? (
+                <div className="px-4 pb-4 max-h-96 overflow-y-auto text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap border-t border-amber-900/10 pt-3">
+                  {mod.transcript}
+                </div>
+              ) : (
+                <p className="px-4 pb-3 text-xs text-on-surface-variant/80 line-clamp-2">{mod.transcript}</p>
+              )}
             </div>
           </div>
         )}
@@ -705,7 +792,7 @@ const EducationDetail = () => {
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className={`${tc.bg} ${tc.text} px-3 py-1 rounded-full font-label-sm text-[10px] uppercase tracking-wide flex items-center gap-1 font-semibold`}>
                   <span className="material-symbols-outlined text-[12px]">{mod.typeIcon}</span>
-                  {mod.type} · {mod.duration}
+                  {mod.type}{mod.duration ? ` · ${mod.duration}` : ''}
                 </span>
                 <span className="bg-tertiary-fixed text-primary px-3 py-1 rounded-full font-label-sm text-[10px] uppercase tracking-wide font-semibold">
                   {mod.week}
@@ -737,7 +824,7 @@ const EducationDetail = () => {
               if (s.kind === 'body') {
                 return (
                   <div key={i} className="space-y-3">
-                    <h3 className="font-headline-md text-primary text-base font-bold">{s.heading}</h3>
+                    {s.heading && <h3 className="font-headline-md text-primary text-base font-bold">{s.heading}</h3>}
                     {s.body.split('\n\n').map((para, j) => (
                       <p key={j} className="font-body-md text-on-surface-variant leading-relaxed text-sm">
                         {para}
@@ -814,6 +901,21 @@ const EducationDetail = () => {
               return null;
             })}
           </div>
+
+          {/* Link to the original article */}
+          {mod.article_url && (
+            <div className="px-5 pb-6">
+              <a
+                href={mod.article_url}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full py-3 rounded-xl bg-primary text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:bg-primary/90"
+              >
+                <span className="material-symbols-outlined text-base">open_in_new</span>
+                Read the full article
+              </a>
+            </div>
+          )}
 
           {/* Quick Explainer helper card */}
           <div className="mx-5 p-4 rounded-xl bg-primary/5 border border-primary/15 flex items-center justify-between gap-3">

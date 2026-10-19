@@ -11,7 +11,8 @@ import { whatsappService } from '../../services/whatsapp';
 import crypto from 'crypto';
 import { brevoService } from '../../services/brevo';
 import { AuthRequest } from '../../utils/types';
-import { isUsableEmail } from '../../utils/contact';
+import { isUsableEmail, isSmsPhone } from '../../utils/contact';
+import { patientRecovery, RecoveryAnswers } from '../../services/patientRecovery';
 
 function generateTokens(payload: { id: string; role: string; type: string }) {
   const access_token = jwt.sign(payload, env.JWT_SECRET, {
@@ -28,6 +29,7 @@ function patientPublic(patient: {
   phone_number: string;
   email?: string | null;
   email_verified_at?: Date | null;
+  username?: string | null;
   name?: string | null;
   age?: number | null;
   intake_status?: string | null;
@@ -40,7 +42,9 @@ function patientPublic(patient: {
     phone_number: patient.phone_number,
     email,
     email_verified: !!patient.email_verified_at,
-    needs_email: !isUsableEmail(email),
+    username: patient.username ?? null,
+    // Patients who chose a username aren't nagged for an email
+    needs_email: !isUsableEmail(email) && !patient.username,
     name: patient.name ?? null,
     age: patient.age ?? null,
     has_password: !!patient.password_hash,
@@ -252,21 +256,23 @@ export const authController = {
 
   /**
    * POST /auth/patient/login
-   * Email + password. No OTP on returning login.
+   * Email or username + password. No OTP on returning login.
    */
   async patientLogin(req: Request, res: Response, next: NextFunction) {
     try {
-      const { email, password } = req.body;
-      const normalizedEmail = String(email).trim().toLowerCase();
+      const { identifier, password } = req.body as { identifier: string; password: string };
 
-      const patient = await prisma.patient.findUnique({ where: { email: normalizedEmail } });
+      // Usernames can't contain "@", so this tells the two apart
+      const patient = identifier.includes('@')
+        ? await prisma.patient.findUnique({ where: { email: identifier } })
+        : await prisma.patient.findUnique({ where: { username: identifier } });
       if (!patient || !patient.password_hash) {
-        throw new UnauthorizedError('Invalid email or password');
+        throw new UnauthorizedError('Invalid login details or password');
       }
 
       const valid = await bcrypt.compare(password, patient.password_hash);
       if (!valid) {
-        throw new UnauthorizedError('Invalid email or password');
+        throw new UnauthorizedError('Invalid login details or password');
       }
 
       const tokens = generateTokens({
@@ -611,6 +617,145 @@ export const authController = {
       res.status(200).json({
         message: 'Email verified. You can use this address for login and updates.',
         patient: patientPublic(updated),
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ── Temporary biodata account recovery ───────────────────────
+
+  /**
+   * POST /auth/patient/recover
+   * Patient proves who they are with their name + 2 other profile details.
+   * Returns a 15-minute recovery token that can ONLY be used to set new login details.
+   */
+  async patientRecover(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (env.PATIENT_RECOVERY_ENABLED !== 'true') {
+        throw new AppError('Account recovery is not available right now. Please contact your clinic.', 403);
+      }
+
+      const answers = req.body as RecoveryAnswers;
+      const result = await patientRecovery.attempt(answers);
+      const provided = Object.entries(answers)
+        .filter(([k, v]) => k !== 'full_name' && v !== null && v !== undefined && v !== '')
+        .map(([k]) => k);
+
+      await prisma.auditLog.create({
+        data: {
+          actor_type: 'anonymous',
+          actor_id: req.ip || 'unknown',
+          action: result.ok ? 'patient_recovery_matched' : `patient_recovery_failed_${result.reason}`,
+          resource_type: 'patient',
+          resource_id: result.patientIds[0] || 'none',
+          // Record which details were used, never their values
+          after: { provided, matched: result.factors ?? [], candidate_ids: result.patientIds },
+        },
+      });
+
+      if (!result.ok) {
+        // Same message for every failure so nobody can learn which accounts exist
+        throw new AppError(
+          "We couldn't confirm those details. Check them and try again, or ask your clinic for help.",
+          401
+        );
+      }
+
+      res.status(200).json({ recovery_token: result.token, expires_in: result.expiresIn });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /auth/patient/recover/credentials
+   * Uses the recovery token to set an email or username + password, then logs the patient in.
+   */
+  async patientRecoverCredentials(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (env.PATIENT_RECOVERY_ENABLED !== 'true') {
+        throw new AppError('Account recovery is not available right now. Please contact your clinic.', 403);
+      }
+
+      const { recovery_token, method, email, username, password } = req.body as {
+        recovery_token: string;
+        method: 'email' | 'username';
+        email?: string;
+        username?: string;
+        password: string;
+      };
+
+      const patientId = await patientRecovery.patientIdForToken(recovery_token);
+      if (!patientId) throw new AppError('Your recovery session has expired. Please start again.', 401);
+
+      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+      if (!patient) throw new NotFoundError('Patient not found');
+
+      if (method === 'email') {
+        if (!isUsableEmail(email)) {
+          throw new ValidationError('Enter a valid email address, not a phone number or username');
+        }
+        const taken = await prisma.patient.findFirst({ where: { email, NOT: { id: patientId } } });
+        if (taken) throw new ConflictError('This email is already used by another account.');
+      } else {
+        const taken = await prisma.patient.findFirst({ where: { username, NOT: { id: patientId } } });
+        if (taken) throw new ConflictError('This username is taken. Try another one.');
+      }
+
+      const password_hash = await bcrypt.hash(password, 10);
+      const emailChanged = method === 'email' && patient.email !== email;
+      const updated = await prisma.patient.update({
+        where: { id: patientId },
+        data: {
+          password_hash,
+          ...(method === 'email'
+            ? { email, ...(emailChanged ? { email_verified_at: null } : {}) }
+            : { username }),
+        },
+      });
+
+      await patientRecovery.consumeToken(recovery_token);
+
+      await prisma.auditLog.create({
+        data: {
+          actor_type: 'patient',
+          actor_id: patientId,
+          action: 'patient_recovery_credentials_set',
+          resource_type: 'patient',
+          resource_id: patientId,
+          before: { email: patient.email, username: patient.username },
+          after: { method, email: updated.email, username: updated.username, ip: req.ip || null },
+        },
+      });
+
+      // Warn the real owner in case someone else used their details
+      if (isSmsPhone(patient.phone_number)) {
+        termiiService
+          .sendSMS({
+            to: patient.phone_number,
+            sms: '9Care: Your account login details were just changed using account recovery. If this was not you, contact your clinic immediately.',
+          })
+          .catch((err) => logger.warn({ err, patientId }, 'Failed to send recovery alert SMS'));
+      }
+
+      let verification: { sent: boolean; verifyLink?: string } = { sent: false };
+      if (method === 'email' && emailChanged) {
+        try {
+          const result = await sendPatientEmailVerification(patientId, email!, updated.name);
+          verification = { sent: result.sent, ...(env.NODE_ENV !== 'production' ? { verifyLink: result.verifyLink } : {}) };
+        } catch (err) {
+          logger.warn({ err, patientId }, 'Failed to send email verification after recovery');
+        }
+      }
+
+      const tokens = generateTokens({ id: patientId, role: 'patient', type: 'patient' });
+
+      res.status(200).json({
+        ...tokens,
+        patient: patientPublic(updated),
+        verification_sent: verification.sent,
+        ...(verification.verifyLink ? { verification_url: verification.verifyLink } : {}),
       });
     } catch (err) {
       next(err);

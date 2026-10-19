@@ -13,6 +13,8 @@ model Patient {
   email                 String?  @unique
   /// Set when the patient confirms the email via the verification link
   email_verified_at     DateTime?
+  /// Optional login name for patients without a usable email (lowercase)
+  username              String?  @unique
   password_hash         String?
   name                  String?
   age                   Int?

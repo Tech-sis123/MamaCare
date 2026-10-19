@@ -46,3 +46,10 @@ export const authRateLimiter = rateLimiter({
   max: 5,
   keyPrefix: 'rl:auth',
 });
+
+// Biodata account recovery is guessable, so allow far fewer attempts
+export const recoveryRateLimiter = rateLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  keyPrefix: 'rl:recover',
+});

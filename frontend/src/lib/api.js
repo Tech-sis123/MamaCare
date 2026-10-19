@@ -91,9 +91,17 @@ export const requestEmailVerification = (email) =>
 export const verifyPatientEmail = (token) =>
   axios.post(`${BASE}/auth/patient/email/verify`, { token });
 
-/** Returning patients: email + password login (no OTP). */
-export const patientLogin = (email, password) =>
-  axios.post(`${BASE}/auth/patient/login`, { email, password });
+/** Returning patients: email or username + password login (no OTP). */
+export const patientLogin = (identifier, password) =>
+  axios.post(`${BASE}/auth/patient/login`, { identifier, password });
+
+/** TEMPORARY account recovery: match name + 2 profile details to get a recovery token. */
+export const recoverPatientAccount = (details) =>
+  axios.post(`${BASE}/auth/patient/recover`, details);
+
+/** Set new login details (email or username + password) with a recovery token. */
+export const setRecoveredLoginDetails = (data) =>
+  axios.post(`${BASE}/auth/patient/recover/credentials`, data);
 
 /** Direct email + password signup (no OTP). */
 export const registerPatientEmail = (email, password, name) =>

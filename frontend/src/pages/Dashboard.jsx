@@ -157,7 +157,7 @@ const PatientDashboard = () => {
       .then(r => {
         setDashData(r.data);
         const dismissed = sessionStorage.getItem('mc_email_prompt_dismissed') === '1';
-        if (!dismissed && (r.data?.needs_email || r.data?.email_verified === false)) {
+        if (!dismissed && (r.data?.needs_email || (r.data?.email_verified === false && !r.data?.username))) {
           setShowEmailPrompt(true);
         }
       })
@@ -167,7 +167,7 @@ const PatientDashboard = () => {
       .then(r => {
         setPatientData(r.data);
         const dismissed = sessionStorage.getItem('mc_email_prompt_dismissed') === '1';
-        if (!dismissed && (r.data?.needs_email || r.data?.email_verified === false)) {
+        if (!dismissed && (r.data?.needs_email || (r.data?.email_verified === false && !r.data?.username))) {
           setShowEmailPrompt(true);
         }
       })

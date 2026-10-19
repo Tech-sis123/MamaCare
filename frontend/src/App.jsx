@@ -13,6 +13,7 @@ import PatientDetailPanel from "./pages/PatientDetails"
 import PatientProfile from "./pages/PatientProfile"
 import ResetPassword from "./pages/ResetPassword"
 import VerifyEmail from "./pages/VerifyEmail"
+import RecoverAccount from "./pages/RecoverAccount"
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
         <Route path='/profile' element={<PatientProfile />} />
         <Route path='/reset-password' element={<ResetPassword />} />
         <Route path='/verify-email' element={<VerifyEmail />} />
+        <Route path='/recover' element={<RecoverAccount />} />
       </Routes>
     </BrowserRouter>
   )

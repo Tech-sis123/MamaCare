@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authController } from './controller';
 import { validate } from '../../middleware/validate';
-import { authRateLimiter } from '../../middleware/rateLimiter';
+import { authRateLimiter, recoveryRateLimiter } from '../../middleware/rateLimiter';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import {
@@ -17,6 +17,8 @@ import {
   resetPasswordSchema,
   patientEmailRequestSchema,
   patientEmailVerifySchema,
+  patientRecoverSchema,
+  recoverCredentialsSchema,
 } from './schemas';
 
 const router = Router();
@@ -115,5 +117,20 @@ router.post(
 );
 
 router.get('/patient/email/verify', authController.patientVerifyEmail);
+
+// TEMPORARY: biodata account recovery (switch off with PATIENT_RECOVERY_ENABLED=false)
+router.post(
+  '/patient/recover',
+  recoveryRateLimiter,
+  validate(patientRecoverSchema),
+  authController.patientRecover
+);
+
+router.post(
+  '/patient/recover/credentials',
+  authRateLimiter,
+  validate(recoverCredentialsSchema),
+  authController.patientRecoverCredentials
+);
 
 export default router;

@@ -26,6 +26,8 @@ const envSchema = z.object({
   /// Clinic WhatsApp number for patient support (digits with country code, no +).
   /// Live number: +234 803 402 7044
   SUPPORT_WHATSAPP_NUMBER: z.string().default('2348034027044'),
+  /// Temporary: lets patients regain access by matching their biodata. Set to 'false' to switch off.
+  PATIENT_RECOVERY_ENABLED: z.string().default('true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

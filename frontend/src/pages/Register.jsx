@@ -277,7 +277,7 @@ const RegistrationFlow = () => {
       }
     } catch (err) {
       const d = err.response?.data;
-      setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Invalid email or password.');
+      setApiError(d?.issues?.[0]?.message || d?.message || d?.error || 'Invalid login details or password.');
     } finally {
       setLoading(false);
     }
@@ -358,19 +358,20 @@ const RegistrationFlow = () => {
                 </div>
                 <h1 className="font-headline-lg text-primary mb-2">Welcome back</h1>
                 <p className="font-body-md text-on-surface-variant">
-                  Log in with your email and password — no code needed
+                  Log in with your email or username and password — no code needed
                 </p>
               </div>
               <form onSubmit={handleLoginSubmit} className="space-y-5">
                 <div className="space-y-1">
-                  <label className="font-label-sm text-on-surface-variant">EMAIL</label>
+                  <label className="font-label-sm text-on-surface-variant">EMAIL OR USERNAME</label>
                   <input
-                    type="email"
-                    autoComplete="email"
+                    type="text"
+                    autoComplete="username"
+                    autoCapitalize="none"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
-                    placeholder="you@example.com"
+                    placeholder="you@example.com or your username"
                     required
                   />
                 </div>
@@ -398,6 +399,15 @@ const RegistrationFlow = () => {
                       </span>
                     </button>
                   </div>
+                </div>
+                <div className="flex justify-end -mt-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/recover')}
+                    className="text-sm text-primary font-bold hover:underline"
+                  >
+                    Forgot your login?
+                  </button>
                 </div>
                 {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
                 <button

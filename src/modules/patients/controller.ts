@@ -184,7 +184,7 @@ export const patientsController = {
         ...safePatient,
         has_password: !!_pw,
         email_verified: !!patient.email_verified_at,
-        needs_email: !isUsableEmail(email),
+        needs_email: !isUsableEmail(email) && !safePatient.username,
         current_ega: ega,
       });
     } catch (err) {
@@ -262,7 +262,8 @@ export const patientsController = {
           : null,
         email: patient.email ?? null,
         email_verified: !!patient.email_verified_at,
-        needs_email: !isUsableEmail(patient.email),
+        username: patient.username ?? null,
+        needs_email: !isUsableEmail(patient.email) && !patient.username,
         support_whatsapp: env.SUPPORT_WHATSAPP_NUMBER,
         last_seen_at: patient.last_seen_at,
         site_visit_count: patient.site_visit_count,

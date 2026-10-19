@@ -286,7 +286,7 @@ const RecoverAccount = () => {
                     value={details.email}
                     onChange={setDetail('email')}
                     className={inputClass}
-                    placeholder="you@example.com"
+                    placeholder="johndoe@gmail.com"
                   />
                 </div>
 
@@ -373,7 +373,7 @@ const RecoverAccount = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className={inputClass}
-                      placeholder="you@example.com"
+                      placeholder="johndoe@gmail.com"
                       required
                     />
                   </div>

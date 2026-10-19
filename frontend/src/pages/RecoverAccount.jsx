@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { recoverPatientAccount, setRecoveredLoginDetails } from '../lib/api';
 import { setPatientAuth } from '../lib/auth';
@@ -7,20 +7,27 @@ const USERNAME_RE = /^[a-z0-9._]{3,30}$/;
 
 const EMPTY_DETAILS = {
   full_name: '',
-  phone_number: '',
+  dob_day: '',
+  dob_month: '',
+  dob_year: '',
+  education_level: '',
   email: '',
-  age: '',
-  emergency_contact_name: '',
-  emergency_contact_phone: '',
+  phone_number: '',
 };
 
-const OPTIONAL_FIELDS = [
-  { key: 'phone_number', label: 'PHONE NUMBER ON YOUR ACCOUNT', type: 'tel', placeholder: 'e.g. 0803 123 4567', autoComplete: 'tel' },
-  { key: 'email', label: 'EMAIL YOU SIGNED UP WITH', type: 'text', placeholder: 'Even if it was made up', autoComplete: 'off' },
-  { key: 'age', label: 'YOUR AGE', type: 'number', placeholder: 'e.g. 27', autoComplete: 'off' },
-  { key: 'emergency_contact_name', label: 'EMERGENCY CONTACT NAME', type: 'text', placeholder: 'Person you listed for emergencies', autoComplete: 'off' },
-  { key: 'emergency_contact_phone', label: 'EMERGENCY CONTACT PHONE', type: 'tel', placeholder: 'Their phone number', autoComplete: 'off' },
-];
+// Same options as the intake questionnaire
+const EDUCATION_LEVELS = ['Primary', 'Secondary', 'Tertiary (University, Polytechnic)', 'None'];
+
+/** YYYY-MM-DD for a real past date, or null. */
+const toIsoDate = (day, month, year) => {
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  if (!d || !m || !y || y < 1920) return null;
+  const date = new Date(y, m - 1, d);
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d || date > new Date()) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+};
 
 const inputClass =
   'w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none';
@@ -34,6 +41,8 @@ const RecoverAccount = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState('verify'); // 'verify' | 'credentials'
   const [details, setDetails] = useState(EMPTY_DETAILS);
+  const monthInputRef = useRef(null);
+  const yearInputRef = useRef(null);
   const [recoveryToken, setRecoveryToken] = useState('');
   const [method, setMethod] = useState('email');
   const [email, setEmail] = useState('');
@@ -45,7 +54,9 @@ const RecoverAccount = () => {
   const [error, setError] = useState('');
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  const filledCount = OPTIONAL_FIELDS.filter((f) => String(details[f.key]).trim() !== '').length;
+  const dobStarted = !!(details.dob_day || details.dob_month || details.dob_year);
+  const dateOfBirth = toIsoDate(details.dob_day, details.dob_month, details.dob_year);
+  const filledCount = [dateOfBirth, details.education_level, details.email.trim(), details.phone_number.trim()].filter(Boolean).length;
   const nameWords = details.full_name.trim().split(/\s+/).filter(Boolean).length;
 
   const setDetail = (key) => (e) => {
@@ -60,16 +71,23 @@ const RecoverAccount = () => {
       setError('Enter your first and last name.');
       return;
     }
+    if (dobStarted && !dateOfBirth) {
+      setError('Enter a valid date of birth (day, month and year).');
+      return;
+    }
     if (filledCount < 2) {
       setError('Fill in at least 2 of the other details.');
       return;
     }
     setLoading(true);
     try {
-      const payload = Object.fromEntries(
-        Object.entries(details).map(([k, v]) => [k, String(v).trim() === '' ? null : k === 'age' ? Number(v) : String(v).trim()])
-      );
-      const { data } = await recoverPatientAccount(payload);
+      const { data } = await recoverPatientAccount({
+        full_name: details.full_name.trim(),
+        date_of_birth: dateOfBirth,
+        education_level: details.education_level || null,
+        email: details.email.trim() || null,
+        phone_number: details.phone_number.trim() || null,
+      });
       setRecoveryToken(data.recovery_token);
       setSessionExpired(false);
       setStep('credentials');
@@ -182,20 +200,107 @@ const RecoverAccount = () => {
                   </span>
                 </div>
 
-                {OPTIONAL_FIELDS.map((f) => (
-                  <div key={f.key} className="space-y-1">
-                    <label className="font-label-sm text-on-surface-variant">{f.label}</label>
-                    <input
-                      type={f.type}
-                      inputMode={f.type === 'number' ? 'numeric' : undefined}
-                      autoComplete={f.autoComplete}
-                      value={details[f.key]}
-                      onChange={setDetail(f.key)}
-                      className={inputClass}
-                      placeholder={f.placeholder}
-                    />
+                {/* Same date of birth boxes as sign-up (Register.jsx) */}
+                <div className="space-y-1">
+                  <label className="font-label-sm text-on-surface-variant">DATE OF BIRTH</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Day (DD)"
+                        maxLength={2}
+                        value={details.dob_day}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          setDetail('dob_day')({ target: { value: val } });
+                          if (val.length === 2 && monthInputRef.current) monthInputRef.current.focus();
+                        }}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        ref={monthInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Month (MM)"
+                        maxLength={2}
+                        value={details.dob_month}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 2);
+                          setDetail('dob_month')({ target: { value: val } });
+                          if (val.length === 2 && yearInputRef.current) yearInputRef.current.focus();
+                        }}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        ref={yearInputRef}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="Year (YYYY)"
+                        maxLength={4}
+                        value={details.dob_year}
+                        onChange={(e) => setDetail('dob_year')({ target: { value: e.target.value.replace(/\D/g, '').slice(0, 4) } })}
+                        className="w-full px-3 py-3 text-center border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none text-sm"
+                      />
+                    </div>
                   </div>
-                ))}
+                  <p className="text-[11px] text-stone-400">e.g. 15 / 08 / 1996</p>
+                </div>
+
+                {/* Same chips as the intake questionnaire (Onboarding.jsx); tap again to clear */}
+                <div className="space-y-2">
+                  <label className="font-label-sm text-on-surface-variant">LEVEL OF EDUCATION</label>
+                  <div className="flex flex-wrap gap-2">
+                    {EDUCATION_LEVELS.map((level) => {
+                      const active = details.education_level === level;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setDetail('education_level')({ target: { value: active ? '' : level } })}
+                          className={`px-4 py-2.5 rounded-full border-2 text-sm font-semibold transition-all active:scale-95 ${
+                            active
+                              ? 'border-primary bg-primary text-white shadow-sm'
+                              : 'border-primary/20 bg-white text-slate-700 hover:border-primary/50'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-label-sm text-on-surface-variant">EMAIL</label>
+                  <input
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    value={details.email}
+                    onChange={setDetail('email')}
+                    className={inputClass}
+                    placeholder="you@example.com"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-label-sm text-on-surface-variant">PHONE NUMBER</label>
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={details.phone_number}
+                    onChange={setDetail('phone_number')}
+                    className={inputClass}
+                    placeholder="e.g. 0803 123 4567"
+                  />
+                </div>
 
                 {error && <p className="text-error font-label-sm text-sm text-center">{error}</p>}
 

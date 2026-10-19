@@ -91,6 +91,9 @@ const optionalTrimmed = z
   .nullable()
   .transform((v) => (v ? v : null));
 
+// Same options as the intake questionnaire
+export const EDUCATION_LEVELS = ['Primary', 'Secondary', 'Tertiary (University, Polytechnic)', 'None'] as const;
+
 export const patientRecoverSchema = z
   .object({
     full_name: z
@@ -98,17 +101,16 @@ export const patientRecoverSchema = z
       .trim()
       .max(200)
       .refine((v) => v.split(/\s+/).filter(Boolean).length >= 2, 'Enter your first and last name'),
-    phone_number: optionalTrimmed,
+    date_of_birth: optionalTrimmed.refine(
+      (v) => v === null || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && Date.parse(v) < Date.now()),
+      'Enter a valid date of birth'
+    ),
+    education_level: z.enum(EDUCATION_LEVELS).optional().nullable().transform((v) => v ?? null),
     email: optionalTrimmed,
-    age: z.coerce.number().int().min(10).max(60).optional().nullable(),
-    emergency_contact_name: optionalTrimmed,
-    emergency_contact_phone: optionalTrimmed,
+    phone_number: optionalTrimmed,
   })
   .refine(
-    (d) =>
-      [d.phone_number, d.email, d.age, d.emergency_contact_name, d.emergency_contact_phone].filter(
-        (v) => v !== null && v !== undefined && v !== ''
-      ).length >= 2,
+    (d) => [d.date_of_birth, d.education_level, d.email, d.phone_number].filter((v) => v !== null && v !== '').length >= 2,
     { message: 'Fill in at least 2 of the other details', path: ['details'] }
   );
 

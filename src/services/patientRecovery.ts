@@ -20,11 +20,10 @@ const ACCOUNT_LOCK_SECONDS = 24 * 60 * 60;
 
 export interface RecoveryAnswers {
   full_name: string;
-  phone_number?: string | null;
+  date_of_birth?: string | null; // YYYY-MM-DD
+  education_level?: string | null;
   email?: string | null;
-  age?: number | null;
-  emergency_contact_name?: string | null;
-  emergency_contact_phone?: string | null;
+  phone_number?: string | null;
 }
 
 interface RecoveryCandidate {
@@ -33,11 +32,10 @@ interface RecoveryCandidate {
   phone_number: string;
   email: string | null;
   age: number | null;
-  emergency_contact_name: string | null;
-  emergency_contact_phone: string | null;
+  education_level: string | null;
 }
 
-export type MatchedFactor = 'phone_number' | 'email' | 'age' | 'emergency_contact_name' | 'emergency_contact_phone';
+export type MatchedFactor = 'date_of_birth' | 'education_level' | 'email' | 'phone_number';
 
 const nameTokens = (name?: string | null) =>
   (name || '')
@@ -63,23 +61,42 @@ const phoneKey = (phone?: string | null) => {
   return digits.length >= 10 ? digits.slice(-10) : null;
 };
 
+/** Age in whole years today for a YYYY-MM-DD date, or null if invalid. */
+export function ageFromDateOfBirth(dob?: string | null, today = new Date()): number | null {
+  const m = dob?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  let age = today.getFullYear() - y;
+  if (today.getMonth() + 1 < mo || (today.getMonth() + 1 === mo && today.getDate() < d)) age -= 1;
+  return age;
+}
+
+/** Education is stored as free-ish text ("Primary", "tertiary", "Tertiary (University, Polytechnic)"). */
+export function educationBucket(level?: string | null): string | null {
+  const s = level?.trim().toLowerCase();
+  if (!s) return null;
+  if (s.includes('tertiary') || s.includes('university') || s.includes('polytechnic')) return 'tertiary';
+  if (s.includes('secondary')) return 'secondary';
+  if (s.includes('primary')) return 'primary';
+  if (s === 'none' || s.includes('no formal')) return 'none';
+  return s;
+}
+
 export function matchedFactors(candidate: RecoveryCandidate, answers: RecoveryAnswers): MatchedFactor[] {
   const matched: MatchedFactor[] = [];
-  const givenPhone = phoneKey(answers.phone_number);
-  if (givenPhone && givenPhone === phoneKey(candidate.phone_number)) matched.push('phone_number');
+
+  // Only age is stored (sign-up converts date of birth to age), and it can be a year out of date
+  const givenAge = ageFromDateOfBirth(answers.date_of_birth);
+  if (givenAge != null && candidate.age != null && Math.abs(candidate.age - givenAge) <= 1) matched.push('date_of_birth');
+
+  const givenEducation = educationBucket(answers.education_level);
+  if (givenEducation && givenEducation === educationBucket(candidate.education_level)) matched.push('education_level');
 
   const givenEmail = answers.email?.trim().toLowerCase();
   if (givenEmail && givenEmail === candidate.email?.trim().toLowerCase()) matched.push('email');
 
-  // Stored age can be a year out of date
-  if (answers.age != null && candidate.age != null && Math.abs(candidate.age - answers.age) <= 1) matched.push('age');
-
-  if (answers.emergency_contact_name && namesMatch(candidate.emergency_contact_name, answers.emergency_contact_name, 1)) {
-    matched.push('emergency_contact_name');
-  }
-
-  const givenEcPhone = phoneKey(answers.emergency_contact_phone);
-  if (givenEcPhone && givenEcPhone === phoneKey(candidate.emergency_contact_phone)) matched.push('emergency_contact_phone');
+  const givenPhone = phoneKey(answers.phone_number);
+  if (givenPhone && givenPhone === phoneKey(candidate.phone_number)) matched.push('phone_number');
 
   return matched;
 }
@@ -100,8 +117,6 @@ async function findCandidates(answers: RecoveryAnswers): Promise<RecoveryCandida
   const or: any[] = [];
   const phone = phoneKey(answers.phone_number);
   if (phone) or.push({ phone_number: { endsWith: phone } });
-  const ecPhone = phoneKey(answers.emergency_contact_phone);
-  if (ecPhone) or.push({ emergency_contact_phone: { endsWith: ecPhone } });
   if (answers.email) or.push({ email: { equals: answers.email.trim().toLowerCase(), mode: 'insensitive' } });
   for (const token of nameTokens(answers.full_name).filter((t) => t.length >= 3)) {
     or.push({ name: { contains: token, mode: 'insensitive' } });
@@ -116,8 +131,7 @@ async function findCandidates(answers: RecoveryAnswers): Promise<RecoveryCandida
       phone_number: true,
       email: true,
       age: true,
-      emergency_contact_name: true,
-      emergency_contact_phone: true,
+      education_level: true,
     },
     take: 200,
   });

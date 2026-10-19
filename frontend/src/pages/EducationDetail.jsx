@@ -8,11 +8,11 @@ import { getVideoSource } from '../lib/videoEmbed';
 const STATIC_MODULES = {
   'baby-growth': {
     id: 'baby-growth',
-    type: 'Video',
-    typeIcon: 'play_circle',
+    type: 'Article',
+    typeIcon: 'description',
     week: 'Week 12',
     tag: 'Baby Growth',
-    duration: '8 min',
+    duration: '4 min read',
     title: "Understanding Your Baby's Rapid Growth",
     subtitle: "Your baby is now the size of a sweet lime — and almost fully formed!",
     video_url: null,
@@ -218,7 +218,7 @@ const STATIC_MODULES = {
     duration: '5 min read',
     title: 'Nutrition Essentials: Foods That Build Blood',
     subtitle: 'The best local Nigerian foods (Ugu, Beans, Egusi, Fish) to keep mama strong and baby growing.',
-    nextModule: { id: 'first-scan', type: 'Video', duration: '15 min', title: 'First Photo Scan: What to Expect', icon: 'play_circle' },
+    nextModule: { id: 'first-scan', type: 'Article', duration: '3 min read', title: 'First Photo Scan: What to Expect', icon: 'description' },
     sections: [
       {
         kind: 'intro',
@@ -309,15 +309,15 @@ const STATIC_MODULES = {
 
   'first-scan': {
     id: 'first-scan',
-    type: 'Video',
-    typeIcon: 'play_circle',
+    type: 'Article',
+    typeIcon: 'description',
     week: 'Week 11–13',
     tag: 'Clinic Care',
-    duration: '15 min',
+    duration: '3 min read',
     title: 'First Photo Scan: What to Expect',
     subtitle: 'A gentle, comforting guide to your first clinic ultrasound picture scan.',
     video_url: null,
-    nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
+    nextModule: { id: 'baby-growth', type: 'Article', duration: '4 min read', title: "Understanding Baby's Growth", icon: 'description' },
     sections: [
       {
         kind: 'intro',
@@ -451,7 +451,7 @@ const toManagedModule = (apiModule) => {
     audio_url: apiModule.audio_url,
     article_url: apiModule.article_url,
     transcript: isVideo ? apiModule.transcript : null,
-    nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
+    nextModule: { id: 'baby-growth', type: 'Article', duration: '4 min read', title: "Understanding Baby's Growth", icon: 'description' },
     sections: [
       ...(apiModule.body ? [{ kind: 'body', heading: null, body: apiModule.body }] : []),
       GENERIC_TAKEAWAYS,
@@ -508,7 +508,7 @@ const EducationDetail = () => {
         subtitle: apiModule.summary ? apiModule.summary.slice(0, 110) + '...' : 'Antenatal care and maternal guidance.',
         video_url: apiModule.video_url,
         audio_url: apiModule.audio_url,
-        nextModule: { id: 'baby-growth', type: 'Video', duration: '8 min', title: "Understanding Baby's Growth", icon: 'play_circle' },
+        nextModule: { id: 'baby-growth', type: 'Article', duration: '4 min read', title: "Understanding Baby's Growth", icon: 'description' },
         sections: [
           { kind: 'intro', body: apiModule.summary || 'Welcome to this week\'s pregnancy lesson.' },
           ...(apiModule.transcript ? [{ kind: 'highlight', icon: 'record_voice_over', heading: 'Pidgin Summary / Audio Transcript', body: apiModule.transcript }] : []),

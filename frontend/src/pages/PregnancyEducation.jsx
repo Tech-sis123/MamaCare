@@ -24,11 +24,11 @@ const getModuleType = (mod) => {
 const CORE_FEATURED_MODULES = [
   {
     id: 'baby-growth',
-    type: 'video',
+    type: 'article',
     week_number: 12,
+    duration: '4 min read',
     title: "Understanding Baby's Growth",
-    summary: "Week 12 • 8 min • Your baby is now the size of a sweet lime and almost fully formed.",
-    video_url: null,
+    summary: "Week 12 • 4 min read • Your baby is now the size of a sweet lime and almost fully formed.",
     completed: true,
     recommended: true,
   },
@@ -52,8 +52,9 @@ const CORE_FEATURED_MODULES = [
   },
   {
     id: 'first-scan',
-    type: 'video',
+    type: 'article',
     week_number: 12,
+    duration: '3 min read',
     title: 'First Photo Scan: What to Expect',
     summary: 'A gentle, comforting guide to your first clinic ultrasound picture scan.',
     video_url: null,

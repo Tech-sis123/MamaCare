@@ -7,7 +7,7 @@ import { calculateEGAWeeks, calculateEDD } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
 import { splitRiskReasons, isSmsPhone, formatPhoneForTermii } from '../../utils/contact';
-import { termiiService } from '../../services/termii';
+import { doctorSmsJobs } from '../../services/doctorSmsJobs';
 
 export const providersController = {
   /**
@@ -626,7 +626,7 @@ export const providersController = {
 
   /**
    * POST /providers/sms — send SMS directly to all or selected patients,
-   * plus any phone numbers the doctor typed in manually
+   * plus any phone numbers the doctor typed in manually. Returns 202 with a job id.
    */
   async sendPatientSms(req: AuthRequest, res: Response, next: NextFunction) {
     try {
@@ -697,73 +697,33 @@ export const providersController = {
 
       const recipients = Array.from(uniqueRecipients.values());
 
-      let sentCount = 0;
-      let failCount = 0;
-      const results: Array<{
-        phone: string;
-        name: string | null;
-        source: 'patient' | 'manual';
-        status: string;
-        error?: string;
-      }> = [];
-
-      for (const recipient of recipients) {
-        try {
-          await termiiService.sendSMS({
-            to: recipient.formatted,
-            sms: message,
-          });
-          sentCount++;
-          results.push({
-            phone: recipient.formatted,
-            name: recipient.name,
-            source: recipient.source,
-            status: 'sent',
-          });
-        } catch (err: any) {
-          failCount++;
-          results.push({
-            phone: recipient.formatted,
-            name: recipient.name,
-            source: recipient.source,
-            status: 'failed',
-            error: err.message || 'Send error',
-          });
-        }
-      }
-
-      // Log doctor action to auditLog
-      await prisma.auditLog.create({
-        data: {
-          actor_type: 'doctor',
-          actor_id: doctorId,
-          action: 'doctor_sms_broadcast',
-          resource_type: 'patient_sms',
-          resource_id: doctorId,
-          after: {
-            message,
-            total_targeted: patients.length + manualNumbers.length,
-            manual_numbers: manualNumbers.length,
-            unique_recipients: recipients.length,
-            sent: sentCount,
-            failed: failCount,
-            skipped_invalid: patients.length - validPatients.length,
-            skipped_invalid_manual: invalidManual.length,
-          },
-        },
+      // Sending happens in the background; the dashboard polls GET /providers/sms/:jobId
+      const jobId = await doctorSmsJobs.create({
+        doctorId,
+        message,
+        recipients: recipients.map((r) => ({ phone: r.formatted, name: r.name, source: r.source })),
+        totalTargeted: patients.length + manualNumbers.length,
+        manualNumbers: manualNumbers.length,
+        skippedNoPhone: patients.length - validPatients.length,
+        invalidManualNumbers: invalidManual,
       });
+      doctorSmsJobs.start(jobId);
 
-      res.status(200).json({
-        message: 'SMS dispatch completed',
-        total_targeted: patients.length + manualNumbers.length,
-        manual_numbers: manualNumbers.length,
-        unique_recipients: recipients.length,
-        sent: sentCount,
-        failed: failCount,
-        skipped_no_phone: patients.length - validPatients.length,
-        invalid_manual_numbers: invalidManual,
-        results,
-      });
+      const job = await doctorSmsJobs.getForDoctor(jobId, doctorId);
+      res.status(202).json({ message: 'SMS dispatch started', ...job });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * GET /providers/sms/:jobId — live per-number status of an SMS broadcast
+   */
+  async getSmsJob(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const job = await doctorSmsJobs.getForDoctor(String(req.params.jobId), req.user!.id);
+      if (!job) throw new NotFoundError('SMS broadcast not found');
+      res.status(200).json(job);
     } catch (err) {
       next(err);
     }

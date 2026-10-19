@@ -11,6 +11,7 @@ import {
   doctorPregnancyUpdateSchema,
   updateDoctorProfileSchema,
   doctorSendSmsSchema,
+  smsJobIdParamSchema,
 } from './schemas';
 import { patientIdParamSchema } from '../symptoms/schemas';
 
@@ -111,6 +112,15 @@ router.post(
   rbac('doctor', 'department_head'),
   validate(doctorSendSmsSchema),
   providersController.sendPatientSms
+);
+
+// Live per-number status of a doctor SMS broadcast
+router.get(
+  '/sms/:jobId',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  validate(smsJobIdParamSchema, 'params'),
+  providersController.getSmsJob
 );
 
 export default router;

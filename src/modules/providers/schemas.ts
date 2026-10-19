@@ -172,3 +172,7 @@ export const doctorSendSmsSchema = z
       message: 'Please choose "Send to All Patients", select at least one patient, or add a phone number',
     }
   );
+
+export const smsJobIdParamSchema = z.object({
+  jobId: z.string().uuid('Invalid SMS broadcast ID'),
+});

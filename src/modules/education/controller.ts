@@ -6,6 +6,8 @@ import { NotFoundError } from '../../utils/errors';
 import { calculateEGAWeeks } from '../../services/ega-calculator';
 import { aiService } from '../../services/ai';
 import { logger } from '../../utils/logger';
+import { z } from 'zod';
+import { educationContentSchema } from './schemas';
 
 export const educationController = {
   /**
@@ -145,7 +147,8 @@ export const educationController = {
       const id = req.params.id as string;
 
       const module = await prisma.educationModule.findUnique({ where: { id } });
-      if (!module) {
+      // Patients only see published content; doctors can open drafts
+      if (!module || (req.user!.role === 'patient' && module.status !== 'published')) {
         throw new NotFoundError('Education module not found');
       }
 
@@ -192,4 +195,134 @@ export const educationController = {
       next(err);
     }
   },
+
+  // ── Doctor content management ─────────────────────────────────
+
+  /**
+   * GET /education/manage/modules
+   * Every module (drafts included) for the doctor's Education tab.
+   */
+  async listAllModules(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const modules = await prisma.educationModule.findMany({
+        orderBy: [{ updated_at: 'desc' }],
+      });
+      res.status(200).json({ modules });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /education/manage/modules
+   */
+  async createModule(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const data = toModuleData(req.body as EducationContentInput);
+      const module = await prisma.educationModule.create({
+        data: { ...data, created_by: req.user!.id },
+      });
+      await logContentAction(req.user!.id, 'education_module_created', module.id, module);
+      res.status(201).json({ module });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PUT /education/manage/modules/:id
+   */
+  async updateModule(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const existing = await prisma.educationModule.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundError('Education module not found');
+
+      const module = await prisma.educationModule.update({
+        where: { id },
+        data: toModuleData(req.body as EducationContentInput),
+      });
+      await logContentAction(req.user!.id, 'education_module_updated', id, module, existing);
+      res.status(200).json({ module });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PATCH /education/manage/modules/:id/status — publish or move back to draft
+   */
+  async setModuleStatus(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const existing = await prisma.educationModule.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundError('Education module not found');
+
+      const module = await prisma.educationModule.update({
+        where: { id },
+        data: { status: req.body.status },
+      });
+      await logContentAction(req.user!.id, 'education_module_status', id, { status: module.status }, { status: existing.status });
+      res.status(200).json({ module });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * DELETE /education/manage/modules/:id
+   */
+  async deleteModule(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const id = req.params.id as string;
+      const existing = await prisma.educationModule.findUnique({ where: { id } });
+      if (!existing) throw new NotFoundError('Education module not found');
+
+      // education_progress has no FK to modules, so clear completions explicitly
+      await prisma.$transaction([
+        prisma.educationProgress.deleteMany({ where: { module_id: id } }),
+        prisma.educationModule.delete({ where: { id } }),
+      ]);
+      await logContentAction(req.user!.id, 'education_module_deleted', id, null, existing);
+      res.status(200).json({ message: 'Education module deleted' });
+    } catch (err) {
+      next(err);
+    }
+  },
 };
+
+type EducationContentInput = z.infer<typeof educationContentSchema>;
+
+/** Keeps only the fields that belong to the chosen content type. */
+function toModuleData(input: EducationContentInput) {
+  const isVideo = input.content_type === 'video';
+  return {
+    content_type: input.content_type,
+    title: input.title,
+    week_number: input.week_number,
+    summary: input.summary,
+    status: input.status,
+    video_url: isVideo ? input.video_url : null,
+    transcript: isVideo ? input.transcript : null,
+    body: isVideo ? null : input.body,
+    article_url: isVideo ? null : input.article_url,
+  };
+}
+
+async function logContentAction(doctorId: string, action: string, moduleId: string, after: unknown, before?: unknown) {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        actor_type: 'doctor',
+        actor_id: doctorId,
+        action,
+        resource_type: 'education_module',
+        resource_id: moduleId,
+        before: (before ?? undefined) as any,
+        after: (after ?? undefined) as any,
+      },
+    });
+  } catch (err) {
+    logger.warn({ err, action, moduleId }, 'Failed to write education audit log');
+  }
+}

@@ -11,3 +11,47 @@ export const moduleIdParamSchema = z.object({
 export const markProgressSchema = z.object({
   module_id: z.string().min(1, 'Invalid module ID'),
 });
+
+// ── Doctor content management ──────────────────────────────────────────────
+
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .optional()
+    .nullable()
+    .transform((v) => (v ? v : null));
+
+const optionalUrl = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || /^https?:\/\/\S+$/i.test(v), { message: 'Must be a link starting with http:// or https://' });
+
+export const educationContentSchema = z
+  .object({
+    content_type: z.enum(['video', 'article']),
+    title: z.string().trim().min(3, 'Title must be at least 3 characters').max(200),
+    week_number: z.coerce.number().int().min(1).max(42).optional().nullable().transform((v) => v ?? null),
+    summary: optionalText(2000),
+    video_url: optionalUrl,
+    transcript: optionalText(100_000),
+    body: optionalText(100_000),
+    article_url: optionalUrl,
+    status: z.enum(['draft', 'published']).default('published'),
+  })
+  .superRefine((data, ctx) => {
+    if (data.content_type === 'video' && !data.video_url) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['video_url'], message: 'A video link is required' });
+    }
+    if (data.content_type === 'article' && !data.body && !data.article_url) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['body'], message: 'Write the article or add a link to it' });
+    }
+  });
+
+export const educationStatusSchema = z.object({
+  status: z.enum(['draft', 'published']),
+});

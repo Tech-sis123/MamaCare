@@ -236,14 +236,20 @@ model PatientSiteVisit {
 }
 
 model EducationModule {
-  id         String   @id @default(uuid())
-  week_number Int      // 6 to 40
-  title      String
-  summary    String?
-  video_url  String?
-  audio_url  String?
-  transcript String?
-  status     String   // draft/reviewed/published
+  id           String   @id @default(uuid())
+  week_number  Int?     // 6 to 40; null = general content for any week
+  title        String
+  summary      String?
+  content_type String?  // video/article/audio; null on legacy rows (type inferred from URLs)
+  video_url    String?
+  audio_url    String?
+  article_url  String?  // optional external link for an article
+  body         String?  // article text written by a doctor
+  transcript   String?  // video transcript (legacy rows may hold a Pidgin summary)
+  status       String   // draft/reviewed/published
+  created_by   String?  // doctor id of the author
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now()) @updatedAt
 
   @@map("education_modules")
 }

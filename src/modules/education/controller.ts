@@ -8,6 +8,7 @@ import { aiService } from '../../services/ai';
 import { logger } from '../../utils/logger';
 import { z } from 'zod';
 import { educationContentSchema } from './schemas';
+import { commentStatsByModule } from './comments';
 
 export const educationController = {
   /**
@@ -204,10 +205,11 @@ export const educationController = {
    */
   async listAllModules(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const modules = await prisma.educationModule.findMany({
-        orderBy: [{ updated_at: 'desc' }],
-      });
-      res.status(200).json({ modules });
+      const [modules, comment_stats] = await Promise.all([
+        prisma.educationModule.findMany({ orderBy: [{ updated_at: 'desc' }] }),
+        commentStatsByModule(),
+      ]);
+      res.status(200).json({ modules, comment_stats });
     } catch (err) {
       next(err);
     }
@@ -281,6 +283,7 @@ export const educationController = {
       // education_progress has no FK to modules, so clear completions explicitly
       await prisma.$transaction([
         prisma.educationProgress.deleteMany({ where: { module_id: id } }),
+        prisma.educationComment.deleteMany({ where: { module_id: id } }),
         prisma.educationModule.delete({ where: { id } }),
       ]);
       await logContentAction(req.user!.id, 'education_module_deleted', id, null, existing);

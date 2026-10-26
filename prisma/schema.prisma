@@ -48,6 +48,7 @@ model Patient {
   appointments          Appointment[]
   education_progress    EducationProgress[]
   site_visits           PatientSiteVisit[]
+  education_comments    EducationComment[]
 
   @@map("patients")
 }
@@ -66,6 +67,7 @@ model Doctor {
 
   danger_alerts DangerAlert[]
   appointments  Appointment[]
+  education_comments EducationComment[]
 
   @@map("doctors")
 }
@@ -127,6 +129,8 @@ model Pregnancy {
   important_remarks    String?
   gravidity            Int?
   parity               Int?
+  /// High-risk condition ids ticked by a doctor (see src/modules/risk/conditions.ts)
+  risk_factors         Json?
 
   patient              Patient  @relation(fields: [patient_id], references: [id])
 
@@ -265,6 +269,28 @@ model EducationProgress {
   patient      Patient  @relation(fields: [patient_id], references: [id])
 
   @@map("education_progress")
+}
+
+/// Patient comments on education lessons and doctor replies (one level of replies)
+model EducationComment {
+  id          String   @id @default(uuid())
+  module_id   String
+  /// Set on doctor replies; null on top-level patient comments
+  parent_id   String?
+  author_type String   // patient | doctor
+  patient_id  String?
+  doctor_id   String?
+  body        String
+  /// Hidden by a doctor (e.g. inappropriate); not shown to patients
+  hidden      Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  patient     Patient? @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  doctor      Doctor?  @relation(fields: [doctor_id], references: [id], onDelete: Cascade)
+
+  @@index([module_id, created_at])
+  @@index([parent_id])
+  @@map("education_comments")
 }
 
 model NotificationsLog {

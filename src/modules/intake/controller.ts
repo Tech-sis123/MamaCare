@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger';
 import { normalizeIntakeDomain } from './schemas';
 import { getIntakeEditMeta } from './editWindow';
 import { runRiskEngine } from '../risk/engine';
+import { buildRiskInput } from '../risk/inputs';
 import { notifyDoctorOnboardingComplete } from '../../services/onboardingNotify';
 
 async function assertPatientCanEditIntake(patientId: string) {
@@ -170,64 +171,8 @@ export const intakeController = {
         }),
       ]);
 
-      const intakeMap = new Map<string, any>();
-      for (const ir of intakeResponses) {
-        intakeMap.set(ir.question_key, ir.answer);
-      }
-
-      // Derive obstetric history flags from child cards when explicit keys are absent
-      let previousCsection = intakeMap.get('previous_csection');
-      let previousStillbirth = intakeMap.get('previous_stillbirth');
-      if (previousCsection == null || previousStillbirth == null) {
-        for (const [key, answer] of intakeMap.entries()) {
-          if (key.endsWith('_delivery_mode') && String(answer) === 'cs') previousCsection = true;
-          if (key.endsWith('_state_now') && (String(answer) === 'died_at_birth' || String(answer) === 'stillbirth')) previousStillbirth = true;
-        }
-      }
-
-      // Genotype / blood may live on pregnancy or (fallback) nowhere if save failed earlier
-      const genotypeRaw = pregnancy?.genotype ?? intakeMap.get('genotype') ?? null;
-      const parityRaw =
-        pregnancy?.parity ??
-        (intakeMap.get('parity') != null ? Number(intakeMap.get('parity')) : null);
-
-      const riskInput = {
-        age: patient.age ?? null,
-        bp_systolic: pregnancy?.booking_bp_systolic ?? null,
-        bp_diastolic: pregnancy?.booking_bp_diastolic ?? null,
-        hemoglobin: pregnancy?.pcv ?? null,
-        genotype: genotypeRaw,
-        previous_csection:
-          previousCsection === true || previousCsection === 'yes' || previousCsection === 'true'
-            ? true
-            : previousCsection === false || previousCsection === 'no'
-              ? false
-              : null,
-        previous_stillbirth:
-          previousStillbirth === true || previousStillbirth === 'yes' || previousStillbirth === 'true'
-            ? true
-            : previousStillbirth === false || previousStillbirth === 'no'
-              ? false
-              : null,
-        previous_eclampsia: intakeMap.get('previous_eclampsia') ?? null,
-        parity: parityRaw != null && !Number.isNaN(Number(parityRaw)) ? Number(parityRaw) : null,
-        is_twin_pregnancy:
-          intakeMap.get('is_twin_pregnancy') === true ||
-          intakeMap.get('is_twin_pregnancy') === 'true' ||
-          intakeMap.get('is_twin_pregnancy') === 'yes'
-            ? true
-            : intakeMap.get('is_twin_pregnancy') === false ||
-                intakeMap.get('is_twin_pregnancy') === 'false' ||
-                intakeMap.get('is_twin_pregnancy') === 'no'
-              ? false
-              : null,
-        hiv_positive:
-          pregnancy?.rvd_status === 'positive'
-            ? true
-            : pregnancy?.rvd_status === 'negative'
-              ? false
-              : null,
-      };
+      // Same snapshot as the doctor-side and /risk paths (see risk/inputs.ts)
+      const riskInput = buildRiskInput(patient, pregnancy, intakeResponses);
 
       // Pure sync rules engine — milliseconds
       const result = runRiskEngine(riskInput);

@@ -20,6 +20,7 @@ import {
 import BookingInvestigations from './BookingInvestigations';
 import ConsultationNotes from './ConsultationNotes';
 import PatientSelfReported from './PatientSelfReported';
+import HighRiskChecklist from '../components/HighRiskChecklist';
 import {
   emptyConsult,
   mapPregnancyToConsult,
@@ -240,6 +241,7 @@ const PatientDetailPanel = () => {
   const [aiSummary, setAiSummary] = useState('');
   const [riskFlags, setRiskFlags] = useState([]);
   const [incompleteFlags, setIncompleteFlags] = useState([]);
+  const [riskOverride, setRiskOverride] = useState(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [openSection, setOpenSection] = useState('bookings');
   const [clinicScreen, setClinicScreen] = useState('chart');
@@ -434,9 +436,11 @@ const PatientDetailPanel = () => {
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  // Newest first: just-saved checklist result, then the latest stored assessment
   const risk = (
-    activePatient?.risk_tier ||
+    riskOverride ||
     fullPatient?.risk_assessments?.[0]?.tier ||
+    activePatient?.risk_tier ||
     activePatient?.risk ||
     MOCK.risk
   ).toUpperCase();
@@ -802,6 +806,30 @@ const PatientDetailPanel = () => {
               </div>
             ) : null}
           </section>
+        )}
+
+        {isReal && (
+          <ClinicSection
+            title="High-risk conditions checklist"
+            open={openSection === 'high_risk'}
+            onToggle={() => toggle('high_risk')}
+          >
+            <HighRiskChecklist
+              patientId={activePatient.id}
+              onSaved={(d) => {
+                setRiskOverride(d.tier);
+                setRiskFlags(
+                  (d.reasons || []).filter(
+                    (r) =>
+                      !String(r).startsWith('Incomplete clinic data') &&
+                      !String(r).startsWith('Missing critical field') &&
+                      String(r) !== 'Genotype not confirmed'
+                  )
+                );
+                reloadPatient();
+              }}
+            />
+          </ClinicSection>
         )}
 
         {/* AI Pre-Consult Summary */}

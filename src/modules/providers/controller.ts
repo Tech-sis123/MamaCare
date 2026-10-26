@@ -8,6 +8,7 @@ import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
 import { splitRiskReasons, isSmsPhone, formatPhoneForTermii } from '../../utils/contact';
 import { doctorSmsJobs } from '../../services/doctorSmsJobs';
+import { assessPatientRisk } from '../risk/assess';
 
 export const providersController = {
   /**
@@ -579,7 +580,16 @@ export const providersController = {
         },
       });
 
-      res.status(existing ? 200 : 201).json({ pregnancy });
+      // New BP, labs or scan findings can change the risk tier
+      let risk: { tier: string; reasons: string[] } | null = null;
+      try {
+        const result = await assessPatientRisk(patientId, { type: 'doctor', id: doctorId });
+        risk = { tier: result.tier, reasons: result.reasons };
+      } catch (err) {
+        logger.warn({ err, patientId }, 'Risk re-assessment after pregnancy update failed');
+      }
+
+      res.status(existing ? 200 : 201).json({ pregnancy, risk });
     } catch (err) {
       next(err);
     }

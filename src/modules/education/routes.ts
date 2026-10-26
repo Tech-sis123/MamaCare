@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { educationController } from './controller';
 import { authenticate } from '../../middleware/auth';
+import { commentRateLimiter } from '../../middleware/rateLimiter';
+import { educationCommentsController } from './comments';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
 import {
@@ -9,6 +11,11 @@ import {
   markProgressSchema,
   educationContentSchema,
   educationStatusSchema,
+  commentBodySchema,
+  moduleCommentParamsSchema,
+  commentIdParamSchema,
+  doctorCommentsQuerySchema,
+  commentHiddenSchema,
 } from './schemas';
 
 const router = Router();
@@ -71,6 +78,57 @@ router.delete(
   ...doctorOnly,
   validate(moduleIdParamSchema, 'params'),
   educationController.deleteModule
+);
+
+// ── Lesson comments: patients comment, doctors reply ──
+
+router.get(
+  '/modules/:id/comments',
+  authenticate,
+  rbac('patient'),
+  validate(moduleIdParamSchema, 'params'),
+  educationCommentsController.listForPatient
+);
+
+router.post(
+  '/modules/:id/comments',
+  authenticate,
+  rbac('patient'),
+  commentRateLimiter,
+  validate(moduleIdParamSchema, 'params'),
+  validate(commentBodySchema),
+  educationCommentsController.createByPatient
+);
+
+router.delete(
+  '/modules/:id/comments/:commentId',
+  authenticate,
+  rbac('patient'),
+  validate(moduleCommentParamsSchema, 'params'),
+  educationCommentsController.deleteByPatient
+);
+
+router.get(
+  '/manage/comments',
+  ...doctorOnly,
+  validate(doctorCommentsQuerySchema, 'query'),
+  educationCommentsController.listForDoctor
+);
+
+router.post(
+  '/manage/comments/:id/replies',
+  ...doctorOnly,
+  validate(commentIdParamSchema, 'params'),
+  validate(commentBodySchema),
+  educationCommentsController.replyByDoctor
+);
+
+router.patch(
+  '/manage/comments/:id',
+  ...doctorOnly,
+  validate(commentIdParamSchema, 'params'),
+  validate(commentHiddenSchema),
+  educationCommentsController.setHiddenByDoctor
 );
 
 export default router;

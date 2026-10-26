@@ -4,6 +4,7 @@ import { getEducationModule, markModuleComplete } from '../lib/api';
 import WhatsAppContact from '../components/WhatsAppContact';
 import { MEDICAL_GLOSSARY, simplifyMedicalText, findGlossaryTerms } from '../lib/plainLanguage';
 import { getVideoSource } from '../lib/videoEmbed';
+import LessonComments from '../components/LessonComments';
 
 const STATIC_MODULES = {
   'baby-growth': {
@@ -901,6 +902,9 @@ const EducationDetail = () => {
               return null;
             })}
           </div>
+
+          {/* Questions & comments on video lessons (database lessons only) */}
+          {isVideo && apiModule?.id && !staticMatch && <LessonComments moduleId={apiModule.id} />}
 
           {/* Link to the original article */}
           {mod.article_url && (

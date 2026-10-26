@@ -28,6 +28,8 @@ const envSchema = z.object({
   SUPPORT_WHATSAPP_NUMBER: z.string().default('2348034027044'),
   /// Temporary: lets patients regain access by matching their biodata. Set to 'false' to switch off.
   PATIENT_RECOVERY_ENABLED: z.string().default('true'),
+  /// 'true' lets patients see each other's lesson comments (first name only); default is private
+  EDUCATION_COMMENTS_PUBLIC: z.string().default('false'),
 });
 
 const parsed = envSchema.safeParse(process.env);

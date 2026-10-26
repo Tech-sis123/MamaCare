@@ -7,6 +7,7 @@ import {
   deleteEducationModule,
 } from '../lib/api';
 import { getVideoSource } from '../lib/videoEmbed';
+import DoctorLessonComments from './DoctorLessonComments';
 
 const WEEK_OPTIONS = Array.from({ length: 39 }, (_, i) => i + 4); // weeks 4–42
 
@@ -274,12 +275,21 @@ const DoctorEducationManager = () => {
   const [busyId, setBusyId] = useState(null);
   const [notice, setNotice] = useState('');
   const [expandedTranscript, setExpandedTranscript] = useState(null);
+  const [commentStats, setCommentStats] = useState({});
+  const [commentsFor, setCommentsFor] = useState(null); // null | { id?, title? }
+
+  const refreshCommentStats = () =>
+    getDoctorEducationModules()
+      .then(({ data }) => setCommentStats(data?.comment_stats || {}))
+      .catch(() => {});
 
   useEffect(() => {
     let cancelled = false;
     getDoctorEducationModules()
       .then(({ data }) => {
-        if (!cancelled) setModules(data?.modules || []);
+        if (cancelled) return;
+        setModules(data?.modules || []);
+        setCommentStats(data?.comment_stats || {});
       })
       .catch((err) => {
         if (!cancelled) setLoadError(errorMessage(err, 'Could not load education content'));
@@ -333,6 +343,8 @@ const DoctorEducationManager = () => {
     }
   };
 
+  const totalAwaiting = Object.values(commentStats).reduce((sum, st) => sum + (st.awaiting || 0), 0);
+
   const counts = {
     all: modules.length,
     video: modules.filter((m) => moduleType(m) === 'video').length,
@@ -361,7 +373,18 @@ const DoctorEducationManager = () => {
             Add videos and articles for patients. Published content appears on their Education page straight away.
           </p>
         </div>
-        <div className="flex gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setCommentsFor({})}
+            className="px-4 py-2.5 bg-white border border-amber-200 text-amber-950 rounded-xl text-xs font-semibold hover:bg-amber-50 transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-base">forum</span>
+            Patient comments
+            {totalAwaiting > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">{totalAwaiting}</span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setEditing({ content_type: 'video' })}
@@ -498,6 +521,19 @@ const DoctorEducationManager = () => {
                 )}
 
                 <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-outline-variant/20">
+                  {commentStats[m.id]?.total > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCommentsFor({ id: m.id, title: m.title })}
+                      className="mr-auto px-3 py-1.5 rounded-lg text-[11px] font-semibold text-amber-950 hover:bg-amber-50 flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-sm">forum</span>
+                      {commentStats[m.id].total} comment{commentStats[m.id].total !== 1 ? 's' : ''}
+                      {commentStats[m.id].awaiting > 0 && (
+                        <span className="text-amber-700">· {commentStats[m.id].awaiting} awaiting reply</span>
+                      )}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditing(m)}
@@ -529,6 +565,15 @@ const DoctorEducationManager = () => {
             );
           })}
         </div>
+      )}
+
+      {commentsFor && (
+        <DoctorLessonComments
+          moduleId={commentsFor.id}
+          moduleTitle={commentsFor.title}
+          onClose={() => setCommentsFor(null)}
+          onChanged={refreshCommentStats}
+        />
       )}
 
       {editing && (

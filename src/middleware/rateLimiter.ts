@@ -53,3 +53,10 @@ export const recoveryRateLimiter = rateLimiter({
   max: 5,
   keyPrefix: 'rl:recover',
 });
+
+// Patients posting lesson comments
+export const commentRateLimiter = rateLimiter({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10,
+  keyPrefix: 'rl:comment',
+});

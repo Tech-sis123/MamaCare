@@ -55,3 +55,27 @@ export const educationContentSchema = z
 export const educationStatusSchema = z.object({
   status: z.enum(['draft', 'published']),
 });
+
+// ── Lesson comments ────────────────────────────────────────────────────────
+
+export const commentBodySchema = z.object({
+  body: z.string().trim().min(1, 'Write a comment first').max(2000, 'Comments can be up to 2000 characters'),
+});
+
+export const moduleCommentParamsSchema = z.object({
+  id: z.string().min(1),
+  commentId: z.string().uuid('Invalid comment ID'),
+});
+
+export const commentIdParamSchema = z.object({
+  id: z.string().uuid('Invalid comment ID'),
+});
+
+export const doctorCommentsQuerySchema = z.object({
+  status: z.enum(['awaiting', 'all']).optional(),
+  module_id: z.string().optional(),
+});
+
+export const commentHiddenSchema = z.object({
+  hidden: z.boolean(),
+});

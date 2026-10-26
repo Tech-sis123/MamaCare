@@ -241,3 +241,31 @@ export const setEducationModuleStatus = (id, status) =>
 
 export const deleteEducationModule = (id) =>
   doctorApi.delete(`/education/manage/modules/${id}`);
+
+// ── Doctor high-risk checklist (risk engine v2) ──────────────────────────────
+
+export const getRiskConditions = (patientId) =>
+  doctorApi.get(`/risk/${patientId}/conditions`);
+
+export const saveRiskConditions = (patientId, condition_ids) =>
+  doctorApi.put(`/risk/${patientId}/conditions`, { condition_ids });
+
+// ── Lesson comments ──────────────────────────────────────────────────────────
+
+export const getLessonComments = (moduleId) =>
+  patientApi.get(`/education/modules/${moduleId}/comments`);
+
+export const postLessonComment = (moduleId, body) =>
+  patientApi.post(`/education/modules/${moduleId}/comments`, { body });
+
+export const deleteLessonComment = (moduleId, commentId) =>
+  patientApi.delete(`/education/modules/${moduleId}/comments/${commentId}`);
+
+export const getDoctorLessonComments = (params = {}) =>
+  doctorApi.get('/education/manage/comments', { params });
+
+export const replyToLessonComment = (commentId, body) =>
+  doctorApi.post(`/education/manage/comments/${commentId}/replies`, { body });
+
+export const setLessonCommentHidden = (commentId, hidden) =>
+  doctorApi.patch(`/education/manage/comments/${commentId}`, { hidden });

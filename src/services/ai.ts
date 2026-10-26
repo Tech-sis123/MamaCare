@@ -1,5 +1,7 @@
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import { riskGuidelineText } from '../modules/risk/conditions';
+import { doctorGuidanceText, patientGuidanceText } from './clinicalGuidance';
 
 interface GenerateLessonParams {
   patientName: string;
@@ -103,7 +105,12 @@ Patient Question: "${question}"
 
 Provide a deeply insightful, comforting, and medically sound response. Explain the "why" behind your advice so the patient truly understands what is happening in her body. Draw connections between her current gestational age and her symptoms.
 Never mention a risk level, risk tier, risk score, or whether she is low/medium/high risk. If she asks for her risk, say her care team reviews her information and the next step is to attend antenatal clinic.
-If the question implies an emergency, urgently advise her to seek immediate medical attention. Format your response with clear, easy-to-read paragraphs or bullet points where appropriate.`;
+If the question implies an emergency, urgently advise her to seek immediate medical attention.
+The clinic treats these as high-risk pregnancy conditions. If she mentions having any of them (now or in a past pregnancy), gently encourage her to tell her doctor at her next antenatal visit, or sooner if she has symptoms, without labelling her as high risk:
+${riskGuidelineText()}
+Evidence-based points you may share in simple words when relevant (never give doses or change her prescriptions — refer dose questions to her clinic):
+${patientGuidanceText()}
+Format your response with clear, easy-to-read paragraphs or bullet points where appropriate.`;
 
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -159,6 +166,13 @@ If the question implies an emergency, urgently advise her to seek immediate medi
 - Risk Assessment: ${JSON.stringify(patientData.risk_assessments?.[0] || 'Unknown')}
 - Recent symptoms: ${JSON.stringify(patientData.symptoms || 'None')}\n`;
       }
+
+      prompt += `\nThis clinic's high-risk pregnancy criteria (from its own guideline; the risk engine grades every listed condition HIGH):
+${riskGuidelineText()}
+When the patient has any of these, say which ones and factor them into your recommendations.\n`;
+
+      prompt += `\nPublished guidance to follow where relevant (prefer it over general knowledge and cite it by name):
+${doctorGuidanceText()}\n`;
 
       prompt += `\nDoctor's Question: "${question}"\n
 Provide an exceptionally insightful, comprehensive, and highly accurate medical analysis. Break down complex pathophysiology, outline evidence-based differential diagnoses, and provide actionable, step-by-step clinical management recommendations tailored precisely to this patient's risk profile. Always cite relevant clinical guidelines (e.g., ACOG, WHO) and highlight any potential red flags or edge cases the doctor should be aware of. Structure your response with clear headings and bullet points.`;

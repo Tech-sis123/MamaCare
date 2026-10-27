@@ -30,6 +30,8 @@ const envSchema = z.object({
   PATIENT_RECOVERY_ENABLED: z.string().default('true'),
   /// 'true' lets patients see each other's lesson comments (first name only); default is private
   EDUCATION_COMMENTS_PUBLIC: z.string().default('false'),
+  /// Auto-reply menu bot for messages sent to the clinic WhatsApp number. Set to 'false' to switch off.
+  WHATSAPP_BOT_ENABLED: z.string().default('true'),
 });
 
 const parsed = envSchema.safeParse(process.env);

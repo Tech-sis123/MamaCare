@@ -2,6 +2,7 @@ import { logger } from '../utils/logger';
 import prisma from '../config/prisma';
 import { Client, LocalAuth } from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
+import { whatsappBot } from './whatsappBot';
 
 interface WhatsAppMessagePayload {
   to: string; // Phone number in international format (e.g. 2348012345678)
@@ -32,6 +33,17 @@ export const initWhatsApp = () => {
 
   client.on('auth_failure', (msg) => {
     logger.error({ msg }, 'WhatsApp authentication failure');
+  });
+
+  // Auto-reply menu bot for patients who text the clinic number
+  client.on('message', async (msg) => {
+    try {
+      if (msg.fromMe || msg.isStatus || !msg.from.endsWith('@c.us')) return;
+      const reply = await whatsappBot.reply({ from: msg.from.split('@')[0], text: msg.body });
+      if (reply) await client.sendMessage(msg.from, reply);
+    } catch (err) {
+      logger.error({ err, from: msg.from }, 'WhatsApp bot failed to reply');
+    }
   });
 
   client.on('disconnected', (reason) => {

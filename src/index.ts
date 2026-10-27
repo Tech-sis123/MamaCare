@@ -8,6 +8,7 @@ import { requestId } from './middleware/requestId';
 import prisma from './config/prisma';
 import { redis } from './config/redis';
 import { initWhatsApp } from './services/whatsapp';
+import { whatsappBot } from './services/whatsappBot';
 import { processAppointmentReminders } from './jobs/appointmentReminder';
 import { dispatchWeeklyEducation } from './jobs/educationDispatcher';
 import { processRetentionSms } from './jobs/retentionSms';
@@ -118,6 +119,26 @@ app.get('/cron/retention', async (req, res, next) => {
       .then((result) => logger.info(result, 'Retention SMS finished'))
       .catch((err) => logger.error({ err }, 'Background retention SMS failed'));
     res.status(200).json({ status: 'ok', message: 'Retention SMS triggered' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Try the WhatsApp bot before the WhatsApp connection is set up:
+// POST /whatsapp/bot/simulate?secret=CRON_SECRET  { "from": "08012345678", "text": "hi" }
+app.post('/whatsapp/bot/simulate', async (req, res, next) => {
+  try {
+    if (req.query.secret !== env.CRON_SECRET) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const from = String(req.body?.from || '');
+    if (!from) {
+      res.status(400).json({ error: 'from is required' });
+      return;
+    }
+    const reply = await whatsappBot.reply({ from, text: String(req.body?.text ?? '') });
+    res.status(200).json({ reply });
   } catch (err) {
     next(err);
   }

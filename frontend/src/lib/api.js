@@ -226,6 +226,16 @@ export const sendDoctorSms = ({ message, patient_ids, send_all, phone_numbers })
 export const getDoctorSmsJob = (jobId) =>
   doctorApi.get(`/providers/sms/${jobId}`);
 
+// ── Clinic WhatsApp link (QR code) ───────────────────────────────────────────
+
+export const getWhatsAppConnection = () => doctorApi.get('/providers/whatsapp');
+
+/** Starts WhatsApp Web and produces a QR code. restart=true gets a fresh code. */
+export const requestWhatsAppQr = (restart = false) =>
+  doctorApi.post('/providers/whatsapp/connect', { restart });
+
+export const unlinkWhatsApp = () => doctorApi.post('/providers/whatsapp/logout');
+
 // ── Doctor education content management ──────────────────────────────────────
 
 export const getDoctorEducationModules = () =>

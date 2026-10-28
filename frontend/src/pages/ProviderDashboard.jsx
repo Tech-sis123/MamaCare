@@ -15,6 +15,7 @@ import {
 } from '../lib/api';
 import { setDoctorAuth, clearDoctorAuth, isDoctorAuthenticated, getDoctorData } from '../lib/auth';
 import DoctorEducationManager from '../components/DoctorEducationManager';
+import WhatsAppConnection from '../components/WhatsAppConnection';
 
 const RISK_COLORS = {
   HIGH:   { bar: 'bg-secondary', badge: 'bg-secondary text-white',       border: 'border-secondary',   text: 'text-secondary' },
@@ -2339,6 +2340,7 @@ const NAV_ITEMS = [
   { id: 'metrics',  icon: 'monitoring', label: 'Health Metrics' },
   { id: 'patients', icon: 'group',      label: 'Patients' },
   { id: 'sms',      icon: 'chat',       label: 'Patient SMS' },
+  { id: 'whatsapp', icon: 'qr_code_scanner', label: 'WhatsApp' },
   { id: 'education',icon: 'school',     label: 'Education' },
   { id: 'ask_ai',   icon: 'smart_toy',  label: 'Ask AI' },
   { id: 'resources',icon: 'menu_book',  label: 'Resources' },
@@ -2441,6 +2443,7 @@ const ProviderDashboard = () => {
     metrics: MetricsView,
     patients: PatientsView,
     sms: BroadcastSmsView,
+    whatsapp: WhatsAppConnection,
     education: DoctorEducationManager,
     ask_ai: AskAIView,
     resources: ResourcesView,
@@ -2454,6 +2457,7 @@ const ProviderDashboard = () => {
     metrics: 'Health Metrics',
     patients: 'All Patients',
     sms: 'Patient SMS Messaging',
+    whatsapp: 'Clinic WhatsApp',
     education: 'Education Content',
     ask_ai: 'Clinical AI Assistant',
     resources: 'Resources',

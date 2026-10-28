@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { providersController } from './controller';
+import { whatsappConnectionController } from './whatsappConnection';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
@@ -121,6 +122,28 @@ router.get(
   rbac('doctor', 'department_head'),
   validate(smsJobIdParamSchema, 'params'),
   providersController.getSmsJob
+);
+
+// Link the clinic WhatsApp by scanning a QR code
+router.get(
+  '/whatsapp',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  whatsappConnectionController.status
+);
+
+router.post(
+  '/whatsapp/connect',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  whatsappConnectionController.connect
+);
+
+router.post(
+  '/whatsapp/logout',
+  authenticate,
+  rbac('doctor', 'department_head'),
+  whatsappConnectionController.logout
 );
 
 export default router;

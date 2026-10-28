@@ -32,6 +32,10 @@ const envSchema = z.object({
   EDUCATION_COMMENTS_PUBLIC: z.string().default('false'),
   /// Auto-reply menu bot for messages sent to the clinic WhatsApp number. Set to 'false' to switch off.
   WHATSAPP_BOT_ENABLED: z.string().default('true'),
+  /// Folder for the linked WhatsApp session (scanning the QR code once saves it here)
+  WHATSAPP_AUTH_PATH: z.string().default('./.wwebjs_auth'),
+  /// Chrome/Chromium for WhatsApp. Empty: Chrome in its usual Windows place if present, otherwise Puppeteer's own
+  WHATSAPP_CHROME_PATH: z.string().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

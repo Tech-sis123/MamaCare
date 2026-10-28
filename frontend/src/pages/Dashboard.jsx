@@ -10,6 +10,7 @@ import { getPatientData, isPatientAuthenticated } from '../lib/auth';
 import WhatsAppContact from '../components/WhatsAppContact';
 import EmailPrompt from '../components/EmailPrompt';
 import DeliveryModal from '../components/DeliveryModal';
+import WhatsAppNumberModal from '../components/WhatsAppNumberModal';
 import { POSTPARTUM_DAYS } from '../lib/delivery';
 
 const AIChatPanel = ({ onClose }) => {
@@ -146,6 +147,8 @@ const PatientDashboard = () => {
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
   // null | 'prompt' (Have you delivered?) | 'form'
   const [deliveryModal, setDeliveryModal] = useState(null);
+  // After account recovery: ask for her WhatsApp number at each login until she saves one
+  const [showWhatsappPrompt, setShowWhatsappPrompt] = useState(false);
 
   useEffect(() => {
     if (!isPatientAuthenticated()) {
@@ -167,6 +170,9 @@ const PatientDashboard = () => {
         // From 30 weeks: ask once per login until she enters her delivery details
         if (r.data?.delivery_prompt && sessionStorage.getItem('mc_delivery_prompt_dismissed') !== '1') {
           setDeliveryModal('prompt');
+        }
+        if (r.data?.whatsapp?.prompt && sessionStorage.getItem('mc_whatsapp_prompt_dismissed') !== '1') {
+          setShowWhatsappPrompt(true);
         }
       })
       .catch(() => {})
@@ -582,7 +588,21 @@ const PatientDashboard = () => {
 
       <WhatsAppContact number={dashData?.support_whatsapp} />
 
-      {deliveryModal && !showEmailPrompt ? (
+      {showWhatsappPrompt ? (
+        <WhatsAppNumberModal
+          phoneNumber={dashData?.whatsapp?.phone_number}
+          onLater={() => {
+            sessionStorage.setItem('mc_whatsapp_prompt_dismissed', '1');
+            setShowWhatsappPrompt(false);
+          }}
+          onSaved={(whatsapp) => {
+            setShowWhatsappPrompt(false);
+            setDashData((prev) => ({ ...prev, whatsapp }));
+          }}
+        />
+      ) : null}
+
+      {deliveryModal && !showEmailPrompt && !showWhatsappPrompt ? (
         <DeliveryModal
           step={deliveryModal}
           pregnancyStart={dashData?.pregnancy_start}
@@ -598,7 +618,7 @@ const PatientDashboard = () => {
         />
       ) : null}
 
-      {showEmailPrompt ? (
+      {showEmailPrompt && !showWhatsappPrompt ? (
         <EmailPrompt
           mode={patientData?.needs_email || dashData?.needs_email ? 'add' : 'verify'}
           initialEmail={patientData?.email || dashData?.email || ''}

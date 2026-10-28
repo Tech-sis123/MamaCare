@@ -16,6 +16,7 @@ import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
 import { recordPatientSiteVisit } from '../../services/site-visits';
 import { isUsableEmail } from '../../utils/contact';
+import { whatsappContact, whatsappStatus } from '../../services/whatsappContact';
 import { env } from '../../config/env';
 
 export const patientsController = {
@@ -197,6 +198,7 @@ export const patientsController = {
         needs_email: !isUsableEmail(email) && !safePatient.username,
         current_ega: ega,
         delivery,
+        whatsapp: whatsappStatus(patient),
       });
     } catch (err) {
       next(err);
@@ -292,6 +294,8 @@ export const patientsController = {
         username: patient.username ?? null,
         needs_email: !isUsableEmail(patient.email) && !patient.username,
         support_whatsapp: env.SUPPORT_WHATSAPP_NUMBER,
+        // Asked after account recovery, at every login, until she saves a WhatsApp number
+        whatsapp: whatsappStatus(patient),
         last_seen_at: patient.last_seen_at,
         site_visit_count: patient.site_visit_count,
       });
@@ -360,6 +364,33 @@ export const patientsController = {
         .catch((err) => logger.warn({ err }, 'Failed to audit delivery'));
 
       res.status(200).json({ delivery: deliverySummary(updated) });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PUT /patients/me/whatsapp
+   * Saves her WhatsApp number (stored as +234…) with consent. Not verified until the code step exists.
+   */
+  async saveWhatsapp(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { whatsapp_number, source } = req.body as { whatsapp_number: string; source?: 'prompt' | 'profile' };
+      const whatsapp = await whatsappContact.saveNumber(req.user!.id, whatsapp_number, source === 'profile' ? 'profile' : 'prompt');
+      res.status(200).json({ whatsapp });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * DELETE /patients/me/whatsapp/consent
+   * She no longer wants WhatsApp messages; nothing is sent to her on WhatsApp after this.
+   */
+  async withdrawWhatsappConsent(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const whatsapp = await whatsappContact.withdrawConsent(req.user!.id);
+      res.status(200).json({ whatsapp });
     } catch (err) {
       next(err);
     }

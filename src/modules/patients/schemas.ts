@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { COMPLICATION_KEYS } from '../../utils/delivery';
+import { normalizeWhatsappNumber } from '../../utils/contact';
 
 export const createProfileSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -74,3 +75,14 @@ export const deliverySchema = z
       ctx.addIssue({ code: 'custom', path: ['other_complication'], message: 'Type the other complication' });
     }
   });
+
+export const whatsappSchema = z.object({
+  // Converted to +234… on save; 080… is fine
+  whatsapp_number: z
+    .string({ error: 'Enter your WhatsApp number' })
+    .trim()
+    .refine((v) => normalizeWhatsappNumber(v) !== null, 'Enter a valid phone number, e.g. 0801 234 5678')
+    .transform((v) => normalizeWhatsappNumber(v) as string),
+  consent: z.literal(true, { error: 'Tick the box to agree to receive WhatsApp messages' }),
+  source: z.enum(['prompt', 'profile']).optional(),
+});

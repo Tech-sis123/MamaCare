@@ -36,6 +36,30 @@ export function formatPhoneForTermii(phone: string): string {
   return cleaned;
 }
 
+/** All the ways a Nigerian number may have been saved on a patient record (234…, +234…, 0…). */
+export function phoneVariants(raw: string): string[] {
+  const intl = formatPhoneForTermii(raw);
+  const local = intl.startsWith('234') ? `0${intl.slice(3)}` : intl;
+  return Array.from(new Set([intl, `+${intl}`, local, raw.replace(/\D/g, '')]));
+}
+
+/**
+ * Number with country code (+2348012345678), or null if it isn't a valid phone number.
+ * Nigerian numbers can be typed as 0801…, 801…, 234801… or +234 801…;
+ * other countries need the + and country code.
+ */
+export function normalizeWhatsappNumber(raw?: string | null): string | null {
+  const value = String(raw ?? '').trim();
+  if (!value || /[^\d\s+()-]/.test(value)) return null;
+  const international = value.startsWith('+') || value.startsWith('00');
+  const digits = formatPhoneForTermii(value.replace(/^00/, ''));
+  if (digits.startsWith('234')) {
+    // Nigerian mobile numbers: 234 + 10 digits starting 7, 8 or 9
+    return /^234[789]\d{9}$/.test(digits) ? `+${digits}` : null;
+  }
+  return international && /^[1-9]\d{7,14}$/.test(digits) ? `+${digits}` : null;
+}
+
 export function toReasonList(reasons: unknown): string[] {
   if (!Array.isArray(reasons)) return [];
   return reasons

@@ -3,7 +3,7 @@ import { patientsController } from './controller';
 import { authenticate } from '../../middleware/auth';
 import { rbac } from '../../middleware/rbac';
 import { validate } from '../../middleware/validate';
-import { createProfileSchema, createPregnancySchema, askQuestionSchema, deliverySchema } from './schemas';
+import { createProfileSchema, createPregnancySchema, askQuestionSchema, deliverySchema, whatsappSchema } from './schemas';
 
 const router = Router();
 
@@ -43,6 +43,21 @@ router.put(
   rbac('patient'),
   validate(deliverySchema),
   patientsController.saveDelivery
+);
+
+router.put(
+  '/me/whatsapp',
+  authenticate,
+  rbac('patient'),
+  validate(whatsappSchema),
+  patientsController.saveWhatsapp
+);
+
+router.delete(
+  '/me/whatsapp/consent',
+  authenticate,
+  rbac('patient'),
+  patientsController.withdrawWhatsappConsent
 );
 
 router.post(

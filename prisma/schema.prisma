@@ -38,6 +38,17 @@ model Patient {
   last_seen_at          DateTime?
   /// Count of unique calendar-day visits to the patient app
   site_visit_count      Int      @default(0)
+  /// WhatsApp number with country code (+234…); may differ from the OTP phone_number
+  whatsapp_number       String?
+  /// null = never asked, true = agreed to WhatsApp updates/reminders, false = withdrew consent
+  whatsapp_consent      Boolean?
+  /// When she ticked the consent box (cleared if she withdraws)
+  whatsapp_consent_at   DateTime?
+  /// Set once she confirms a code sent to whatsapp_number (not built yet); reset when the number changes
+  whatsapp_verified     Boolean  @default(false)
+  whatsapp_verified_at  DateTime?
+  /// Last time she regained access through account recovery (shows the WhatsApp pop-up)
+  account_recovered_at  DateTime?
   created_at            DateTime @default(now())
 
   pregnancies           Pregnancy[]

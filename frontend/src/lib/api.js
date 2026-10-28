@@ -104,8 +104,8 @@ export const setRecoveredLoginDetails = (data) =>
   axios.post(`${BASE}/auth/patient/recover/credentials`, data);
 
 /** Direct email + password signup (no OTP). */
-export const registerPatientEmail = (email, password, name) =>
-  axios.post(`${BASE}/auth/patient/register-email`, { email, password, name });
+export const registerPatientEmail = (email, password, name, phone_number) =>
+  axios.post(`${BASE}/auth/patient/register-email`, { email, password, name, phone_number });
 
 export const doctorLogin = (email, password) =>
   axios.post(`${BASE}/auth/doctor/login`, { email, password });
@@ -126,6 +126,10 @@ export const getPatientDashboard = () => patientApi.get('/patients/me/dashboard'
 export const upsertProfile = data => patientApi.post('/patients/profile', data);
 export const addPregnancy = data => patientApi.post('/patients/pregnancy', data);
 export const savePatientDelivery = data => patientApi.put('/patients/me/delivery', data);
+/** Save her WhatsApp number (consent must be true). source: 'prompt' | 'profile' */
+export const savePatientWhatsapp = (whatsapp_number, source = 'prompt') =>
+  patientApi.put('/patients/me/whatsapp', { whatsapp_number, consent: true, source });
+export const withdrawWhatsappConsent = () => patientApi.delete('/patients/me/whatsapp/consent');
 
 // ── Intake ────────────────────────────────────────────────────────────────────
 

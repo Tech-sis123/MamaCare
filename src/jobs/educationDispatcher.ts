@@ -4,6 +4,7 @@ import { termiiService } from '../services/termii';
 import { whatsappService } from '../services/whatsapp';
 import { logger } from '../utils/logger';
 import { isSmsPhone } from '../utils/contact';
+import { whatsappRecipient } from '../services/whatsappContact';
 
 export async function dispatchWeeklyEducation() {
   logger.info('Starting weekly education dispatch job...');
@@ -60,20 +61,23 @@ export async function dispatchWeeklyEducation() {
 
       const fullMessage = lesson.summary;
 
-      if (!isSmsPhone(patient.phone_number)) {
-        logger.warn({ patientId: patient.id }, 'Skipping education dispatch: no usable phone');
-        continue;
+      // Her WhatsApp number if she gave one; nothing if she withdrew consent
+      const whatsappTo = whatsappRecipient(patient);
+      if (whatsappTo) {
+        try {
+          await whatsappService.sendMessage({
+            to: whatsappTo,
+            message: fullMessage
+          });
+          logger.info({ patientId: patient.id }, 'Sent AI lesson via WhatsApp');
+        } catch (err) {
+          logger.warn({ err, patientId: patient.id }, 'Could not send WhatsApp lesson');
+        }
       }
 
-      // Dispatch via WhatsApp (if setup and phone number format allows)
-      try {
-        await whatsappService.sendMessage({
-          to: patient.phone_number,
-          message: fullMessage
-        });
-        logger.info({ patientId: patient.id }, 'Sent AI lesson via WhatsApp');
-      } catch (err) {
-        logger.warn({ err, patientId: patient.id }, 'Could not send WhatsApp lesson');
+      if (!isSmsPhone(patient.phone_number)) {
+        logger.warn({ patientId: patient.id }, 'Skipping SMS lesson: no usable phone');
+        continue;
       }
 
       // Dispatch via Termii SMS

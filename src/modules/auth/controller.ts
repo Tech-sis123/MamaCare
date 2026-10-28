@@ -11,7 +11,7 @@ import { whatsappService } from '../../services/whatsapp';
 import crypto from 'crypto';
 import { brevoService } from '../../services/brevo';
 import { AuthRequest } from '../../utils/types';
-import { isUsableEmail, isSmsPhone } from '../../utils/contact';
+import { isUsableEmail, isSmsPhone, formatPhoneForTermii, phoneVariants } from '../../utils/contact';
 import { patientRecovery, RecoveryAnswers } from '../../services/patientRecovery';
 
 function generateTokens(payload: { id: string; role: string; type: string }) {
@@ -309,12 +309,24 @@ export const authController = {
         throw new ConflictError('This email is already registered. Please log in instead.');
       }
 
+      // Same +234… format as phone sign-ups, so SMS / WhatsApp reach her
+      const normalizedPhone = phone_number ? `+${formatPhoneForTermii(phone_number)}` : null;
+      if (normalizedPhone) {
+        const phoneTaken = await prisma.patient.findFirst({
+          where: { phone_number: { in: phoneVariants(phone_number) } },
+          select: { id: true },
+        });
+        if (phoneTaken) {
+          throw new ConflictError('This phone number already has an account. Please log in, or use "Forgot your login?".');
+        }
+      }
+
       const password_hash = await bcrypt.hash(password, 10);
       const patient = await prisma.patient.create({
         data: {
           email: normalizedEmail,
           password_hash,
-          phone_number: phone_number || `email-${Date.now()}`,
+          phone_number: normalizedPhone || `email-${Date.now()}`,
           name: name || null,
           intake_status: 'not_started',
           email_verified_at: null,
@@ -709,6 +721,8 @@ export const authController = {
         where: { id: patientId },
         data: {
           password_hash,
+          // Asks for her WhatsApp number when she reaches the dashboard
+          account_recovered_at: new Date(),
           ...(method === 'email'
             ? { email, ...(emailChanged ? { email_verified_at: null } : {}) }
             : { username }),

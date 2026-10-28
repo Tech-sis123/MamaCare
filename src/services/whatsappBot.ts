@@ -2,7 +2,7 @@ import prisma from '../config/prisma';
 import { redis } from '../config/redis';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
-import { formatPhoneForTermii } from '../utils/contact';
+import { formatPhoneForTermii, phoneVariants } from '../utils/contact';
 
 /**
  * Simple WhatsApp auto-reply bot.
@@ -105,17 +105,14 @@ function digitsOnly(value: string) {
   return value.replace(/\D/g, '');
 }
 
-/** All the ways a Nigerian number may have been saved on a patient record. */
-export function phoneCandidates(raw: string): string[] {
-  const intl = formatPhoneForTermii(raw);
-  const local = intl.startsWith('234') ? `0${intl.slice(3)}` : intl;
-  return Array.from(new Set([intl, `+${intl}`, local, digitsOnly(raw)]));
-}
+export const phoneCandidates = phoneVariants;
 
 async function findPatient(from: string): Promise<BotPatient | null> {
   try {
+    const numbers = phoneCandidates(from);
+    // Her WhatsApp number may not be the phone she signed up with
     return await prisma.patient.findFirst({
-      where: { phone_number: { in: phoneCandidates(from) } },
+      where: { OR: [{ whatsapp_number: { in: numbers } }, { phone_number: { in: numbers } }] },
       select: { id: true, name: true, primary_doctor_id: true },
     });
   } catch (err) {

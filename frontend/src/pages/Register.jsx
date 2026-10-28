@@ -239,18 +239,30 @@ const RegistrationFlow = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [registerName, setRegisterName] = useState('');
+  const [registerPhone, setRegisterPhone] = useState('');
 
   const handleEmailRegisterSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setApiError('');
+    const phoneDigits = registerPhone.replace(/\D/g, '').replace(/^234/, '').replace(/^0/, '');
+    if (phoneDigits.length !== 10) {
+      setApiError('Enter your phone number, e.g. 801 234 5678.');
+      setLoading(false);
+      return;
+    }
     if (registerPassword.length < 6) {
       setApiError('Password must be at least 6 characters.');
       setLoading(false);
       return;
     }
     try {
-      const { data } = await registerPatientEmail(registerEmail.trim(), registerPassword, registerName.trim());
+      const { data } = await registerPatientEmail(
+        registerEmail.trim(),
+        registerPassword,
+        registerName.trim(),
+        formatPhone(registerPhone)
+      );
       setPatientAuth(data.access_token, data.refresh_token, data.patient);
       // Email sign-up does not collect DOB — open biodata on "How old are you?"
       navigate('/intake?from=email');
@@ -472,6 +484,31 @@ const RegistrationFlow = () => {
                     />
                   </div>
                   <div className="space-y-2">
+                    <label htmlFor="register-phone" className="font-label-sm text-on-surface-variant">
+                      PHONE NUMBER (PREFERABLY WHATSAPP)
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-2 px-3 py-3 border border-outline-variant rounded-lg bg-surface-container-low">
+                        <span className="font-body-md font-bold">+234</span>
+                      </div>
+                      <input
+                        id="register-phone"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel-national"
+                        value={registerPhone}
+                        onChange={(e) => setRegisterPhone(e.target.value)}
+                        className="flex-grow min-w-0 px-4 py-3 border border-outline-variant rounded-lg focus:ring-2 focus:ring-primary outline-none"
+                        placeholder="801 234 5678"
+                        required
+                      />
+                    </div>
+                    <p className="text-xs text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">chat</span>
+                      Use the number you have WhatsApp on, so your clinic can reach you.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
                     <label className="font-label-sm text-on-surface-variant">PASSWORD</label>
                     <div className="relative">
                       <input
@@ -508,7 +545,7 @@ const RegistrationFlow = () => {
               ) : (
                 <form onSubmit={(e) => handlePhoneSubmit(e, 'sms')} className="space-y-6">
                   <div className="space-y-2">
-                  <label className="font-label-sm text-on-surface-variant">PHONE NUMBER</label>
+                  <label className="font-label-sm text-on-surface-variant">PHONE NUMBER (PREFERABLY WHATSAPP)</label>
                   <div className="flex gap-2">
                     <div className="flex items-center gap-2 px-3 py-3 border border-outline-variant rounded-lg bg-surface-container-low">
                       <span className="font-body-md font-bold">+234</span>
@@ -522,6 +559,10 @@ const RegistrationFlow = () => {
                       required
                     />
                   </div>
+                  <p className="text-xs text-on-surface-variant flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">chat</span>
+                    Use the number you have WhatsApp on, so your clinic can reach you.
+                  </p>
                 </div>
                 {apiError && <p className="text-error font-label-sm text-sm text-center">{apiError}</p>}
                 <button

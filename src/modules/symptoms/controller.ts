@@ -25,6 +25,7 @@ import { NotFoundError, ConflictError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { calculateEGAWeeks } from '../../services/ega-calculator';
 import { isSmsPhone } from '../../utils/contact';
+import { whatsappRecipient } from '../../services/whatsappContact';
 
 export const symptomsController = {
   /**
@@ -148,15 +149,18 @@ export const symptomsController = {
           logger.error({ err, patientId }, 'Failed to send patient SMS alert');
         }
 
-        try {
-          // Send WhatsApp to patient
-          await whatsappService.sendMessage({
-            to: patient.phone_number,
-            message: `🚨 9CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
-          });
-          whatsappSentAt = new Date();
-        } catch (err) {
-          logger.error({ err, patientId }, 'Failed to send patient WhatsApp alert');
+        // Her WhatsApp number if she gave one; none if she withdrew consent (the SMS above still goes)
+        const patientWhatsapp = whatsappRecipient(patient);
+        if (patientWhatsapp) {
+          try {
+            await whatsappService.sendMessage({
+              to: patientWhatsapp,
+              message: `🚨 9CARE EMERGENCY: ${triggerDescriptions.join('; ')}. Please go to the hospital immediately or call your doctor.`,
+            });
+            whatsappSentAt = new Date();
+          } catch (err) {
+            logger.error({ err, patientId }, 'Failed to send patient WhatsApp alert');
+          }
         }
 
         if (isSmsPhone(doctorPhone)) {

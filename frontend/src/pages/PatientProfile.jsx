@@ -1,10 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPatientMe, setPatientCredentials, upsertProfile } from '../lib/api';
+import { getPatientMe, setPatientCredentials, upsertProfile, withdrawWhatsappConsent } from '../lib/api';
 import { getPatientData, setPatientAuth, clearPatientAuth } from '../lib/auth';
 import WhatsAppContact from '../components/WhatsAppContact';
 import EmailPrompt from '../components/EmailPrompt';
 import { formatDeliveryDate } from '../lib/delivery';
+import WhatsAppNumberModal from '../components/WhatsAppNumberModal';
+import { formatWhatsappNumber } from '../lib/whatsapp';
+
+const InfoRow = ({ label, value, icon }) => (
+  <div className="flex items-center justify-between py-4 border-b border-outline-variant/20 last:border-0">
+    <div className="flex items-center gap-3">
+      <span className="material-symbols-outlined text-primary/60 text-base">{icon}</span>
+      <span className="font-body-md text-on-surface-variant text-sm">{label}</span>
+    </div>
+    <span className="font-body-md text-on-surface font-medium">{value}</span>
+  </div>
+);
 
 const PatientProfile = () => {
   const navigate = useNavigate();
@@ -41,6 +53,9 @@ const PatientProfile = () => {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [confirmStopWhatsapp, setConfirmStopWhatsapp] = useState(false);
+  const [stoppingWhatsapp, setStoppingWhatsapp] = useState(false);
 
   useEffect(() => {
     getPatientMe()
@@ -151,6 +166,20 @@ const PatientProfile = () => {
     showToast._t = window.setTimeout(() => setToast(null), 4000);
   };
 
+  const stopWhatsapp = async () => {
+    setStoppingWhatsapp(true);
+    try {
+      const { data } = await withdrawWhatsappConsent();
+      setPatient(prev => ({ ...prev, whatsapp: data.whatsapp }));
+      setConfirmStopWhatsapp(false);
+      showToast('success', 'WhatsApp messages are off. You can turn them back on any time.');
+    } catch {
+      showToast('error', 'Could not update your WhatsApp settings. Please try again.');
+    } finally {
+      setStoppingWhatsapp(false);
+    }
+  };
+
   const saveProfile = async () => {
     if (saveLoading) return;
     setSaveError('');
@@ -243,15 +272,7 @@ const PatientProfile = () => {
           ? 'Second'
           : 'Third';
 
-  const InfoRow = ({ label, value, icon }) => (
-    <div className="flex items-center justify-between py-4 border-b border-outline-variant/20 last:border-0">
-      <div className="flex items-center gap-3">
-        <span className="material-symbols-outlined text-primary/60 text-base">{icon}</span>
-        <span className="font-body-md text-on-surface-variant text-sm">{label}</span>
-      </div>
-      <span className="font-body-md text-on-surface font-medium">{value}</span>
-    </div>
-  );
+  const whatsapp = patient?.whatsapp || null;
 
   return (
     <div className="min-h-screen font-body-md text-on-surface">
@@ -419,6 +440,72 @@ const PatientProfile = () => {
                 <InfoRow label="Occupation"    value={patient?.occupation || '—'}                       icon="work" />
               </>
             )}
+          </div>
+        </section>
+
+        {/* WhatsApp */}
+        <section className="bg-white rounded-xl card-shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-outline-variant/20">
+            <p className="font-label-sm text-on-surface-variant text-xs uppercase tracking-widest">WhatsApp</p>
+          </div>
+          <div className="px-6">
+            <InfoRow
+              label="WhatsApp number"
+              value={whatsapp?.number ? formatWhatsappNumber(whatsapp.number) : 'Not added'}
+              icon="chat"
+            />
+            {whatsapp?.number && (
+              <InfoRow label="Number check" value={whatsapp.verified ? 'Verified' : 'Not yet verified'} icon="verified_user" />
+            )}
+            <InfoRow label="Updates on WhatsApp" value={whatsapp?.consent ? 'On' : 'Off'} icon="notifications" />
+          </div>
+          <div className="px-6 pb-5 pt-1 flex flex-col gap-3">
+            {whatsapp?.consent && whatsapp.consent_at && (
+              <p className="text-xs text-on-surface-variant">
+                You agreed on {new Date(whatsapp.consent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })} to
+                receive educational updates and appointment reminders on WhatsApp.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowWhatsappModal(true)}
+              className="w-full py-3 rounded-xl font-label-sm text-sm border-2 bg-surface-container border-outline text-on-surface hover:bg-surface-container-high transition-colors"
+            >
+              {!whatsapp?.number ? 'Add WhatsApp number' : whatsapp.consent ? 'Change WhatsApp number' : 'Turn WhatsApp messages back on'}
+            </button>
+            {whatsapp?.consent &&
+              (confirmStopWhatsapp ? (
+                <div className="rounded-xl border border-error/30 bg-error/5 p-4 space-y-3">
+                  <p className="text-sm text-on-surface">
+                    Stop all WhatsApp messages from 9Care? You will still get SMS and can turn WhatsApp back on any time.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmStopWhatsapp(false)}
+                      className="py-2.5 rounded-xl border border-outline-variant text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low"
+                    >
+                      Keep them
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopWhatsapp}
+                      disabled={stoppingWhatsapp}
+                      className="py-2.5 rounded-xl bg-error text-white text-sm font-semibold disabled:opacity-60"
+                    >
+                      {stoppingWhatsapp ? 'Stopping…' : 'Yes, stop'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmStopWhatsapp(true)}
+                  className="w-full py-3 rounded-xl font-label-sm text-sm border-2 border-error/30 text-error hover:bg-error/5 transition-colors"
+                >
+                  Stop WhatsApp messages
+                </button>
+              ))}
           </div>
         </section>
 
@@ -689,6 +776,19 @@ const PatientProfile = () => {
       )}
 
       <WhatsAppContact />
+
+      {showWhatsappModal ? (
+        <WhatsAppNumberModal
+          mode="profile"
+          phoneNumber={whatsapp?.phone_number}
+          currentNumber={whatsapp?.number}
+          onLater={() => setShowWhatsappModal(false)}
+          onSaved={(saved) => {
+            setShowWhatsappModal(false);
+            setPatient(prev => ({ ...prev, whatsapp: saved }));
+          }}
+        />
+      ) : null}
 
       {showEmailPrompt ? (
         <EmailPrompt

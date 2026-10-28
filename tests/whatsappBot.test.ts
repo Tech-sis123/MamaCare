@@ -37,10 +37,12 @@ describe('WhatsApp bot', () => {
     expect(reply).toContain('5. Talk to a doctor');
   });
 
-  it('looks the patient up in every saved phone format', async () => {
+  it('looks the patient up by WhatsApp number or phone, in every saved format', async () => {
     await send('hi', '+234 801 111 1111');
     const where = vi.mocked(prisma.patient.findFirst).mock.calls[0][0]!.where as any;
-    expect(where.phone_number.in).toEqual(expect.arrayContaining(['2348011111111', '+2348011111111', '08011111111']));
+    const [byWhatsapp, byPhone] = where.OR;
+    expect(byWhatsapp.whatsapp_number.in).toContain('+2348011111111');
+    expect(byPhone.phone_number.in).toEqual(expect.arrayContaining(['2348011111111', '+2348011111111', '08011111111']));
     expect(phoneCandidates('2348011111111')).toContain('08011111111');
   });
 

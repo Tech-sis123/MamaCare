@@ -43,7 +43,14 @@ export const patientRegisterEmailSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(2, 'Name is required').optional(),
-  phone_number: z.string().optional(),
+  // Preferably a WhatsApp number; optional here so older app versions can still sign up
+  phone_number: z
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform((val) => (val ? val : null))
+    .refine((val) => val === null || /^\+?[0-9\s-]{10,18}$/.test(val), 'Enter a valid phone number'),
 });
 
 export const doctorLoginSchema = z.object({

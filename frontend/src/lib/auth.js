@@ -1,6 +1,9 @@
 export const setPatientAuth = (accessToken, refreshToken, patient) => {
-  // Fresh login: ask "Have you delivered?" again (it is dismissed per login)
-  if (!localStorage.getItem('mc_patient_token')) sessionStorage.removeItem('mc_delivery_prompt_dismissed');
+  // Fresh login: ask "Have you delivered?" and for her WhatsApp number again (both are dismissed per login)
+  if (!localStorage.getItem('mc_patient_token')) {
+    sessionStorage.removeItem('mc_delivery_prompt_dismissed');
+    sessionStorage.removeItem('mc_whatsapp_prompt_dismissed');
+  }
   localStorage.setItem('mc_patient_token', accessToken);
   localStorage.setItem('mc_patient_refresh', refreshToken);
   localStorage.setItem('mc_patient_id', patient.id);
@@ -24,6 +27,7 @@ export const clearPatientAuth = () => {
     localStorage.removeItem(k)
   );
   sessionStorage.removeItem('mc_delivery_prompt_dismissed');
+  sessionStorage.removeItem('mc_whatsapp_prompt_dismissed');
 };
 
 export const clearDoctorAuth = () => {

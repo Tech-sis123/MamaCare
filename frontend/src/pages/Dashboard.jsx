@@ -9,6 +9,8 @@ import { getPatientDashboard, getPatientMe, askPatientAI } from '../lib/api';
 import { getPatientData, isPatientAuthenticated } from '../lib/auth';
 import WhatsAppContact from '../components/WhatsAppContact';
 import EmailPrompt from '../components/EmailPrompt';
+import DeliveryModal from '../components/DeliveryModal';
+import { POSTPARTUM_DAYS } from '../lib/delivery';
 
 const AIChatPanel = ({ onClose }) => {
   const [messages, setMessages] = useState([
@@ -142,6 +144,8 @@ const PatientDashboard = () => {
   const [showAI, setShowAI] = useState(false);
   const [loadingEga, setLoadingEga] = useState(true);
   const [showEmailPrompt, setShowEmailPrompt] = useState(false);
+  // null | 'prompt' (Have you delivered?) | 'form'
+  const [deliveryModal, setDeliveryModal] = useState(null);
 
   useEffect(() => {
     if (!isPatientAuthenticated()) {
@@ -159,6 +163,10 @@ const PatientDashboard = () => {
         const dismissed = sessionStorage.getItem('mc_email_prompt_dismissed') === '1';
         if (!dismissed && (r.data?.needs_email || (r.data?.email_verified === false && !r.data?.username))) {
           setShowEmailPrompt(true);
+        }
+        // From 30 weeks: ask once per login until she enters her delivery details
+        if (r.data?.delivery_prompt && sessionStorage.getItem('mc_delivery_prompt_dismissed') !== '1') {
+          setDeliveryModal('prompt');
         }
       })
       .catch(() => {})
@@ -192,9 +200,22 @@ const PatientDashboard = () => {
     pregnancy?.current_ega_weeks ??
     pregnancy?.gestational_age?.weeks ??
     null;
+  const delivery = dashData?.delivery || patientData?.delivery || null;
+  const delivered = !!delivery?.delivered;
+  const postpartum = delivered ? delivery.postpartum : null;
+  // Gestational age is not shown once she has delivered
   const weeks =
-    weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
+    !delivered && weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
   const trimester = trimesterLabel(weeks);
+  const postpartumPct = postpartum ? Math.min(100, Math.round((postpartum.days / POSTPARTUM_DAYS) * 100)) : 0;
+  const canReportDelivery = !delivered && !!dashData?.delivery_prompt;
+
+  const refreshAfterDelivery = (saved) => {
+    setDeliveryModal(null);
+    setDashData((prev) => ({ ...prev, delivery: saved, delivery_prompt: false, current_ega: null }));
+    setPatientData((prev) => ({ ...prev, delivery: saved, current_ega: null }));
+    getPatientDashboard().then((r) => setDashData(r.data)).catch(() => {});
+  };
   const progressPct =
     weeks != null ? Math.min(100, Math.max(0, Math.round((weeks / 40) * 100))) : 0;
 
@@ -256,7 +277,11 @@ const PatientDashboard = () => {
               </div>
             ) : (
               <p className="font-body-md text-white/80">
-                {weeks != null
+                {postpartum
+                  ? postpartum.completed
+                    ? postpartum.label
+                    : `${postpartum.label} · Postpartum period`
+                  : weeks != null
                   ? `Week ${weeks}${trimester ? ` · ${trimester}` : ''}`
                   : 'Pregnancy week unavailable'}
               </p>
@@ -276,6 +301,23 @@ const PatientDashboard = () => {
                 aria-hidden
               />
               <p className="font-body-md text-sm text-on-surface-variant">Loading pregnancy progress…</p>
+            </div>
+          ) : postpartum ? (
+            <div>
+              <p className="font-label-sm text-outline uppercase text-[10px] tracking-widest mb-1">After delivery</p>
+              <h3 className="font-headline-md text-body-lg text-primary mb-1">{postpartum.label}</h3>
+              <p className="font-body-md text-sm text-on-surface-variant mb-5">
+                {postpartum.completed
+                  ? 'Your 6-week postpartum period is complete. Keep attending your clinic check-ups.'
+                  : 'The postpartum period is the first 6 weeks after delivery. Rest, eat well, and go to your check-ups.'}
+              </p>
+              <div className="overflow-hidden h-2 text-xs flex rounded-full bg-surface-container">
+                <div className="bg-primary" style={{ width: `${postpartumPct}%` }} />
+              </div>
+              <div className="flex justify-between mt-2 text-[10px] font-label-sm text-outline">
+                <span>Delivery</span>
+                <span>6 weeks</span>
+              </div>
             </div>
           ) : weeks == null ? (
             <div className="py-4">
@@ -329,6 +371,25 @@ const PatientDashboard = () => {
           )}
         </section>
 
+        {canReportDelivery && (
+          <section className="bg-tertiary-fixed rounded-xl p-5 card-shadow border border-primary/10 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-full bg-white/70 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-primary">child_care</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-headline-md text-sm text-primary">Has your baby arrived?</p>
+              <p className="text-xs text-on-surface-variant">Tell us so we can show you care after delivery.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDeliveryModal('form')}
+              className="px-3 py-2 rounded-lg bg-primary text-white text-xs font-semibold shrink-0"
+            >
+              I have delivered
+            </button>
+          </section>
+        )}
+
         {/* Next Appointment Card */}
         <section className="bg-surface-container-lowest rounded-xl p-6 card-shadow border border-surface-container">
           <div className="flex gap-4 mb-6">
@@ -371,14 +432,16 @@ const PatientDashboard = () => {
               <span>
                 {loadingEga
                   ? 'Weekly tip'
-                  : weeks != null
+                  : delivered
+                    ? 'Postpartum tip'
+                    : weeks != null
                     ? `Week ${weeks} tip`
                     : 'Pregnancy tip'}
               </span>
               <BookOpen className="w-3 h-3" />
             </div>
             <h3 className="font-headline-md text-xl text-white mb-4 max-w-[200px]">
-              {eduModule?.title || 'What happens to your body this week?'}
+              {eduModule?.title || (delivered ? 'Caring for yourself after delivery' : 'What happens to your body this week?')}
             </h3>
             <button onClick={() => navigate('/education')} className="text-white font-label-sm text-sm underline underline-offset-4">
               Read full article
@@ -518,6 +581,22 @@ const PatientDashboard = () => {
       {showAI && <AIChatPanel onClose={() => setShowAI(false)} />}
 
       <WhatsAppContact number={dashData?.support_whatsapp} />
+
+      {deliveryModal && !showEmailPrompt ? (
+        <DeliveryModal
+          step={deliveryModal}
+          pregnancyStart={dashData?.pregnancy_start}
+          onNotYet={() => {
+            sessionStorage.setItem('mc_delivery_prompt_dismissed', '1');
+            setDeliveryModal(null);
+          }}
+          onClose={() => {
+            sessionStorage.setItem('mc_delivery_prompt_dismissed', '1');
+            setDeliveryModal(null);
+          }}
+          onSaved={refreshAfterDelivery}
+        />
+      ) : null}
 
       {showEmailPrompt ? (
         <EmailPrompt

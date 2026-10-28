@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { COMPLICATION_KEYS } from '../../utils/delivery';
 
 export const createProfileSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -52,3 +53,24 @@ export const createPregnancySchema = z.object({
 export const askQuestionSchema = z.object({
   question: z.string().min(5, "Question must be at least 5 characters long").max(500, "Question is too long"),
 });
+
+export const deliverySchema = z
+  .object({
+    delivery_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Choose the date of delivery'),
+    had_complications: z.boolean({ error: 'Tell us if you had any complications' }),
+    complications: z.array(z.enum(COMPLICATION_KEYS)).default([]),
+    other_complication: z.string().trim().max(500).optional().nullable(),
+    outcome: z.enum(['alive_well', 'alive_with_complications', 'stillbirth'], { error: 'Choose how the baby is' }),
+    mode: z.enum(['vaginal', 'caesarean'], { error: 'Choose the mode of delivery' }),
+  })
+  .superRefine((data, ctx) => {
+    if (isNaN(Date.parse(data.delivery_date))) {
+      ctx.addIssue({ code: 'custom', path: ['delivery_date'], message: 'Choose a valid date' });
+    }
+    if (data.had_complications && data.complications.length === 0) {
+      ctx.addIssue({ code: 'custom', path: ['complications'], message: 'Tick at least one complication' });
+    }
+    if (data.had_complications && data.complications.includes('other') && !data.other_complication) {
+      ctx.addIssue({ code: 'custom', path: ['other_complication'], message: 'Type the other complication' });
+    }
+  });

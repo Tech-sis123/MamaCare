@@ -132,6 +132,24 @@ model Pregnancy {
   /// High-risk condition ids ticked by a doctor (see src/modules/risk/conditions.ts)
   risk_factors         Json?
 
+  // ── Delivery (entered by the patient from 30 weeks; set = delivered) ──
+  delivery_date              DateTime?
+  delivery_recorded_at       DateTime?
+  delivery_had_complications Boolean?
+  /// One yes/no field per complication (kept separate for later model training)
+  comp_antepartum_hemorrhage          Boolean?
+  comp_premature_rupture_of_membranes Boolean?
+  comp_prolonged_labour               Boolean?
+  comp_postpartum_hemorrhage          Boolean?
+  comp_preeclampsia                   Boolean?
+  comp_eclampsia                      Boolean?
+  comp_other                          Boolean?
+  comp_other_details                  String?
+  /// alive_well | alive_with_complications | stillbirth
+  delivery_outcome           String?
+  /// vaginal | caesarean
+  delivery_mode              String?
+
   patient              Patient  @relation(fields: [patient_id], references: [id])
 
   @@map("pregnancies")
@@ -243,7 +261,8 @@ model PatientSiteVisit {
 
 model EducationModule {
   id           String   @id @default(uuid())
-  week_number  Int?     // 6 to 40; null = general content for any week
+  week_number  Int?     // legacy single week; new content uses stage
+  stage        String?  // general | trimester_1 | trimester_2 | trimester_3 | postpartum (null = derived from week_number)
   title        String
   summary      String?
   content_type String?  // video/article/audio; null on legacy rows (type inferred from URLs)

@@ -21,6 +21,7 @@ import BookingInvestigations from './BookingInvestigations';
 import ConsultationNotes from './ConsultationNotes';
 import PatientSelfReported from './PatientSelfReported';
 import HighRiskChecklist from '../components/HighRiskChecklist';
+import { formatDeliveryDate } from '../lib/delivery';
 import {
   emptyConsult,
   mapPregnancyToConsult,
@@ -462,7 +463,9 @@ const PatientDetailPanel = () => {
     (isReal ? '—' : MOCK.bloodType);
   const patientCode =
     fullPatient?.patient_code || formatPatientCode(fullPatient?.id || activePatient?.id);
-  const weeks = liveEga != null && !Number.isNaN(liveEga) ? liveEga : null;
+  // Entered by the patient; once set, show days/weeks postpartum instead of gestational age
+  const delivery = fullPatient?.delivery?.delivered ? fullPatient.delivery : null;
+  const weeks = !delivery && liveEga != null && !Number.isNaN(liveEga) ? liveEga : null;
 
   const assessmentReasons = fullPatient?.risk_assessments?.[0]?.reasons;
   const displayClinical =
@@ -735,7 +738,9 @@ const PatientDetailPanel = () => {
               <h2 className="font-headline-lg text-2xl mb-0.5 truncate">{name}</h2>
               <p className="font-body-md text-white/70">
                 Age {age || '—'} · {gpStr || 'G—P—'}
-                {weeks != null ? ` · ${formatEgaLabel(weeks)}` : isReal ? '' : ` · ${MOCK.ega}`}
+                {delivery
+                  ? ` · ${delivery.postpartum?.label || 'Delivered'}`
+                  : weeks != null ? ` · ${formatEgaLabel(weeks)}` : isReal ? '' : ` · ${MOCK.ega}`}
               </p>
               {patientCode && (
                 <p className="font-mono text-xs text-amber-200/80 mt-1 tracking-wide">{patientCode}</p>
@@ -751,7 +756,9 @@ const PatientDetailPanel = () => {
 
           <div className="grid grid-cols-3 gap-3 text-center">
             {[
-              { label: 'EDD', value: edd },
+              delivery
+                ? { label: 'Delivered', value: formatDeliveryDate(delivery.delivery_date) }
+                : { label: 'EDD', value: edd },
               { label: 'LMP', value: lmp },
               { label: 'Blood Type', value: bloodType },
             ].map((item) => (
@@ -805,6 +812,46 @@ const PatientDetailPanel = () => {
                 </ul>
               </div>
             ) : null}
+          </section>
+        )}
+
+        {isReal && fullPatient && (
+          <section className="bg-white border border-outline-variant/40 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="font-label-sm text-on-surface-variant uppercase tracking-widest">Delivery</h3>
+              <span
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                  delivery ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-gray-100 text-on-surface-variant border-gray-200'
+                }`}
+              >
+                {delivery ? 'Delivered' : 'Not delivered'}
+              </span>
+            </div>
+            {delivery ? (
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                {[
+                  ['Delivery date', formatDeliveryDate(delivery.delivery_date)],
+                  ['Postpartum', delivery.postpartum?.label || '—'],
+                  ['Delivery outcome', delivery.outcome_label || '—'],
+                  ['Mode of delivery', delivery.mode_label || '—'],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="font-label-sm text-[10px] uppercase text-on-surface-variant">{label}</dt>
+                    <dd className="text-on-surface font-medium">{value}</dd>
+                  </div>
+                ))}
+                <div className="sm:col-span-2">
+                  <dt className="font-label-sm text-[10px] uppercase text-on-surface-variant">Complications</dt>
+                  <dd className="text-on-surface font-medium">
+                    {delivery.complications?.length ? delivery.complications.map((c) => c.label).join(', ') : 'None'}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className="text-sm text-on-surface-variant">
+                The patient is asked from 30 weeks to enter her delivery details. They will appear here once she saves them.
+              </p>
+            )}
           </section>
         )}
 

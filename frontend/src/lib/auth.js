@@ -1,4 +1,6 @@
 export const setPatientAuth = (accessToken, refreshToken, patient) => {
+  // Fresh login: ask "Have you delivered?" again (it is dismissed per login)
+  if (!localStorage.getItem('mc_patient_token')) sessionStorage.removeItem('mc_delivery_prompt_dismissed');
   localStorage.setItem('mc_patient_token', accessToken);
   localStorage.setItem('mc_patient_refresh', refreshToken);
   localStorage.setItem('mc_patient_id', patient.id);
@@ -21,6 +23,7 @@ export const clearPatientAuth = () => {
   ['mc_patient_token', 'mc_patient_refresh', 'mc_patient_id', 'mc_patient'].forEach(k =>
     localStorage.removeItem(k)
   );
+  sessionStorage.removeItem('mc_delivery_prompt_dismissed');
 };
 
 export const clearDoctorAuth = () => {

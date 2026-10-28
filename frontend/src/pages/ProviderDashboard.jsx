@@ -55,6 +55,7 @@ const toQueuePatient = (apt) => {
     code: apt.patient.patient_code || patientCode(apt.patient.id),
     age: apt.patient.age || '—',
     weeks: apt.patient.ega_weeks || '—',
+    postpartum: apt.patient.postpartum_label || null,
     risk: (apt.patient.risk_tier || 'LOW').toUpperCase(),
     flags: Array.isArray(apt.patient.risk_reasons) ? apt.patient.risk_reasons : [],
     time: slotDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
@@ -99,6 +100,7 @@ const toPatientRow = (p) => ({
   code: p.patient_code || patientCode(p.id),
   age: p.age || '—',
   weeks: p.ega_weeks || '—',
+  postpartum: p.postpartum_label || null,
   risk: (p.risk_tier || 'LOW').toUpperCase(),
   flags: Array.isArray(p.risk_reasons) ? p.risk_reasons : [],
   lastSeen: p.last_seen_at || null,
@@ -239,7 +241,7 @@ const QueueView = ({ navigate, sseAlerts, onDismiss, fromTab }) => {
                   <h4 className="font-headline-md text-amber-900 text-base">{p.name}</h4>
                   <p className="font-body-md text-on-surface-variant text-sm mt-0.5">
                     {p.code ? <span className="font-mono text-xs mr-2 text-primary/80">{p.code}</span> : null}
-                    Age {p.age} · Week {p.weeks}
+                    Age {p.age} · {p.postpartum || `Week ${p.weeks}`}
                   </p>
                   {p.flags.length > 0 && (
                     <div className="flex gap-2 mt-1.5 flex-wrap">
@@ -574,7 +576,7 @@ const PatientsView = ({ navigate, fromTab, setActiveView, onSelectPatientForSms 
                   <p className="font-headline-md text-amber-900">{p.name}</p>
                   <p className="font-body-md text-on-surface-variant text-sm">
                     {p.code ? <span className="font-mono text-xs mr-2 text-primary/80">{p.code}</span> : null}
-                    Age {p.age} · Week {p.weeks}
+                    Age {p.age} · {p.postpartum || `Week ${p.weeks}`}
                   </p>
                   {p.flags.length > 0 && (
                     <div className="flex gap-2 mt-1.5 flex-wrap">

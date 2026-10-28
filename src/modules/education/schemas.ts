@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EDUCATION_STAGE_IDS } from './stages';
 
 export const educationModulesQuerySchema = z.object({
   week: z.string().optional().transform((v) => v ? parseInt(v, 10) : undefined),
@@ -35,7 +36,7 @@ export const educationContentSchema = z
   .object({
     content_type: z.enum(['video', 'article']),
     title: z.string().trim().min(3, 'Title must be at least 3 characters').max(200),
-    week_number: z.coerce.number().int().min(1).max(42).optional().nullable().transform((v) => v ?? null),
+    stage: z.enum(EDUCATION_STAGE_IDS).default('general'),
     summary: optionalText(2000),
     video_url: optionalUrl,
     transcript: optionalText(100_000),

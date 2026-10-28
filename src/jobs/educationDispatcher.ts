@@ -15,6 +15,8 @@ export async function dispatchWeeklyEducation() {
       },
       where: {
         current_ega_weeks: { not: null },
+        // Weekly pregnancy lessons stop once she has delivered
+        delivery_date: null,
       }
     });
 

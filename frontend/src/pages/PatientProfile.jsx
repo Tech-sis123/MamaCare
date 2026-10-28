@@ -4,6 +4,7 @@ import { getPatientMe, setPatientCredentials, upsertProfile } from '../lib/api';
 import { getPatientData, setPatientAuth, clearPatientAuth } from '../lib/auth';
 import WhatsAppContact from '../components/WhatsAppContact';
 import EmailPrompt from '../components/EmailPrompt';
+import { formatDeliveryDate } from '../lib/delivery';
 
 const PatientProfile = () => {
   const navigate = useNavigate();
@@ -223,8 +224,10 @@ const PatientProfile = () => {
     pregnancy?.current_ega_weeks ??
     pregnancy?.gestational_age?.weeks ??
     null;
+  const delivery = patient?.delivery?.delivered ? patient.delivery : null;
+  // Gestational age is not shown once she has delivered
   const weeks =
-    weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
+    !delivery && weeksRaw != null && !Number.isNaN(Number(weeksRaw)) ? Number(weeksRaw) : null;
   const eddVal = pregnancy?.edd_computed || pregnancy?.edd;
   const edd = eddVal
     ? new Date(eddVal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -317,7 +320,9 @@ const PatientProfile = () => {
           <div className="absolute right-4 top-4 opacity-10">
             <span className="material-symbols-outlined text-[80px]">pregnant_woman</span>
           </div>
-          <p className="font-label-sm text-xs uppercase tracking-widest opacity-70 mb-2">Current Pregnancy</p>
+          <p className="font-label-sm text-xs uppercase tracking-widest opacity-70 mb-2">
+            {delivery ? 'After Delivery' : 'Current Pregnancy'}
+          </p>
           {profileLoading ? (
             <div className="flex flex-col items-start gap-3 py-4" role="status" aria-live="polite">
               <span
@@ -326,6 +331,14 @@ const PatientProfile = () => {
               />
               <p className="font-body-md text-white/80 text-sm">Loading pregnancy week…</p>
             </div>
+          ) : delivery ? (
+            <>
+              <h3 className="font-headline-md text-2xl mb-1">{delivery.postpartum?.label}</h3>
+              <p className="font-body-md text-white/80 text-sm">
+                Delivered {formatDeliveryDate(delivery.delivery_date)}
+                {delivery.mode_label ? ` · ${delivery.mode_label}` : ''}
+              </p>
+            </>
           ) : weeks == null ? (
             <>
               <h3 className="font-headline-md text-2xl mb-1">Week unavailable</h3>

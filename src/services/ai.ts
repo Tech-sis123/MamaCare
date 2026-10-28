@@ -2,6 +2,19 @@ import { env } from '../config/env';
 import { logger } from '../utils/logger';
 import { riskGuidelineText } from '../modules/risk/conditions';
 import { doctorGuidanceText, patientGuidanceText } from './clinicalGuidance';
+import { deliverySummary } from '../utils/delivery';
+
+/** Tells the model she has already delivered, so it answers about postpartum care, not pregnancy weeks. */
+function deliveryContext(pregnancy: any): string {
+  const delivery = deliverySummary(pregnancy);
+  if (!delivery.delivered) return '';
+  const parts = [
+    `- Delivered on ${delivery.delivery_date} (${delivery.postpartum?.label}). She is no longer pregnant: answer about postpartum recovery and newborn care, not gestational age.`,
+    `- Delivery: ${delivery.mode_label || 'mode not given'}; baby: ${delivery.outcome_label || 'not given'}; complications: ${delivery.complications.map((c) => c.label).join(', ') || 'none'}.`,
+  ];
+  if (delivery.outcome === 'stillbirth') parts.push('- Her baby died at birth. Be especially gentle and do not give newborn-care tips.');
+  return parts.join('\n');
+}
 
 interface GenerateLessonParams {
   patientName: string;
@@ -100,7 +113,7 @@ Context:
 - Age: ${patientData.age || 'Unknown'}
 - Pregnancy info: ${JSON.stringify(patientData.pregnancies?.[0] || 'No current pregnancy info')}
 - Recent symptoms: ${JSON.stringify(patientData.symptoms || 'None')}
-
+${deliveryContext(patientData.pregnancies?.[0])}
 Patient Question: "${question}"
 
 Provide a deeply insightful, comforting, and medically sound response. Explain the "why" behind your advice so the patient truly understands what is happening in her body. Draw connections between her current gestational age and her symptoms.
@@ -164,7 +177,8 @@ Format your response with clear, easy-to-read paragraphs or bullet points where 
 - Age: ${patientData.age || 'Unknown'}
 - Pregnancy info: ${JSON.stringify(patientData.pregnancies?.[0] || 'No current pregnancy info')}
 - Risk Assessment: ${JSON.stringify(patientData.risk_assessments?.[0] || 'Unknown')}
-- Recent symptoms: ${JSON.stringify(patientData.symptoms || 'None')}\n`;
+- Recent symptoms: ${JSON.stringify(patientData.symptoms || 'None')}
+${deliveryContext(patientData.pregnancies?.[0])}\n`;
       }
 
       prompt += `\nThis clinic's high-risk pregnancy criteria (from its own guideline; the risk engine grades every listed condition HIGH):

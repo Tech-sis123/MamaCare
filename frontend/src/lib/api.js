@@ -125,6 +125,7 @@ export const getPatientMe = () => patientApi.get('/patients/me');
 export const getPatientDashboard = () => patientApi.get('/patients/me/dashboard');
 export const upsertProfile = data => patientApi.post('/patients/profile', data);
 export const addPregnancy = data => patientApi.post('/patients/pregnancy', data);
+export const savePatientDelivery = data => patientApi.put('/patients/me/delivery', data);
 
 // ── Intake ────────────────────────────────────────────────────────────────────
 

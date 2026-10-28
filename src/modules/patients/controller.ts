@@ -1,7 +1,16 @@
 import { Response, NextFunction } from 'express';
 import prisma from '../../config/prisma';
 import { AuthRequest } from '../../utils/types';
-import { NotFoundError } from '../../utils/errors';
+import { NotFoundError, ValidationError } from '../../utils/errors';
+import {
+  DELIVERY_COMPLICATIONS,
+  DELIVERY_PROMPT_FROM_WEEK,
+  deliveryDateFromString,
+  deliverySummary,
+  lagosDateString,
+  pregnancyStartDate,
+} from '../../utils/delivery';
+import { moduleStage, visibleStages } from '../education/stages';
 import { calculateEDD, calculateEGAWeeks, calculateEGADetailed } from '../../services/ega-calculator';
 import { logger } from '../../utils/logger';
 import { aiService } from '../../services/ai';
@@ -165,10 +174,11 @@ export const patientsController = {
         throw new NotFoundError('Patient not found');
       }
 
-      // Recompute current EGA dynamically
+      // Recompute current EGA dynamically (not shown once she has delivered)
       const pregnancy = patient.pregnancies[0];
+      const delivery = deliverySummary(pregnancy);
       let ega = null;
-      if (pregnancy?.lmp_date) {
+      if (pregnancy?.lmp_date && !delivery.delivered) {
         ega = calculateEGADetailed(new Date(pregnancy.lmp_date));
       }
 
@@ -186,6 +196,7 @@ export const patientsController = {
         email_verified: !!patient.email_verified_at,
         needs_email: !isUsableEmail(email) && !safePatient.username,
         current_ega: ega,
+        delivery,
       });
     } catch (err) {
       next(err);
@@ -214,9 +225,10 @@ export const patientsController = {
       }
 
       const pregnancy = patient.pregnancies[0] || null;
+      const delivery = deliverySummary(pregnancy);
       let currentEga = null;
       let egaWeeks = 0;
-      if (pregnancy?.lmp_date) {
+      if (pregnancy?.lmp_date && !delivery.delivered) {
         currentEga = calculateEGADetailed(new Date(pregnancy.lmp_date));
         egaWeeks = currentEga.weeks;
       }
@@ -232,13 +244,24 @@ export const patientsController = {
         include: { doctor: { select: { name: true } } },
       });
 
-      // This week's education module
-      const educationModule = await prisma.educationModule.findFirst({
-        where: {
-          week_number: egaWeeks > 0 ? egaWeeks : 6,
-          status: 'published',
-        },
-      });
+      // This week's education module; after delivery, the newest lesson she can see (postpartum first)
+      let educationModule;
+      if (delivery.delivered) {
+        const stages = visibleStages({ egaWeeks: null, postpartum: delivery.postpartum, delivered: true });
+        const published = await prisma.educationModule.findMany({
+          where: { status: 'published' },
+          orderBy: { created_at: 'desc' },
+        });
+        const visible = published.filter((m) => stages.has(moduleStage(m)));
+        educationModule = visible.find((m) => moduleStage(m) === 'postpartum') || visible[0] || null;
+      } else {
+        educationModule = await prisma.educationModule.findFirst({
+          where: {
+            week_number: egaWeeks > 0 ? egaWeeks : 6,
+            status: 'published',
+          },
+        });
+      }
 
       void recordPatientSiteVisit(patientId, '/dashboard');
 
@@ -247,6 +270,10 @@ export const patientsController = {
       res.status(200).json({
         current_ega: currentEga,
         edd: pregnancy?.edd_computed,
+        delivery,
+        // Ask "Have you delivered?" from 30 weeks until she saves her delivery details
+        delivery_prompt: !!pregnancy && !delivery.delivered && !!currentEga && currentEga.weeks >= DELIVERY_PROMPT_FROM_WEEK,
+        pregnancy_start: pregnancyStartDate(pregnancy)?.toISOString().slice(0, 10) ?? null,
         next_appointment: nextAppointment
           ? {
               id: nextAppointment.id,
@@ -268,6 +295,71 @@ export const patientsController = {
         last_seen_at: patient.last_seen_at,
         site_visit_count: patient.site_visit_count,
       });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PUT /patients/me/delivery
+   * Patient records that she has delivered. Can be saved again to correct details.
+   */
+  async saveDelivery(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const patientId = req.user!.id;
+      const data = req.body as {
+        delivery_date: string;
+        had_complications: boolean;
+        complications: string[];
+        other_complication?: string | null;
+        outcome: string;
+        mode: string;
+      };
+
+      const pregnancy = await prisma.pregnancy.findFirst({
+        where: { patient_id: patientId },
+        orderBy: { id: 'desc' },
+      });
+      if (!pregnancy) throw new ValidationError('We could not find your pregnancy record. Please contact your clinic.');
+
+      if (data.delivery_date > lagosDateString()) {
+        throw new ValidationError('The date of delivery cannot be in the future');
+      }
+      const start = pregnancyStartDate(pregnancy);
+      if (start && data.delivery_date < start.toISOString().slice(0, 10)) {
+        throw new ValidationError('The date of delivery cannot be before the start of your pregnancy');
+      }
+
+      const ticked = new Set(data.had_complications ? data.complications : []);
+      const complicationFields = Object.fromEntries(DELIVERY_COMPLICATIONS.map((c) => [c.column, ticked.has(c.key)]));
+
+      const updated = await prisma.pregnancy.update({
+        where: { id: pregnancy.id },
+        data: {
+          delivery_date: deliveryDateFromString(data.delivery_date),
+          delivery_recorded_at: new Date(),
+          delivery_had_complications: data.had_complications,
+          ...complicationFields,
+          comp_other_details: ticked.has('other') ? data.other_complication || null : null,
+          delivery_outcome: data.outcome,
+          delivery_mode: data.mode,
+        },
+      });
+
+      await prisma.auditLog
+        .create({
+          data: {
+            actor_type: 'patient',
+            actor_id: patientId,
+            action: pregnancy.delivery_date ? 'delivery_updated' : 'delivery_recorded',
+            resource_type: 'pregnancy',
+            resource_id: pregnancy.id,
+            after: { delivery_date: data.delivery_date, outcome: data.outcome, mode: data.mode },
+          },
+        })
+        .catch((err) => logger.warn({ err }, 'Failed to audit delivery'));
+
+      res.status(200).json({ delivery: deliverySummary(updated) });
     } catch (err) {
       next(err);
     }

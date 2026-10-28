@@ -6,7 +6,7 @@ describe('education content schema', () => {
     const result = educationContentSchema.safeParse({
       content_type: 'video',
       title: 'Counting baby kicks',
-      week_number: 28,
+      stage: 'trimester_3',
       video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
       transcript: '',
     });
@@ -23,15 +23,14 @@ describe('education content schema', () => {
     expect(result.error?.issues[0].path).toEqual(['video_url']);
   });
 
-  it('accepts a general article with text and no week', () => {
+  it('accepts an article with text and defaults it to General', () => {
     const result = educationContentSchema.safeParse({
       content_type: 'article',
       title: 'Foods that build blood',
-      week_number: null,
       body: 'Ugu, beans and fish are rich in iron.',
     });
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.week_number).toBeNull();
+    if (result.success) expect(result.data.stage).toBe('general');
   });
 
   it('accepts an article that is only a link', () => {

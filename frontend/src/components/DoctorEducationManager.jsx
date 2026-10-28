@@ -8,13 +8,12 @@ import {
 } from '../lib/api';
 import { getVideoSource } from '../lib/videoEmbed';
 import DoctorLessonComments from './DoctorLessonComments';
-
-const WEEK_OPTIONS = Array.from({ length: 39 }, (_, i) => i + 4); // weeks 4–42
+import { EDUCATION_STAGES, moduleStage, stageLabel } from '../lib/delivery';
 
 const EMPTY_FORM = {
   content_type: 'video',
   title: '',
-  week_number: '',
+  stage: 'general',
   summary: '',
   video_url: '',
   transcript: '',
@@ -102,7 +101,7 @@ const ContentEditor = ({ initial, onClose, onSaved }) => {
           ...EMPTY_FORM,
           ...Object.fromEntries(Object.keys(EMPTY_FORM).map((k) => [k, initial[k] ?? EMPTY_FORM[k]])),
           content_type: moduleType(initial) === 'video' ? 'video' : 'article',
-          week_number: initial.week_number ?? '',
+          stage: moduleStage(initial),
           status: initial.status === 'published' ? 'published' : 'draft',
         }
       : EMPTY_FORM
@@ -123,7 +122,7 @@ const ContentEditor = ({ initial, onClose, onSaved }) => {
     setSaving(true);
     setSaveError('');
     setFieldErrors({});
-    const payload = { ...form, week_number: form.week_number === '' ? null : Number(form.week_number) };
+    const payload = { ...form };
     try {
       const { data } = isEdit
         ? await updateEducationModule(initial.id, payload)
@@ -187,11 +186,10 @@ const ContentEditor = ({ initial, onClose, onSaved }) => {
           </Field>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Pregnancy week" hint="Patients in this week see it recommended." error={fieldErrors.week_number}>
-              <select value={form.week_number} onChange={set('week_number')} className={inputClass}>
-                <option value="">General (any week)</option>
-                {WEEK_OPTIONS.map((w) => (
-                  <option key={w} value={w}>Week {w}</option>
+            <Field label="Who sees it" hint="Patients see it while their current week is in this group." error={fieldErrors.stage}>
+              <select value={form.stage} onChange={set('stage')} className={inputClass}>
+                {EDUCATION_STAGES.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label} ({s.range})</option>
                 ))}
               </select>
             </Field>
@@ -481,7 +479,7 @@ const DoctorEducationManager = () => {
                         {published ? 'Published' : 'Draft'}
                       </span>
                       <span className="text-[11px] text-on-surface-variant">
-                        {meta.label} · {m.week_number ? `Week ${m.week_number}` : 'General'}
+                        {meta.label} · {stageLabel(m)}
                         {m.updated_at && ` · Updated ${formatDate(m.updated_at)}`}
                       </span>
                       {t === 'video' && (

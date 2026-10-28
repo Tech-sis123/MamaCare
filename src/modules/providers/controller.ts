@@ -9,6 +9,7 @@ import { aiService } from '../../services/ai';
 import { splitRiskReasons, isSmsPhone, formatPhoneForTermii } from '../../utils/contact';
 import { doctorSmsJobs } from '../../services/doctorSmsJobs';
 import { assessPatientRisk } from '../risk/assess';
+import { deliverySummary, postpartumStatus } from '../../utils/delivery';
 
 export const providersController = {
   /**
@@ -86,9 +87,10 @@ export const providersController = {
           age: apt.patient.age,
           risk_tier: apt.patient.risk_assessments[0]?.tier || null,
           risk_reasons: splitRiskReasons(apt.patient.risk_assessments[0]?.reasons).clinical,
-          ega_weeks: apt.patient.pregnancies[0]?.lmp_date
+          ega_weeks: apt.patient.pregnancies[0]?.lmp_date && !apt.patient.pregnancies[0]?.delivery_date
             ? calculateEGAWeeks(new Date(apt.patient.pregnancies[0].lmp_date))
             : null,
+          postpartum_label: postpartumStatus(apt.patient.pregnancies[0]?.delivery_date)?.label ?? null,
         },
       }));
 
@@ -123,11 +125,12 @@ export const providersController = {
       }
 
       const pregnancy = patient.pregnancies[0] || null;
-      const egaWeeks =
-        pregnancy?.current_ega_weeks ??
-        (pregnancy?.lmp_date
-          ? calculateEGAWeeks(new Date(pregnancy.lmp_date))
-          : null);
+      const egaWeeks = pregnancy?.delivery_date
+        ? null
+        : pregnancy?.current_ega_weeks ??
+          (pregnancy?.lmp_date
+            ? calculateEGAWeeks(new Date(pregnancy.lmp_date))
+            : null);
 
       // Medical intake stores condition keys as question_key with answer "yes"
       // (e.g. hypertension, diabetes) — not chronic_* prefixes.
@@ -251,7 +254,7 @@ export const providersController = {
             pregnancies: {
               orderBy: { id: 'desc' },
               take: 1,
-              select: { lmp_date: true },
+              select: { lmp_date: true, delivery_date: true },
             },
           },
           orderBy: { name: 'asc' },
@@ -293,9 +296,10 @@ export const providersController = {
         last_seen_at: p.last_seen_at,
         site_visit_count: p.site_visit_count,
         has_sms: isSmsPhone(p.phone_number),
-        ega_weeks: p.pregnancies[0]?.lmp_date
+        ega_weeks: p.pregnancies[0]?.lmp_date && !p.pregnancies[0]?.delivery_date
           ? calculateEGAWeeks(new Date(p.pregnancies[0].lmp_date))
           : null,
+        postpartum_label: postpartumStatus(p.pregnancies[0]?.delivery_date)?.label ?? null,
       }));
 
       res.status(200).json({
@@ -467,7 +471,14 @@ export const providersController = {
         appointments: unknown;
       };
       res.status(200).json({
-        patient: { ...patientRest, pregnancies, patient_code, booking_history },
+        patient: {
+          ...patientRest,
+          pregnancies,
+          patient_code,
+          booking_history,
+          // Saved by the patient from her dashboard
+          delivery: deliverySummary(patient.pregnancies[0]),
+        },
       });
     } catch (err) {
       next(err);

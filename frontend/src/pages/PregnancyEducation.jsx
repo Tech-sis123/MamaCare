@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getEducationModules, getPatientDashboard } from '../lib/api';
 import WhatsAppContact from '../components/WhatsAppContact';
+import { stageLabel } from '../lib/delivery';
 
 const TYPE_STYLE = {
   video:   { icon: 'play_circle',  bg: 'bg-primary-fixed-dim', color: 'text-primary-container', border: 'border-tertiary-fixed' },
@@ -77,6 +78,8 @@ const PregnancyEducation = () => {
   const [modulesLoading, setModulesLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
+  // Set once she has saved her delivery details: { postpartum: { label, completed } }
+  const [delivered, setDelivered] = useState(null);
 
   useEffect(() => {
     // 1. Fetch education modules and patient's week from the education endpoint
@@ -88,6 +91,9 @@ const PregnancyEducation = () => {
         }
         if (r.data?.patient?.current_ega_weeks != null) {
           setCurrentWeek(r.data.patient.current_ega_weeks);
+        }
+        if (r.data?.patient?.delivered) {
+          setDelivered({ postpartum: r.data.patient.postpartum });
         }
       })
       .catch(() => {})
@@ -107,7 +113,8 @@ const PregnancyEducation = () => {
   // Merge core rich articles with database modules (avoiding duplicate IDs)
   const coreIds = new Set(CORE_FEATURED_MODULES.map((m) => m.id));
   const additionalDbModules = dbModules.filter((m) => !coreIds.has(m.id));
-  const allModules = [...CORE_FEATURED_MODULES, ...additionalDbModules];
+  // The built-in lessons are pregnancy lessons, so they are hidden after delivery
+  const allModules = delivered ? additionalDbModules : [...CORE_FEATURED_MODULES, ...additionalDbModules];
 
   // Counts for tabs
   const articleCount = allModules.filter((m) => getModuleType(m) === 'article').length;
@@ -155,7 +162,7 @@ const PregnancyEducation = () => {
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          <h1 className="font-headline-md text-headline-md">Pregnancy Education</h1>
+          <h1 className="font-headline-md text-headline-md">{delivered ? 'Education' : 'Pregnancy Education'}</h1>
           <div className="ml-auto">
             <span className="material-symbols-outlined text-on-primary-container">pregnant_woman</span>
           </div>
@@ -167,10 +174,14 @@ const PregnancyEducation = () => {
           <div className="bg-tertiary-fixed px-6 py-8 flex items-center justify-between shadow-xs">
             <div className="space-y-1">
               <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest font-semibold">
-                {currentWeek ? `Trimester ${currentWeek <= 12 ? '1' : currentWeek <= 27 ? '2' : '3'} • Ongoing Learning` : 'Ongoing Learning'}
+                {delivered
+                  ? `${delivered.postpartum?.label || 'Postpartum'} • Ongoing Learning`
+                  : currentWeek ? `Trimester ${currentWeek <= 13 ? '1' : currentWeek <= 27 ? '2' : '3'} • Ongoing Learning` : 'Ongoing Learning'}
               </span>
               <h2 className="font-headline-lg text-headline-lg text-primary font-bold">
-                {currentWeek ? `Learning for Week ${currentWeek}` : 'Learning for Your Pregnancy'}
+                {delivered
+                  ? 'Learning After Delivery'
+                  : currentWeek ? `Learning for Week ${currentWeek}` : 'Learning for Your Pregnancy'}
               </h2>
               <p className="text-primary/80 text-xs font-medium">
                 {completedCount > 0
@@ -305,7 +316,7 @@ const PregnancyEducation = () => {
                 const isCompleted = mod.is_completed || mod.completed;
                 const typeLabel = modType.charAt(0).toUpperCase() + modType.slice(1);
                 const duration = mod.duration || (modType === 'video' ? '8 min' : modType === 'audio' ? '12 min' : '5 min read');
-                const weekLabel = mod.week_number ? `Week ${mod.week_number}` : mod.week || 'Pregnancy Guide';
+                const weekLabel = mod.week || stageLabel(mod);
                 const description = mod.summary || mod.description || mod.subtitle || '';
 
                 return (

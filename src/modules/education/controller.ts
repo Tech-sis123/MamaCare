@@ -9,6 +9,8 @@ import { logger } from '../../utils/logger';
 import { z } from 'zod';
 import { educationContentSchema } from './schemas';
 import { commentStatsByModule } from './comments';
+import { moduleStage, visibleStages } from './stages';
+import { deliverySummary } from '../../utils/delivery';
 
 export const educationController = {
   /**
@@ -63,19 +65,28 @@ export const educationController = {
       const completedIds = new Set(patient.education_progress.map((p) => p.module_id));
       const pregnancy = patient.pregnancies[0] || null;
       const riskTier = patient.risk_assessments[0]?.tier || 'LOW';
+      const delivery = deliverySummary(pregnancy);
 
-      // 2. Compute active gestational age
-      const egaWeeks = pregnancy?.lmp_date
+      // 2. Compute active gestational age (none once she has delivered)
+      const egaWeeks = pregnancy?.lmp_date && !delivery.delivered
         ? calculateEGAWeeks(new Date(pregnancy.lmp_date))
         : null;
 
+      // Only lessons for her current group: her trimester, or postpartum for 6 weeks after delivery
+      const stages = visibleStages({
+        egaWeeks,
+        delivered: delivery.delivered,
+        postpartum: delivery.delivered ? delivery.postpartum : null,
+      });
+
       // Map completed status & personalize modules list
-      const mappedModules = modules.map((mod) => {
+      const mappedModules = modules.filter((mod) => stages.has(moduleStage(mod))).map((mod) => {
         const isCompleted = completedIds.has(mod.id);
         const isTargetWeek = egaWeeks !== null && mod.week_number === egaWeeks;
 
         return {
           ...mod,
+          stage: moduleStage(mod),
           is_completed: isCompleted,
           is_current_recommendation: isTargetWeek,
           is_safety_warning: riskTier !== 'LOW' && mod.week_number === 28, // Pinned safety module
@@ -127,6 +138,8 @@ export const educationController = {
         patient: {
           name: patient.name,
           current_ega_weeks: egaWeeks,
+          delivered: delivery.delivered,
+          postpartum: delivery.delivered ? delivery.postpartum : null,
         },
         recommendations: {
           weekly_target: aiRecommendation || currentRecommendation, // Use AI if active, fallback to database clinical content
@@ -302,7 +315,8 @@ function toModuleData(input: EducationContentInput) {
   return {
     content_type: input.content_type,
     title: input.title,
-    week_number: input.week_number,
+    stage: input.stage,
+    week_number: null, // replaced by stage; kept only on legacy rows
     summary: input.summary,
     status: input.status,
     video_url: isVideo ? input.video_url : null,

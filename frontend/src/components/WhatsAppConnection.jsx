@@ -155,7 +155,17 @@ const WhatsAppConnection = () => {
       );
     }
 
-    if (status === 'starting') return <Spinner label="Opening WhatsApp… the QR code usually appears within a minute." />;
+    if (status === 'starting') {
+      return (
+        <Spinner
+          label={
+            conn.stage === 'downloading_browser'
+              ? 'Setting up WhatsApp on the server for the first time. This can take a minute or two…'
+              : 'Opening WhatsApp… the QR code usually appears within a minute.'
+          }
+        />
+      );
+    }
     if (status === 'authenticating') return <Spinner label="Code scanned. Linking the clinic WhatsApp…" />;
 
     if (status === 'qr' && conn.qr_image) {

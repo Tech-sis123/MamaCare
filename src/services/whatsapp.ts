@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import prisma from '../config/prisma';
 import { env } from '../config/env';
 import { Client, LocalAuth } from 'whatsapp-web.js';
+import { desktopUserAgent, downloadChrome, findChrome } from './chromeForWhatsapp';
 import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import { whatsappBot } from './whatsappBot';
@@ -41,6 +42,8 @@ interface ConnectionState {
   qrAt: Date | null;
   phone: string | null;
   name: string | null;
+  /** While starting: 'downloading_browser' the first time Chrome is fetched on a server */
+  stage: 'downloading_browser' | null;
   error: string | null;
   detail: string | null;
   updatedAt: Date;
@@ -54,6 +57,7 @@ let state: ConnectionState = {
   qrAt: null,
   phone: null,
   name: null,
+  stage: null,
   error: null,
   detail: null,
   updatedAt: new Date(),
@@ -65,30 +69,102 @@ const setState = (patch: Partial<ConnectionState>) => {
 };
 
 const sessionDir = () => path.join(path.resolve(env.WHATSAPP_AUTH_PATH), 'session');
+// whatsapp-web.js creates the session folder on every attempt, scanned or not, so a separate
+// marker records that a phone really linked; only then does the server reconnect on start
+const linkedMarker = () => path.join(path.resolve(env.WHATSAPP_AUTH_PATH), 'linked.json');
 
-export const hasSavedSession = () => fs.existsSync(sessionDir());
+export const hasSavedSession = () => fs.existsSync(linkedMarker());
 
-function chromePath(): string | undefined {
-  if (env.WHATSAPP_CHROME_PATH) return env.WHATSAPP_CHROME_PATH;
-  const windowsChrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
-  return fs.existsSync(windowsChrome) ? windowsChrome : undefined;
+function markLinked(phone: string | null) {
+  try {
+    fs.mkdirSync(path.dirname(linkedMarker()), { recursive: true });
+    fs.writeFileSync(linkedMarker(), JSON.stringify({ phone, linked_at: new Date().toISOString() }));
+  } catch (err) {
+    logger.warn({ err }, 'Could not save the WhatsApp linked marker');
+  }
 }
 
-function createClient(attempt = 1): Client {
+function clearLinked() {
+  fs.rmSync(linkedMarker(), { force: true });
+}
+
+// Recommended for Chrome in containers (small /dev/shm, no GPU, often no sandbox support)
+const CHROME_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
+let chromeDownload: Promise<string> | null = null;
+
+/**
+ * Chrome for WhatsApp Web: WHATSAPP_CHROME_PATH, else the installed Chrome on Windows,
+ * else Puppeteer's Chrome in .cache/puppeteer, downloaded now if the server doesn't have it
+ * (e.g. the install step skipped the download), so linking works wherever the backend runs.
+ */
+async function resolveChrome(): Promise<string> {
+  if (env.WHATSAPP_CHROME_PATH) return env.WHATSAPP_CHROME_PATH;
+  const windowsChrome = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  if (process.platform === 'win32' && fs.existsSync(windowsChrome)) return windowsChrome;
+
+  const found = findChrome();
+  if (found) return found;
+
+  if (!chromeDownload) {
+    logger.info('Chrome not found on this server, downloading it for WhatsApp');
+    chromeDownload = downloadChrome().finally(() => {
+      chromeDownload = null;
+    });
+  }
+  setState({ stage: 'downloading_browser' });
+  return chromeDownload;
+}
+
+/** Plain-language reason for a start-up failure; the raw error goes in `detail`. */
+function startErrorMessage(err: unknown): string {
+  const text = String((err as Error)?.message || err);
+  if (/shared librar|lib\w+\.so/i.test(text)) {
+    return 'The server is missing system files that Chrome needs to open WhatsApp Web. Your technical team needs to fix this on the server.';
+  }
+  if (/Could not find Chrome|Browser was not found|executablePath/i.test(text)) {
+    return 'Chrome, which WhatsApp Web needs, was not found on the server. Try again, or ask your technical team to check the server.';
+  }
+  return 'The server could not open WhatsApp Web. Try again, or ask your technical team to check the server.';
+}
+
+/** Finds Chrome (downloading it if needed), then opens WhatsApp Web. */
+function startClient(attempt = 1) {
   const gen = ++generation;
   // Ignore events from a client that has since been restarted or logged out
   const current = () => gen === generation;
 
+  resolveChrome()
+    .then((executablePath) => {
+      if (!current()) return;
+      setState({ stage: null });
+      client = createClient(executablePath, attempt, current);
+    })
+    .catch((err) => {
+      if (!current()) return;
+      logger.error({ err }, 'Could not get Chrome for WhatsApp');
+      setState({
+        status: 'failed',
+        stage: null,
+        error: 'The server could not download Chrome, which WhatsApp Web needs. Try again in a minute.',
+        detail: String(err?.message || err).slice(0, 300),
+      });
+    });
+}
+
+function createClient(executablePath: string, attempt: number, current: () => boolean): Client {
   const c = new Client({
     authStrategy: new LocalAuth({ dataPath: env.WHATSAPP_AUTH_PATH }),
     qrMaxRetries: QR_MAX_RETRIES,
-    // The library's default user agent is Chrome 101, which WhatsApp now sends to a "Download WhatsApp"
-    // page instead of the QR code. Use the installed Chrome's own user agent, which stays current.
-    // (Typed as string, but whatsapp-web.js treats false as "don't override".)
-    userAgent: false as unknown as string,
+    // WhatsApp only shows the QR code to a current desktop Chrome: the library's default (Chrome 101)
+    // gets a "Download WhatsApp" page, and headless Chrome on Linux ("HeadlessChrome") gets
+    // "update Chrome". So send a normal Chrome user agent with this browser's real version.
+    // (If the version can't be told, false keeps Chrome's own; typed as string, but the library accepts it.)
+    userAgent: desktopUserAgent(executablePath) ?? (false as unknown as string),
+    // WhatsApp Web can take a while to load on a slow server connection (library default is 30s)
+    authTimeoutMs: 90000,
     puppeteer: {
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      executablePath: chromePath(),
+      args: CHROME_ARGS,
+      executablePath,
     },
   });
 
@@ -116,12 +192,14 @@ function createClient(attempt = 1): Client {
       phone: wid ? `+${wid}` : null,
       name: c.info?.pushname || null,
     });
+    markLinked(wid ? `+${wid}` : null);
     logger.info({ phone: wid }, 'WhatsApp client is ready!');
   });
 
   c.on('auth_failure', (msg) => {
     if (!current()) return;
     logger.error({ msg }, 'WhatsApp authentication failure');
+    clearLinked();
     setState({
       status: 'failed',
       qr: null,
@@ -147,6 +225,7 @@ function createClient(attempt = 1): Client {
     const expired = String(reason).includes('Max qrcode retries');
     logger.warn({ reason }, 'WhatsApp disconnected');
     if (expired) client = null; // whatsapp-web.js closes the browser itself
+    if (reason === 'LOGOUT') clearLinked(); // unlinked from the phone
     setState({
       status: expired ? 'expired' : 'disconnected',
       qr: null,
@@ -162,7 +241,7 @@ function createClient(attempt = 1): Client {
     if (attempt < START_ATTEMPTS && TRANSIENT_START_ERROR.test(String(err?.message || err))) {
       logger.warn({ err: String(err?.message || err), attempt }, 'WhatsApp Web reloaded while starting, trying again');
       await c.destroy().catch(() => {}); // free the browser profile before reopening it
-      if (current()) client = createClient(attempt + 1);
+      if (current()) startClient(attempt + 1);
       return;
     }
     logger.error({ err }, 'Failed to initialize WhatsApp client');
@@ -171,7 +250,7 @@ function createClient(attempt = 1): Client {
       status: 'failed',
       qr: null,
       qrAt: null,
-      error: 'The server could not open WhatsApp Web. Try again, or ask your technical team to check the server.',
+      error: startErrorMessage(err),
       detail: String(err?.message || err).slice(0, 300),
     });
     c.destroy().catch(() => {});
@@ -189,10 +268,11 @@ async function closeClient() {
 
 /** Starts WhatsApp Web (shows a QR code unless a saved login reconnects). restart=true closes the current one first. */
 export async function startWhatsApp({ restart = false } = {}) {
-  if (client && !restart && ACTIVE.includes(state.status)) return getWhatsAppStatus();
+  // Already starting (maybe still fetching Chrome), showing a code, or connected
+  if (!restart && ACTIVE.includes(state.status)) return getWhatsAppStatus();
   await closeClient();
-  setState({ status: 'starting', qr: null, qrAt: null, error: null, detail: null });
-  client = createClient();
+  setState({ status: 'starting', stage: null, qr: null, qrAt: null, error: null, detail: null });
+  startClient();
   return getWhatsAppStatus();
 }
 
@@ -205,10 +285,11 @@ export async function logoutWhatsApp() {
     const loggedIn = state.status === 'ready' || state.status === 'authenticating';
     await (loggedIn ? old.logout() : old.destroy()).catch((err) => logger.warn({ err }, 'WhatsApp logout did not finish cleanly'));
   }
+  clearLinked();
   await fs.promises
     .rm(sessionDir(), { recursive: true, force: true, maxRetries: 5, retryDelay: 300 })
     .catch((err) => logger.warn({ err }, 'Could not delete the saved WhatsApp login'));
-  setState({ status: 'stopped', qr: null, qrAt: null, phone: null, name: null, error: null, detail: null });
+  setState({ status: 'stopped', stage: null, qr: null, qrAt: null, phone: null, name: null, error: null, detail: null });
   return getWhatsAppStatus();
 }
 
@@ -223,6 +304,7 @@ export async function getWhatsAppStatus() {
   }
   return {
     status: state.status,
+    stage: state.status === 'starting' ? state.stage : null,
     qr_image: qrImage,
     qr_updated_at: state.qrAt,
     phone: state.status === 'ready' ? state.phone : null,
